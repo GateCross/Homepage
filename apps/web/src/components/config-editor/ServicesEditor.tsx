@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   fetchDockerContainers,
@@ -142,9 +143,6 @@ function ServiceItemForm({
   };
 
   const endpointNames = dockerEndpoints.map((e) => e.name).filter(Boolean);
-
-  const selectClass =
-    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <div className="space-y-4">
@@ -292,8 +290,7 @@ function ServiceItemForm({
           <div className="space-y-1.5">
             <Label className="text-muted-foreground">端点</Label>
             {endpointNames.length > 0 ? (
-              <select
-                className={selectClass}
+              <Select
                 value={value.docker?.server ?? ""}
                 disabled={disabled}
                 onChange={(e) => {
@@ -317,7 +314,7 @@ function ServiceItemForm({
                     {name}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
               <Input
                 value={value.docker?.server ?? ""}
@@ -393,8 +390,7 @@ function ServiceItemForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>类型</Label>
-                <select
-                  className={selectClass}
+                <Select
                   value={value.widget.type}
                   disabled={disabled}
                   onChange={(e) =>
@@ -409,7 +405,7 @@ function ServiceItemForm({
                   <option value="qbittorrent">qbittorrent</option>
                   <option value="emby">emby</option>
                   <option value="customapi">customapi</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>组件 URL</Label>
@@ -644,8 +640,7 @@ function DockerImportDialog({
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>Docker 端点</Label>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                <Select
                   value={server}
                   disabled={disabled || scanning}
                   onChange={(e) => setServer(e.target.value)}
@@ -655,12 +650,11 @@ function DockerImportDialog({
                       {ep.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>目标分组</Label>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                <Select
                   value={String(groupIndex)}
                   disabled={disabled || scanning || value.length === 0}
                   onChange={(e) => setGroupIndex(Number(e.target.value))}
@@ -674,7 +668,7 @@ function DockerImportDialog({
                       </option>
                     ))
                   )}
-                </select>
+                </Select>
               </div>
             </div>
 

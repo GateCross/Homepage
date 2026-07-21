@@ -41,6 +41,7 @@ export {
 } from "./dropdown-menu";
 export { Input, type InputProps } from "./input";
 export { Label } from "./label";
+export { Select, type SelectProps } from "./select";
 export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
 export { Switch } from "./switch";

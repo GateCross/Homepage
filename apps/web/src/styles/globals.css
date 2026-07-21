@@ -131,4 +131,13 @@
   #root {
     min-height: 100vh;
   }
+
+  /*
+   * 原生 select/option 在 Windows 深色模式下常继承浅色字却画浅色底。
+   * 用实体 token 强制两侧颜色，避免下拉项看不清。
+   */
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
 }
