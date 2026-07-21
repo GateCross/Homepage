@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type JSX } from "react";
 
 import { nextStatutoryHolidayCountdown } from "@/lib/holidays";
 import { lunarFromDate } from "@/lib/lunar";
-import { shichenFromDate, yearDayInfo } from "@/lib/shichen";
+import { shichenFromDate } from "@/lib/shichen";
 import { currentSolarTerm, nextSolarTerm } from "@/lib/solar-terms";
 import { cn } from "@/lib/utils";
 
@@ -325,11 +325,6 @@ export function DateTimeWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
     [localDateKey, parsed.timezone],
   );
-  const yearInfo = useMemo(
-    () => yearDayInfo(now, parsed.timezone),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
-    [localDateKey, parsed.timezone],
-  );
   // 时辰约两小时一变，用整点桶避免每秒重算
   const hourBucket = useMemo(() => {
     try {
@@ -349,25 +344,6 @@ export function DateTimeWidget({
     [hourBucket, parsed.timezone],
   );
   const label = parsed.label ?? "本地时间";
-
-  const lunarLine = useMemo(() => {
-    if (lunar === null && solarTerm === null) {
-      return null;
-    }
-    const parts: string[] = [];
-    if (lunar !== null) {
-      parts.push(`农历${lunar.text}`);
-      if (solarTerm !== null) {
-        parts.push(solarTerm.name);
-        parts.push(`${lunar.yearGanZhi}·${lunar.animal}`);
-      } else {
-        parts.push(lunar.yearText);
-      }
-    } else if (solarTerm !== null) {
-      parts.push(solarTerm.name);
-    }
-    return parts;
-  }, [lunar, solarTerm]);
 
   const termCountdownLabel = useMemo(() => {
     if (upcomingTerm === null || localDateKey.length < 8) {
@@ -422,26 +398,9 @@ export function DateTimeWidget({
         <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
           {label}
         </p>
-        <div className="min-w-0 text-right">
-          <p className="text-xs leading-snug text-muted-foreground/90">
-            {dateLine}
-          </p>
-          {lunarLine !== null ? (
-            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/75">
-              {lunarLine.map((part, index) => (
-                <span key={`${part}-${index}`}>
-                  {index > 0 ? (
-                    <span className="mx-1 text-muted-foreground/40">·</span>
-                  ) : null}
-                  {part}
-                </span>
-              ))}
-            </p>
-          ) : null}
-        </div>
       </div>
 
-      <div className="relative flex flex-1 flex-col justify-center gap-3 py-3">
+      <div className="relative flex flex-1 flex-col justify-center gap-2.5 py-2">
         <time
           dateTime={now.toISOString()}
           className="flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground"
@@ -463,31 +422,31 @@ export function DateTimeWidget({
           ) : null}
         </time>
 
-        {yearInfo !== null ? (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-              <span>{yearInfo.label}</span>
-              <span className="tabular-nums text-foreground/80">
-                {yearInfo.percent}%
-              </span>
-            </div>
-            <div
-              className="h-2 overflow-hidden rounded-full bg-black/10 ring-1 ring-inset ring-black/5 dark:bg-white/12 dark:ring-white/10"
-              role="progressbar"
-              aria-valuenow={Math.round(yearInfo.percent)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`本年进度 ${yearInfo.percent}%`}
-            >
-              <div
-                className="h-full rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.45)] transition-[width] duration-500 dark:bg-sky-300 dark:shadow-[0_0_10px_rgba(125,211,252,0.55)]"
-                style={{
-                  width: `${Math.min(100, Math.max(0, yearInfo.percent))}%`,
-                }}
-              />
-            </div>
-          </div>
-        ) : null}
+        <div className="min-w-0 space-y-1">
+          <p className="text-base font-medium leading-snug text-foreground/90 sm:text-lg">
+            {dateLine}
+          </p>
+          {lunar !== null ? (
+            <>
+              <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+                农历{lunar.text}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {lunar.yearText}
+                {solarTerm !== null ? (
+                  <>
+                    <span className="mx-1.5 text-muted-foreground/40">·</span>
+                    {solarTerm.name}
+                  </>
+                ) : null}
+              </p>
+            </>
+          ) : solarTerm !== null ? (
+            <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+              {solarTerm.name}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       {metaChips.length > 0 ? (
