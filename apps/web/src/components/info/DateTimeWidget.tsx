@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type JSX } from "react";
 import { nextStatutoryHolidayCountdown } from "@/lib/holidays";
 import { lunarFromDate } from "@/lib/lunar";
 import { shichenFromDate, yearDayInfo } from "@/lib/shichen";
-import { currentSolarTerm } from "@/lib/solar-terms";
+import { currentSolarTerm, nextSolarTerm } from "@/lib/solar-terms";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_TIMEZONE = "UTC" as const;
@@ -315,6 +315,11 @@ export function DateTimeWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
     [localDateKey, parsed.timezone],
   );
+  const upcomingTerm = useMemo(
+    () => nextSolarTerm(now, parsed.timezone),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
+    [localDateKey, parsed.timezone],
+  );
   const holidayCountdown = useMemo(
     () => nextStatutoryHolidayCountdown(now, parsed.timezone),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
@@ -364,13 +369,27 @@ export function DateTimeWidget({
     return parts;
   }, [lunar, solarTerm]);
 
+  const termCountdownLabel = useMemo(() => {
+    if (upcomingTerm === null || localDateKey.length < 8) {
+      return null;
+    }
+    const todayMs = Date.parse(`${localDateKey}T00:00:00Z`);
+    const termKey = `${upcomingTerm.year}-${String(upcomingTerm.month).padStart(2, "0")}-${String(upcomingTerm.day).padStart(2, "0")}`;
+    const termMs = Date.parse(`${termKey}T00:00:00Z`);
+    if (!Number.isFinite(todayMs) || !Number.isFinite(termMs)) {
+      return null;
+    }
+    const days = Math.round((termMs - todayMs) / 86_400_000);
+    if (days <= 0) {
+      return `今日${upcomingTerm.name}`;
+    }
+    return `距${upcomingTerm.name} ${days} 天`;
+  }, [upcomingTerm, localDateKey]);
+
   const metaChips = useMemo(() => {
     const chips: Array<{ key: string; text: string; emphasis?: boolean }> = [];
-    if (yearInfo !== null) {
-      chips.push({
-        key: "yearday",
-        text: `${yearInfo.label} · ${yearInfo.percent}%`,
-      });
+    if (termCountdownLabel !== null) {
+      chips.push({ key: "term", text: termCountdownLabel });
     }
     if (holidayCountdown !== null) {
       chips.push({
@@ -380,7 +399,7 @@ export function DateTimeWidget({
       });
     }
     return chips;
-  }, [yearInfo, holidayCountdown]);
+  }, [termCountdownLabel, holidayCountdown]);
 
   return (
     <div
@@ -390,7 +409,7 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-[9.5rem] flex-col gap-2.5 p-4",
+        "relative flex h-full min-h-[9.5rem] flex-col gap-2 p-4",
         className,
       )}
     >
@@ -443,8 +462,32 @@ export function DateTimeWidget({
         ) : null}
       </time>
 
+      {yearInfo !== null ? (
+        <div className="relative space-y-1">
+          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <span>{yearInfo.label}</span>
+            <span className="tabular-nums">{yearInfo.percent}%</span>
+          </div>
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-muted/60"
+            role="progressbar"
+            aria-valuenow={Math.round(yearInfo.percent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`本年进度 ${yearInfo.percent}%`}
+          >
+            <div
+              className="h-full rounded-full bg-sky-500/70 transition-[width] duration-500 dark:bg-sky-400/60"
+              style={{
+                width: `${Math.min(100, Math.max(0, yearInfo.percent))}%`,
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {metaChips.length > 0 ? (
-        <div className="relative mt-auto flex flex-wrap gap-1.5">
+        <div className="relative flex flex-wrap gap-1.5">
           {metaChips.map((chip) => (
             <span
               key={chip.key}
@@ -459,11 +502,7 @@ export function DateTimeWidget({
             </span>
           ))}
         </div>
-      ) : (
-        <p className="relative mt-auto text-[11px] tracking-wide text-muted-foreground/80">
-
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }
