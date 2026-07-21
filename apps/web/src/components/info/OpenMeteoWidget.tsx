@@ -837,7 +837,7 @@ export function OpenMeteoWidget({
       data-info-id={infoId}
       data-forecast-mode={showForecast ? activeMode : undefined}
       className={cn(
-        "relative flex min-h-[9.5rem] flex-col gap-2.5 p-4",
+        "relative flex h-full min-h-[9.5rem] flex-col gap-2.5 p-4",
         className,
       )}
       role="status"

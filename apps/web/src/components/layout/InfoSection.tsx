@@ -61,13 +61,13 @@ export function InfoSection({
       data-slot="info-section"
       className={cn("w-full", className)}
     >
-      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {widgets.map((widget) => (
           <div
             key={widget.infoId}
             data-info-id={widget.infoId}
             data-info-type={widget.type}
-            className="overflow-hidden rounded-2xl border border-white/20 bg-card/48 text-card-foreground shadow-[0_12px_32px_-18px_rgba(0,0,0,0.45)] backdrop-blur-xl dark:border-white/10 dark:bg-card/60"
+            className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/20 bg-card/48 text-card-foreground shadow-[0_12px_32px_-18px_rgba(0,0,0,0.45)] backdrop-blur-xl dark:border-white/10 dark:bg-card/60"
           >
             {renderWidget(widget)}
           </div>

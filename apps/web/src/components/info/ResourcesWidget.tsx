@@ -462,7 +462,7 @@ export function ResourcesWidget({
       data-state="success"
       data-info-id={infoId}
       className={cn(
-        "relative flex min-h-[8.75rem] flex-col justify-between p-4",
+        "relative flex h-full min-h-[8.75rem] flex-col p-4",
         className,
       )}
     >
@@ -475,7 +475,7 @@ export function ResourcesWidget({
         资源
       </p>
 
-      <ul className="relative mt-4 flex list-none flex-col gap-3 p-0">
+      <ul className="relative mt-4 flex min-h-0 flex-1 list-none flex-col justify-center gap-3 p-0">
         {state.data.items.map((item) => (
           <ResourceRow key={item.id} item={item} />
         ))}

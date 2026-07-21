@@ -409,7 +409,7 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex min-h-[9.5rem] flex-col gap-2 p-4",
+        "relative flex h-full min-h-[9.5rem] flex-col p-4",
         className,
       )}
     >
@@ -441,52 +441,54 @@ export function DateTimeWidget({
         </div>
       </div>
 
-      <time
-        dateTime={now.toISOString()}
-        className="relative flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <span className="text-[2.55rem] leading-none tabular-nums sm:text-[2.75rem]">
-          {hour}
-          <span className="mx-0.5 text-foreground/35">:</span>
-          {minute}
-        </span>
-        <span className="pb-1 text-lg tabular-nums text-muted-foreground">
-          {second}
-        </span>
-        {shichen !== null ? (
-          <span className="ml-1 pb-1 text-sm font-medium text-muted-foreground/90">
-            {shichen.label}
+      <div className="relative flex flex-1 flex-col justify-center gap-3 py-3">
+        <time
+          dateTime={now.toISOString()}
+          className="flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span className="text-[2.55rem] leading-none tabular-nums sm:text-[2.75rem]">
+            {hour}
+            <span className="mx-0.5 text-foreground/35">:</span>
+            {minute}
           </span>
-        ) : null}
-      </time>
-
-      {yearInfo !== null ? (
-        <div className="relative space-y-1">
-          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-            <span>{yearInfo.label}</span>
-            <span className="tabular-nums text-foreground/80">
-              {yearInfo.percent}%
+          <span className="pb-1 text-lg tabular-nums text-muted-foreground">
+            {second}
+          </span>
+          {shichen !== null ? (
+            <span className="ml-1 pb-1 text-sm font-medium text-muted-foreground/90">
+              {shichen.label}
             </span>
-          </div>
-          <div
-            className="h-2 overflow-hidden rounded-full bg-black/10 ring-1 ring-inset ring-black/5 dark:bg-white/12 dark:ring-white/10"
-            role="progressbar"
-            aria-valuenow={Math.round(yearInfo.percent)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`本年进度 ${yearInfo.percent}%`}
-          >
+          ) : null}
+        </time>
+
+        {yearInfo !== null ? (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span>{yearInfo.label}</span>
+              <span className="tabular-nums text-foreground/80">
+                {yearInfo.percent}%
+              </span>
+            </div>
             <div
-              className="h-full rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.45)] transition-[width] duration-500 dark:bg-sky-300 dark:shadow-[0_0_10px_rgba(125,211,252,0.55)]"
-              style={{
-                width: `${Math.min(100, Math.max(0, yearInfo.percent))}%`,
-              }}
-            />
+              className="h-2 overflow-hidden rounded-full bg-black/10 ring-1 ring-inset ring-black/5 dark:bg-white/12 dark:ring-white/10"
+              role="progressbar"
+              aria-valuenow={Math.round(yearInfo.percent)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`本年进度 ${yearInfo.percent}%`}
+            >
+              <div
+                className="h-full rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.45)] transition-[width] duration-500 dark:bg-sky-300 dark:shadow-[0_0_10px_rgba(125,211,252,0.55)]"
+                style={{
+                  width: `${Math.min(100, Math.max(0, yearInfo.percent))}%`,
+                }}
+              />
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {metaChips.length > 0 ? (
         <div className="relative flex flex-wrap gap-1.5">
