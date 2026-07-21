@@ -216,21 +216,21 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         data-slot="resource-item"
         data-resource-id={item.id}
         data-resource-state="unavailable"
-        className="flex flex-col gap-1"
+        className="flex flex-col gap-0.5"
       >
         <div className="flex items-baseline justify-between gap-2">
           <span
-            className="min-w-0 truncate text-xs font-medium text-muted-foreground"
+            className="min-w-0 truncate text-[11px] font-medium text-muted-foreground"
             title={labelTitle || undefined}
           >
             {labelText}
           </span>
-          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+          <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
             不可用
           </span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-foreground/8" />
-        <p className="text-[11px] leading-snug text-muted-foreground">
+        <div className="h-1 overflow-hidden rounded-full bg-foreground/8" />
+        <p className="text-[10px] leading-snug text-muted-foreground">
           {item.message}
         </p>
       </li>
@@ -250,12 +250,12 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
       data-slot="resource-item"
       data-resource-id={item.id}
       data-resource-state="ok"
-      className="flex flex-col gap-1"
+      className="flex flex-col gap-0.5"
       title={aria}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
-          className="min-w-0 truncate text-xs font-medium text-muted-foreground"
+          className="min-w-0 truncate text-[11px] font-medium text-muted-foreground"
           title={labelTitle || undefined}
         >
           {labelText}
@@ -267,7 +267,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         </span>
         <span
           className={cn(
-            "shrink-0 text-xs font-semibold tabular-nums leading-none",
+            "shrink-0 text-[11px] font-semibold tabular-nums leading-none",
             valueClass(percent),
           )}
         >
@@ -275,7 +275,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         </span>
       </div>
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/8"
+        className="h-1 w-full overflow-hidden rounded-full bg-foreground/8"
         role="progressbar"
         aria-valuenow={Math.round(percent)}
         aria-valuemin={0}
@@ -421,7 +421,7 @@ export function ResourcesWidget({
       <div
         data-slot="resources-widget"
         data-state="loading"
-        className={cn("min-h-[8.75rem] p-4", className)}
+        className={cn("min-h-0 p-3", className)}
       >
         <LoadingStatus message={messages.loading.resources} skeleton />
       </div>
@@ -433,7 +433,7 @@ export function ResourcesWidget({
       <div
         data-slot="resources-widget"
         data-state="error"
-        className={cn("min-h-[8.75rem] p-4", className)}
+        className={cn("min-h-0 p-3", className)}
       >
         <ErrorStatus message={state.message} onRetry={handleRetry} />
       </div>
@@ -446,7 +446,7 @@ export function ResourcesWidget({
         data-slot="resources-widget"
         data-state="empty"
         className={cn(
-          "min-h-[8.75rem] p-4 text-sm text-muted-foreground",
+          "min-h-0 p-3 text-sm text-muted-foreground",
           className,
         )}
         role="status"
@@ -462,7 +462,7 @@ export function ResourcesWidget({
       data-state="success"
       data-info-id={infoId}
       className={cn(
-        "relative flex h-full min-h-[8.75rem] flex-col p-4",
+        "relative flex h-full min-h-0 flex-col p-3",
         className,
       )}
     >
@@ -471,11 +471,11 @@ export function ResourcesWidget({
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(16,185,129,0.14),transparent_70%)]"
       />
 
-      <p className="relative text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+      <p className="relative text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
         资源
       </p>
 
-      <ul className="relative mt-4 flex min-h-0 flex-1 list-none flex-col justify-center gap-3 p-0">
+      <ul className="relative mt-2.5 flex min-h-0 flex-1 list-none flex-col justify-center gap-2 p-0">
         {state.data.items.map((item) => (
           <ResourceRow key={item.id} item={item} />
         ))}

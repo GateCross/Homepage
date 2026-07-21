@@ -391,31 +391,31 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-[9.5rem] flex-col gap-3 p-4 text-center",
+        "relative flex h-full min-h-0 flex-col gap-1.5 p-3 text-center",
         className,
       )}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(56,189,248,0.18),transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(56,189,248,0.18),transparent_70%)]"
       />
 
       <div className="relative flex items-center justify-center">
-        <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+        <p className="text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
           {label}
         </p>
       </div>
 
-      <div className="relative min-w-0 space-y-1">
-        <p className="text-base font-medium leading-snug text-foreground/90 sm:text-lg">
+      <div className="relative min-w-0 space-y-0.5">
+        <p className="text-sm font-medium leading-snug text-foreground/90">
           {dateLine}
         </p>
         {lunar !== null ? (
           <>
-            <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+            <p className="text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg">
               农历{lunar.text}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               {lunar.yearText}
               {solarTerm !== null ? (
                 <>
@@ -426,7 +426,7 @@ export function DateTimeWidget({
             </p>
           </>
         ) : solarTerm !== null ? (
-          <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+          <p className="text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg">
             {solarTerm.name}
           </p>
         ) : null}
@@ -434,21 +434,21 @@ export function DateTimeWidget({
 
       <time
         dateTime={now.toISOString()}
-        className="relative flex flex-1 items-center justify-center"
+        className="relative flex items-center justify-center"
         aria-live="polite"
         aria-atomic="true"
       >
-        <span className="flex items-baseline justify-center gap-1.5 font-semibold tracking-tight text-foreground">
-          <span className="text-[2.75rem] leading-none tabular-nums sm:text-[3rem]">
+        <span className="flex items-baseline justify-center gap-1 font-semibold tracking-tight text-foreground">
+          <span className="text-[2rem] leading-none tabular-nums sm:text-[2.2rem]">
             {hour}
             <span className="mx-0.5 text-foreground/35">:</span>
             {minute}
           </span>
-          <span className="pb-1 text-xl tabular-nums text-muted-foreground">
+          <span className="pb-0.5 text-sm tabular-nums text-muted-foreground">
             {second}
           </span>
           {shichen !== null ? (
-            <span className="ml-1 pb-1 text-base font-medium text-muted-foreground/90">
+            <span className="ml-0.5 pb-0.5 text-xs font-medium text-muted-foreground/90">
               {shichen.label}
             </span>
           ) : null}
@@ -456,44 +456,44 @@ export function DateTimeWidget({
       </time>
 
       {termCountdown !== null || holidayPanel !== null ? (
-        <div className="relative grid grid-cols-2 gap-2.5">
+        <div className="relative mt-auto grid grid-cols-2 gap-1.5">
           {termCountdown !== null ? (
-            <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/15 via-background/35 to-background/20 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-amber-300/20 dark:from-amber-300/15">
+            <div className="relative overflow-hidden rounded-lg border border-amber-500/20 bg-gradient-to-br from-amber-500/15 via-background/35 to-background/20 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-amber-300/20 dark:from-amber-300/15">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-3 -top-3 size-14 rounded-full bg-amber-400/15 blur-2xl dark:bg-amber-200/15"
+                className="pointer-events-none absolute -right-3 -top-3 size-10 rounded-full bg-amber-400/15 blur-2xl dark:bg-amber-200/15"
               />
-              <p className="relative text-[11px] font-medium tracking-[0.12em] text-amber-800/75 dark:text-amber-100/75">
+              <p className="relative text-[10px] font-medium tracking-[0.12em] text-amber-800/75 dark:text-amber-100/75">
                 下一节气
               </p>
-              <p className="relative mt-1.5 text-lg font-semibold leading-none tracking-tight text-foreground">
+              <p className="relative mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
                 {termCountdown.title}
               </p>
-              <p className="relative mt-1.5 text-sm tabular-nums text-muted-foreground">
+              <p className="relative mt-0.5 text-[11px] tabular-nums text-muted-foreground">
                 {termCountdown.detail}
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-border/35 bg-background/20 px-3 py-3" />
+            <div className="rounded-lg border border-border/35 bg-background/20 px-2 py-1.5" />
           )}
           {holidayPanel !== null ? (
-            <div className="relative overflow-hidden rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-500/18 via-background/35 to-background/20 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-sky-300/25 dark:from-sky-300/15">
+            <div className="relative overflow-hidden rounded-lg border border-sky-500/25 bg-gradient-to-br from-sky-500/18 via-background/35 to-background/20 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-sky-300/25 dark:from-sky-300/15">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-3 -top-3 size-14 rounded-full bg-sky-400/20 blur-2xl dark:bg-sky-200/15"
+                className="pointer-events-none absolute -right-3 -top-3 size-10 rounded-full bg-sky-400/20 blur-2xl dark:bg-sky-200/15"
               />
-              <p className="relative text-[11px] font-medium tracking-[0.12em] text-sky-800/80 dark:text-sky-100/80">
+              <p className="relative text-[10px] font-medium tracking-[0.12em] text-sky-800/80 dark:text-sky-100/80">
                 下一节日
               </p>
-              <p className="relative mt-1.5 text-lg font-semibold leading-none tracking-tight text-foreground">
+              <p className="relative mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
                 {holidayPanel.title}
               </p>
-              <p className="relative mt-1.5 text-sm tabular-nums text-muted-foreground">
+              <p className="relative mt-0.5 text-[11px] tabular-nums text-muted-foreground">
                 {holidayPanel.detail}
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-border/35 bg-background/20 px-3 py-3" />
+            <div className="rounded-lg border border-border/35 bg-background/20 px-2 py-1.5" />
           )}
         </div>
       ) : null}

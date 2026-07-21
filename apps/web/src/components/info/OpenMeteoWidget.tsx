@@ -532,18 +532,18 @@ function HourlyForecastRow({
         return (
           <li
             key={item.time}
-            className="flex min-w-[3.1rem] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-1"
+            className="flex min-w-[2.85rem] shrink-0 flex-col items-center gap-0.5 rounded-md px-1 py-0.5"
             title={condition}
           >
-            <span className="text-[10px] tabular-nums text-muted-foreground">
+            <span className="text-[10px] leading-none tabular-nums text-muted-foreground">
               {label}
             </span>
             <Icon
               aria-hidden="true"
-              className={cn("size-4 opacity-90", visual.icon)}
+              className={cn("size-3.5 opacity-90", visual.icon)}
               strokeWidth={1.6}
             />
-            <span className="text-xs font-medium tabular-nums text-foreground">
+            <span className="text-[11px] font-medium tabular-nums text-foreground">
               {temp.value}°
             </span>
           </li>
@@ -577,20 +577,22 @@ function DailyForecastRow({
         return (
           <li
             key={item.date}
-            className="flex min-w-[3.25rem] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-1"
+            className="flex min-w-[2.95rem] shrink-0 flex-col items-center gap-0.5 rounded-md px-1 py-0.5"
             title={condition}
           >
-            <span className="text-[10px] text-muted-foreground">{label}</span>
+            <span className="text-[10px] leading-none text-muted-foreground">
+              {label}
+            </span>
             <Icon
               aria-hidden="true"
-              className={cn("size-4 opacity-90", visual.icon)}
+              className={cn("size-3.5 opacity-90", visual.icon)}
               strokeWidth={1.6}
             />
-            <span className="flex flex-col items-center leading-tight">
-              <span className="text-xs font-medium tabular-nums text-foreground">
+            <span className="flex flex-col items-center leading-none">
+              <span className="text-[11px] font-medium tabular-nums text-foreground">
                 {maxT.value}°
               </span>
-              <span className="text-[10px] tabular-nums text-muted-foreground">
+              <span className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                 {minT.value}°
               </span>
             </span>
@@ -833,7 +835,7 @@ export function OpenMeteoWidget({
       <div
         data-slot="openmeteo-widget"
         data-state="loading"
-        className={cn("min-h-[9.5rem] p-4", className)}
+        className={cn("min-h-0 p-3", className)}
       >
         <LoadingStatus message={messages.loading.weather} skeleton />
       </div>
@@ -845,7 +847,7 @@ export function OpenMeteoWidget({
       <div
         data-slot="openmeteo-widget"
         data-state="error"
-        className={cn("min-h-[9.5rem] p-4", className)}
+        className={cn("min-h-0 p-3", className)}
       >
         <ErrorStatus message={state.message} onRetry={handleRetry} />
       </div>
@@ -870,7 +872,7 @@ export function OpenMeteoWidget({
       data-info-id={infoId}
       data-forecast-mode={showForecast ? activeMode : undefined}
       className={cn(
-        "relative flex h-full min-h-[9.5rem] flex-col gap-2.5 p-4",
+        "relative flex h-full min-h-0 flex-col gap-1.5 p-3",
         className,
       )}
       role="status"
@@ -881,29 +883,29 @@ export function OpenMeteoWidget({
         className={cn("pointer-events-none absolute inset-0", visual.wash)}
       />
 
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
             {title}
           </p>
-          <div className="mt-2 flex items-end gap-2.5">
-            <p className="text-[2.55rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[2.75rem]">
+          <div className="mt-0.5 flex items-end gap-2">
+            <p className="text-[1.95rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[2.1rem]">
               {temperature.value}
-              <span className="ml-1 align-top text-base font-medium text-muted-foreground">
+              <span className="ml-0.5 align-top text-xs font-medium text-muted-foreground">
                 {temperature.unit}
               </span>
             </p>
-            <div className="mb-0.5 min-w-0 pb-0.5">
-              <p className="text-sm font-medium text-foreground/85">
+            <div className="min-w-0 leading-tight">
+              <p className="text-xs font-medium text-foreground/85">
                 {condition}
               </p>
               {dayRange !== null ? (
-                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                <p className="text-[11px] tabular-nums text-muted-foreground">
                   {dayRange}
                 </p>
               ) : null}
               {sunRange !== null ? (
-                <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground/85">
+                <p className="text-[10px] tabular-nums text-muted-foreground/85">
                   {sunRange}
                 </p>
               ) : null}
@@ -912,24 +914,24 @@ export function OpenMeteoWidget({
         </div>
         <WeatherIcon
           aria-hidden="true"
-          className={cn("mt-0.5 size-10 shrink-0 opacity-90", visual.icon)}
+          className={cn("mt-0.5 size-7 shrink-0 opacity-90", visual.icon)}
           strokeWidth={1.5}
         />
       </div>
 
       {metricChips.length > 0 ? (
-        <div className="relative grid grid-cols-3 gap-1.5">
+        <div className="relative grid grid-cols-3 gap-1">
           {metricChips.map((chip) => (
             <div
               key={chip.key}
-              className="rounded-lg border border-border/45 bg-background/35 px-2 py-1.5"
+              className="rounded-md border border-border/45 bg-background/35 px-1.5 py-0.5"
             >
-              <p className="text-[10px] tracking-wide text-muted-foreground">
+              <p className="text-[10px] leading-none tracking-wide text-muted-foreground">
                 {chip.label}
               </p>
               <p
                 className={cn(
-                  "mt-0.5 text-xs font-medium tabular-nums text-foreground/90",
+                  "mt-px text-[11px] font-medium leading-tight tabular-nums text-foreground/90",
                   chip.valueClass,
                 )}
               >
@@ -941,11 +943,11 @@ export function OpenMeteoWidget({
       ) : null}
 
       {showForecast ? (
-        <div className="relative space-y-2 border-t border-border/40 pt-2.5">
+        <div className="relative space-y-1 border-t border-border/40 pt-1.5">
           <div className="flex items-center justify-between gap-2">
             <p
               id={forecastHeadingId}
-              className="text-[11px] font-medium tracking-wide text-muted-foreground"
+              className="text-[10px] font-medium tracking-wide text-muted-foreground"
             >
               {activeMode === "hourly" ? "未来小时" : "未来几天"}
             </p>
