@@ -409,7 +409,7 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-[9.5rem] flex-col gap-2 p-4",
+        "relative flex min-h-[9.5rem] flex-col gap-2 p-4",
         className,
       )}
     >
@@ -466,10 +466,12 @@ export function DateTimeWidget({
         <div className="relative space-y-1">
           <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
             <span>{yearInfo.label}</span>
-            <span className="tabular-nums">{yearInfo.percent}%</span>
+            <span className="tabular-nums text-foreground/80">
+              {yearInfo.percent}%
+            </span>
           </div>
           <div
-            className="h-1.5 overflow-hidden rounded-full bg-muted/60"
+            className="h-2 overflow-hidden rounded-full bg-black/10 ring-1 ring-inset ring-black/5 dark:bg-white/12 dark:ring-white/10"
             role="progressbar"
             aria-valuenow={Math.round(yearInfo.percent)}
             aria-valuemin={0}
@@ -477,7 +479,7 @@ export function DateTimeWidget({
             aria-label={`本年进度 ${yearInfo.percent}%`}
           >
             <div
-              className="h-full rounded-full bg-sky-500/70 transition-[width] duration-500 dark:bg-sky-400/60"
+              className="h-full rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.45)] transition-[width] duration-500 dark:bg-sky-300 dark:shadow-[0_0_10px_rgba(125,211,252,0.55)]"
               style={{
                 width: `${Math.min(100, Math.max(0, yearInfo.percent))}%`,
               }}
