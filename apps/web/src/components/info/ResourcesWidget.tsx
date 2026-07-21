@@ -85,10 +85,24 @@ export function asResourcesInfo(body: unknown): ResourcesInfoResponse | null {
       return null;
     }
     const percent = Math.min(100, Math.max(0, item["percent"]));
+    const usedBytes =
+      typeof item["usedBytes"] === "number" &&
+      Number.isFinite(item["usedBytes"]) &&
+      item["usedBytes"] >= 0
+        ? item["usedBytes"]
+        : undefined;
+    const totalBytes =
+      typeof item["totalBytes"] === "number" &&
+      Number.isFinite(item["totalBytes"]) &&
+      item["totalBytes"] > 0
+        ? item["totalBytes"]
+        : undefined;
     items.push({
       id: item["id"],
       label: item["label"],
       percent,
+      ...(usedBytes !== undefined ? { usedBytes } : {}),
+      ...(totalBytes !== undefined ? { totalBytes } : {}),
     });
   }
   return { items };
@@ -103,6 +117,33 @@ function formatPercent(value: number): string {
     return `${Math.trunc(rounded)}%`;
   }
   return `${rounded.toFixed(1)}%`;
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return "—";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"] as const;
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const digits = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+function formatUsageDetail(
+  usedBytes: number | undefined,
+  totalBytes: number | undefined,
+): string | undefined {
+  if (usedBytes !== undefined && totalBytes !== undefined) {
+    return `${formatBytes(usedBytes)} / ${formatBytes(totalBytes)}`;
+  }
+  if (usedBytes !== undefined) return formatBytes(usedBytes);
+  if (totalBytes !== undefined) return formatBytes(totalBytes);
+  return undefined;
 }
 
 function isPathLabel(label: string): boolean {
@@ -197,7 +238,12 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
   }
 
   const percent = "percent" in item ? item.percent : 0;
-  const aria = `${labelTitle || item.label} ${formatPercent(percent)}`;
+  const usedBytes = "usedBytes" in item ? item.usedBytes : undefined;
+  const totalBytes = "totalBytes" in item ? item.totalBytes : undefined;
+  const detail = formatUsageDetail(usedBytes, totalBytes);
+  const aria = detail
+    ? `${labelTitle || item.label} ${formatPercent(percent)}（${detail}）`
+    : `${labelTitle || item.label} ${formatPercent(percent)}`;
 
   return (
     <li
@@ -205,7 +251,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
       data-resource-id={item.id}
       data-resource-state="ok"
       className="flex flex-col gap-1"
-      title={labelTitle && labelTitle !== labelText ? labelTitle : undefined}
+      title={aria}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
@@ -239,6 +285,11 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
         />
       </div>
+      {detail ? (
+        <p className="text-[11px] tabular-nums leading-none text-muted-foreground/80">
+          {detail}
+        </p>
+      ) : null}
     </li>
   );
 }

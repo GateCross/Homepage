@@ -58,6 +58,10 @@ export const ResourceAvailableItemSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   percent: z.number().min(0).max(100),
+  /** 已使用字节数（内存 / 磁盘） */
+  usedBytes: z.number().nonnegative().optional(),
+  /** 总容量字节数（内存 / 磁盘） */
+  totalBytes: z.number().positive().optional(),
 });
 
 export type ResourceAvailableItem = z.infer<typeof ResourceAvailableItemSchema>;

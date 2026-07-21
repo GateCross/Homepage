@@ -22,15 +22,25 @@ export type ResourcesTargetOptions = {
   memory: boolean;
 };
 
+export type MemorySample = {
+  percent: number;
+  usedBytes: number;
+  totalBytes: number;
+};
+
+export type DiskSample =
+  | {
+      ok: true;
+      percent: number;
+      usedBytes: number;
+      totalBytes: number;
+    }
+  | { ok: false; message: string };
+
 export type ResourcesCollector = {
   collectCpuPercent: () => number | Promise<number>;
-  collectMemoryPercent: () => number | Promise<number>;
-  collectDiskPercent: (
-    diskPath: string,
-  ) => Promise<
-    | { ok: true; percent: number }
-    | { ok: false; message: string }
-  >;
+  collectMemory: () => MemorySample | Promise<MemorySample>;
+  collectDisk: (diskPath: string) => Promise<DiskSample>;
 };
 
 function parseDiskEntry(value: unknown): ResourceDiskEntry | null {
@@ -125,31 +135,50 @@ export function defaultCollectCpuPercent(): number {
   return clampPercent((load / n) * 100);
 }
 
-export function defaultCollectMemoryPercent(): number {
+export function defaultCollectMemory(): MemorySample {
   const total = os.totalmem();
   if (!Number.isFinite(total) || total <= 0) {
-    return clampPercent(0);
+    return { percent: clampPercent(0), usedBytes: 0, totalBytes: 0 };
   }
   const free = os.freemem();
-  const used = total - (Number.isFinite(free) ? free : 0);
-  return clampPercent((used / total) * 100);
+  const used = Math.max(0, total - (Number.isFinite(free) ? free : 0));
+  return {
+    percent: clampPercent((used / total) * 100),
+    usedBytes: used,
+    totalBytes: total,
+  };
 }
 
-export async function defaultCollectDiskPercent(
-  diskPath: string,
-): Promise<
-  { ok: true; percent: number } | { ok: false; message: string }
-> {
+/** @deprecated 使用 defaultCollectMemory */
+export function defaultCollectMemoryPercent(): number {
+  return defaultCollectMemory().percent;
+}
+
+export async function defaultCollectDisk(diskPath: string): Promise<DiskSample> {
   try {
     const stats = await statfs(diskPath);
     const blocks = Number(stats.blocks);
+    const bsize = Number(stats.bsize);
     const bavail = Number(stats.bavail);
-    if (!Number.isFinite(blocks) || blocks <= 0) {
+    if (
+      !Number.isFinite(blocks) ||
+      blocks <= 0 ||
+      !Number.isFinite(bsize) ||
+      bsize <= 0
+    ) {
       return { ok: false, message: "无法读取磁盘容量信息" };
     }
-    const available = Number.isFinite(bavail) ? Math.max(0, bavail) : 0;
-    const usedRatio = 1 - available / blocks;
-    return { ok: true, percent: clampPercent(usedRatio * 100) };
+    const availableBlocks = Number.isFinite(bavail) ? Math.max(0, bavail) : 0;
+    const totalBytes = blocks * bsize;
+    const freeBytes = availableBlocks * bsize;
+    const usedBytes = Math.max(0, totalBytes - freeBytes);
+    const usedRatio = 1 - availableBlocks / blocks;
+    return {
+      ok: true,
+      percent: clampPercent(usedRatio * 100),
+      usedBytes,
+      totalBytes,
+    };
   } catch (err) {
     const code =
       err !== null &&
@@ -168,11 +197,22 @@ export async function defaultCollectDiskPercent(
   }
 }
 
+/** @deprecated 使用 defaultCollectDisk */
+export async function defaultCollectDiskPercent(
+  diskPath: string,
+): Promise<
+  { ok: true; percent: number } | { ok: false; message: string }
+> {
+  const result = await defaultCollectDisk(diskPath);
+  if (!result.ok) return result;
+  return { ok: true, percent: result.percent };
+}
+
 export function createDefaultResourcesCollector(): ResourcesCollector {
   return {
     collectCpuPercent: defaultCollectCpuPercent,
-    collectMemoryPercent: defaultCollectMemoryPercent,
-    collectDiskPercent: defaultCollectDiskPercent,
+    collectMemory: defaultCollectMemory,
+    collectDisk: defaultCollectDisk,
   };
 }
 
@@ -192,11 +232,19 @@ export async function collectResourcesInfo(
   }
 
   if (options.memory) {
-    const percent = clampPercent(await collector.collectMemoryPercent());
+    const sample = await collector.collectMemory();
+    const hasBytes =
+      Number.isFinite(sample.usedBytes) &&
+      sample.usedBytes >= 0 &&
+      Number.isFinite(sample.totalBytes) &&
+      sample.totalBytes > 0;
     items.push({
       id: "memory",
       label: "内存",
-      percent,
+      percent: clampPercent(sample.percent),
+      ...(hasBytes
+        ? { usedBytes: sample.usedBytes, totalBytes: sample.totalBytes }
+        : {}),
     });
   }
 
@@ -214,12 +262,20 @@ export async function collectResourcesInfo(
         : disk.path === "/"
           ? "磁盘"
           : disk.path;
-    const result = await collector.collectDiskPercent(disk.path);
+    const result = await collector.collectDisk(disk.path);
     if (result.ok) {
+      const hasBytes =
+        Number.isFinite(result.usedBytes) &&
+        result.usedBytes >= 0 &&
+        Number.isFinite(result.totalBytes) &&
+        result.totalBytes > 0;
       items.push({
         id,
         label,
         percent: clampPercent(result.percent),
+        ...(hasBytes
+          ? { usedBytes: result.usedBytes, totalBytes: result.totalBytes }
+          : {}),
       });
     } else {
       items.push({
