@@ -391,16 +391,16 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-[9.5rem] flex-col gap-3 p-4",
+        "relative flex h-full min-h-[9.5rem] flex-col gap-3 p-4 text-center",
         className,
       )}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(120%_80%_at_0%_0%,rgba(56,189,248,0.18),transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(56,189,248,0.18),transparent_70%)]"
       />
 
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="relative flex items-center justify-between gap-3">
         <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
           {label}
         </p>
@@ -439,11 +439,11 @@ export function DateTimeWidget({
 
       <time
         dateTime={now.toISOString()}
-        className="relative flex flex-1 items-center"
+        className="relative flex flex-1 items-center justify-center"
         aria-live="polite"
         aria-atomic="true"
       >
-        <span className="flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground">
+        <span className="flex items-baseline justify-center gap-1.5 font-semibold tracking-tight text-foreground">
           <span className="text-[2.75rem] leading-none tabular-nums sm:text-[3rem]">
             {hour}
             <span className="mx-0.5 text-foreground/35">:</span>
