@@ -259,6 +259,11 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
           title={labelTitle || undefined}
         >
           {labelText}
+          {detail ? (
+            <span className="font-normal tabular-nums text-muted-foreground/75">
+              （{detail}）
+            </span>
+          ) : null}
         </span>
         <span
           className={cn(
@@ -285,11 +290,6 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
         />
       </div>
-      {detail ? (
-        <p className="text-[11px] tabular-nums leading-none text-muted-foreground/80">
-          {detail}
-        </p>
-      ) : null}
     </li>
   );
 }
