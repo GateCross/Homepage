@@ -458,11 +458,38 @@ function ServiceItemForm({
                 label="密钥 / API Key"
                 value={value.widget.key ?? value.widget.apiKey}
                 disabled={disabled}
-                onChange={(next: SecretFieldWrite) =>
+                onChange={(next: SecretFieldWrite) => {
+                  // key / apiKey 历史双字段：写回时统一策略，避免只清一侧
+                  if (next.mode === "clear") {
+                    patch({
+                      widget: {
+                        ...value.widget!,
+                        key: { mode: "clear" },
+                        apiKey: { mode: "clear" },
+                      },
+                    });
+                    return;
+                  }
+                  if (next.mode === "set") {
+                    patch({
+                      widget: {
+                        ...value.widget!,
+                        key: next,
+                        apiKey: { mode: "clear" },
+                      },
+                    });
+                    return;
+                  }
                   patch({
-                    widget: { ...value.widget!, key: next },
-                  })
-                }
+                    widget: {
+                      ...value.widget!,
+                      key: { mode: "keep" },
+                      ...(value.widget!.apiKey !== undefined
+                        ? { apiKey: { mode: "keep" as const } }
+                        : {}),
+                    },
+                  });
+                }}
               />
             )}
           </div>

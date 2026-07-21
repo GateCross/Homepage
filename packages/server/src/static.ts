@@ -72,8 +72,16 @@ function contentTypeFor(filePath: string): string {
 }
 
 function safeJoinUnderRoot(rootDir: string, requestPath: string): string | null {
-  const decoded = decodeURIComponent(requestPath);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(requestPath);
+  } catch {
+    return null;
+  }
   const relative = decoded.replace(/^\/+/, "");
+  if (relative.split(/[/\\]/).some((seg) => seg === "..")) {
+    return null;
+  }
   const candidate = path.resolve(rootDir, relative);
   const rootResolved = path.resolve(rootDir);
   if (
@@ -106,7 +114,12 @@ function fileResponse(
     "Content-Type": contentTypeFor(filePath),
     "Cache-Control": cacheControl,
     Vary: "Accept-Encoding",
+    "X-Content-Type-Options": "nosniff",
   };
+  // SVG 可含脚本：attachment 降低「当文档导航执行」风险（ADR 0002 S2）
+  if (ext === ".svg") {
+    headers["Content-Disposition"] = "attachment";
+  }
 
   const canGzip =
     acceptsGzip(acceptEncoding) &&
@@ -171,20 +184,26 @@ function tryServeFileUnderRoot(
   return fileResponse(filePath, 200, acceptEncoding);
 }
 
-const CONFIG_ASSET_PREFIXES = ["/images/", "/icons/"] as const;
+/** URL 前缀 → Config Root 下的 Asset Root 子目录名（不得用整个 CONFIG_DIR 作 join 根） */
+const CONFIG_ASSET_MOUNTS = [
+  { prefix: "/images/", subdir: "images" },
+  { prefix: "/icons/", subdir: "icons" },
+] as const;
 
 export function tryServeConfigAsset(
   configDir: string,
   urlPath: string,
   acceptEncoding?: string,
 ): Response | null {
-  const matched = CONFIG_ASSET_PREFIXES.some((prefix) =>
-    urlPath.startsWith(prefix),
-  );
-  if (!matched) {
-    return null;
+  for (const mount of CONFIG_ASSET_MOUNTS) {
+    if (!urlPath.startsWith(mount.prefix)) {
+      continue;
+    }
+    const relativeUrl = urlPath.slice(mount.prefix.length - 1); // 保留前导 /
+    const assetRoot = path.join(configDir, mount.subdir);
+    return tryServeFileUnderRoot(assetRoot, relativeUrl, acceptEncoding);
   }
-  return tryServeFileUnderRoot(configDir, urlPath, acceptEncoding);
+  return null;
 }
 
 export function createStaticHandlers(webDistDir: string): {

@@ -74,7 +74,11 @@ export function ServiceCard({
       </div>
 
       {hasBottomStatus ? (
-        <div className="mt-1.5 flex flex-col gap-1 empty:hidden">
+        <div
+          className="mt-1.5 flex flex-col gap-1 empty:hidden"
+          // 避免点到底部状态/组件区时触发整卡外链跳转
+          onClick={(e) => e.preventDefault()}
+        >
           {service.docker ? (
             <DockerSlot
               server={service.docker.server}

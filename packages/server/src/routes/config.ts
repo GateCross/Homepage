@@ -11,6 +11,7 @@ import {
 import {
   ApiErrorCode,
   ApiSuccessSchemas,
+  createApiError,
   createConfigFaultedApiError,
   createConfigInvalidError,
   createDockerConnectionSensitiveApiError,
@@ -57,10 +58,11 @@ function mapConfigError(err: unknown, scope: string): ApiErrorResponse {
       );
     }
     if (code === ApiErrorCode.CONFIG_WRITE_IN_PROGRESS) {
-      return {
-        ...createConfigInvalidError(err.publicError.message, extras),
-        // status overridden via createApiError path — use createApiError directly below
-      };
+      return createApiError(
+        ApiErrorCode.CONFIG_WRITE_IN_PROGRESS,
+        err.publicError.message,
+        extras,
+      );
     }
     // 通用：按 publicError.code 映射
     if (

@@ -1,6 +1,7 @@
 # 性能相关词汇（补充）
 
-与 [CONTEXT.md](../CONTEXT.md) 领域词并列；本文件只记性能/传输层概念，避免污染配置领域模型。
+与 [CONTEXT.md](../CONTEXT.md) 领域词并列；本文件只记性能/传输层概念，避免污染配置领域模型。  
+安全与信任模型术语见 CONTEXT（Config Root / Asset Root / Control Plane / LAN Trust Model A）与 [ADR 0002](./adr/0002-config-asset-roots-and-lan-trust.md)。
 
 ## Config Open Latency（配置打开延迟）
 

@@ -89,3 +89,31 @@
 ## Manual Icon（手动图标）
 
 用户通过手填标识、上传图片、或 Icon Import 写入表单/配置的 Icon。与「展示期自动抓取」相对——本产品不做后者。
+
+## Config Root（配置根）
+
+`CONFIG_DIR` 所在目录：配置五文件 YAML 的唯一持久化位置。  
+**不得**通过 HTTP 静态映射直接读取 Config Root 下的任意文件。
+
+## Asset Root（资产根）
+
+Config Root 下仅用于可公开读取的静态资产子目录：
+
+- `CONFIG_DIR/images` → URL 前缀 `/images/`
+- `CONFIG_DIR/icons` → URL 前缀 `/icons/`
+
+提供文件时 join 根必须是对应 Asset Root，而不是 Config Root。路径不变式见 [ADR 0002](./docs/adr/0002-config-asset-roots-and-lan-trust.md)。
+
+## Control Plane（控制面）
+
+会改配置、落盘资产或触发出站副作用的操作面，包括：写配置、资源上传、Icon Resolve / Import。  
+与「只读仪表盘展示」（读安全配置视图、探针/组件/Docker 状态）相对。
+
+## Caller Auth vs Target AllowList
+
+- **Caller Auth**：鉴别「谁在调用 HTTP API」。当前产品信任模型为局域网可达即管理员，**不**做 Caller Auth（见 ADR 0002）。
+- **Target AllowList**：鉴别「服务端被允许出站访问哪些目标」（probeId / widgetId / Docker server+container 等）。每请求由 `loadConfig()` 重建，不得跨请求缓存为鉴权真相。
+
+## LAN Trust Model A（局域网管理员模型）
+
+能访问本服务监听端口的设备视为完整管理员。控制面匿名可用；运维须保证端口不暴露给不可信网络。

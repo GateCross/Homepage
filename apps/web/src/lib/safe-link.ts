@@ -1,4 +1,4 @@
-import { isAbsoluteHttpUrl } from "@homepage/domain";
+import { normalizeAbsoluteHttpUrl } from "@homepage/domain";
 
 export const SAFE_LINK_TARGETS = ["_blank", "_self"] as const;
 
@@ -21,10 +21,14 @@ export function resolveSafeHref(
   href: string | null | undefined,
   target: string | null | undefined,
 ): ResolvedSafeHref {
-  if (typeof href !== "string" || !isAbsoluteHttpUrl(href)) {
+  if (typeof href !== "string") {
     return { ok: false, reason: "invalid_href" };
   }
-  const normalizedHref = href.trim();
+  // 与身份规范化一致：剥 userinfo / hash，仅保留安全 http(s) 绝对 URL
+  const normalizedHref = normalizeAbsoluteHttpUrl(href);
+  if (normalizedHref === null) {
+    return { ok: false, reason: "invalid_href" };
+  }
   const rawTarget =
     typeof target === "string" && target.trim().length > 0
       ? target.trim()

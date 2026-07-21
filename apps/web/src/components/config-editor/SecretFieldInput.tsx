@@ -24,19 +24,25 @@ export type SecretFieldInputProps = {
  */
 export function SecretFieldInput({
   label,
-  initialStatus = "unset",
+  initialStatus,
   value,
   onChange,
   disabled,
   error,
   className,
 }: SecretFieldInputProps): JSX.Element {
+  // draft 里 mode=keep 表示来自已有密钥视图；未显式传 initialStatus 时按已配置展示
+  const resolvedInitial: SecretFieldView["status"] =
+    initialStatus ??
+    (value?.mode === "keep" || value?.mode === "clear"
+      ? "configured"
+      : "unset");
   const mode = value?.mode ?? "keep";
   const configured =
     mode === "keep"
-      ? initialStatus === "configured"
+      ? resolvedInitial === "configured"
       : mode === "set"
-        ? (value?.mode === "set" && value.value.length > 0)
+        ? value?.mode === "set" && value.value.length > 0
         : false;
 
   const displayValue =
@@ -45,8 +51,7 @@ export function SecretFieldInput({
   const handleChange = useCallback(
     (raw: string) => {
       if (raw.length === 0) {
-        // 用户清空输入：若原本 keep 且已配置，视为显式 clear；否则 keep/unset
-        if (mode === "keep" && initialStatus === "configured") {
+        if (mode === "keep" && resolvedInitial === "configured") {
           onChange({ mode: "clear" });
         } else if (mode === "set") {
           onChange({ mode: "clear" });
@@ -57,7 +62,7 @@ export function SecretFieldInput({
       }
       onChange({ mode: "set", value: raw });
     },
-    [initialStatus, mode, onChange],
+    [resolvedInitial, mode, onChange],
   );
 
   const handleClear = useCallback(() => {
@@ -84,7 +89,7 @@ export function SecretFieldInput({
           type="password"
           autoComplete="new-password"
           placeholder={
-            mode === "keep" && initialStatus === "configured"
+            mode === "keep" && resolvedInitial === "configured"
               ? "••••••••（保持不变）"
               : "输入新值"
           }
@@ -102,7 +107,7 @@ export function SecretFieldInput({
           >
             还原
           </Button>
-        ) : initialStatus === "configured" ? (
+        ) : resolvedInitial === "configured" ? (
           <Button
             type="button"
             variant="outline"

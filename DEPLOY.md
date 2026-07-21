@@ -71,9 +71,23 @@ volumes:
 - TCP：`tcp://host:port`（如 `tcp://192.168.1.10:2375`）。
 - 第一阶段仅支持容器 inspect/status 只读查询；**不支持** Docker stats，也不支持 start/stop/remove/exec 等写操作。
 
-## 局域网访问
+## 局域网访问与威胁模型
 
 默认 `HOST=0.0.0.0`，构建启动后可通过 `http://<主机局域网IP>:3000/` 访问。
+
+**信任模型（ADR 0002）**：凡能访问该 HTTP 端口的设备，均视为管理员——可读写配置、上传图片、触发 Icon 出站（含内网与忽略 TLS）、列出已配置 Docker 端点上的容器。服务**不**提供登录或共享 token。
+
+部署约束：
+
+- **不要**把端口映射到公网，或挂到不可信访客 Wi‑Fi / 未隔离网段。
+- 若仅本机使用，可将 `HOST` 设为 `127.0.0.1` 并经受信反向代理暴露。
+- 密钥优先用环境变量 + 配置中的 `${ENV_VAR}` 插值；避免把真实密钥写入示例文件或提交进 git。
+
+### 配置资产路径
+
+- 仅 `CONFIG_DIR/images/*`、`CONFIG_DIR/icons/*` 映射为 `/images/*`、`/icons/*`。
+- 配置五文件（YAML）**不能**通过上述 URL 读取。
+- `.svg` 资产响应带 `Content-Disposition: attachment` 与 `X-Content-Type-Options: nosniff`，降低「在浏览器中当文档打开并执行脚本」的风险；仪表盘仍以 `<img>` 等方式引用。
 
 ## Docker 部署
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type JSX } from "react";
 
+import { isDisplayableAssetPath } from "@/lib/asset-path";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -11,13 +12,14 @@ export type BackgroundProps = {
 
 export function Background({ src, className }: BackgroundProps): JSX.Element {
   const [failed, setFailed] = useState(false);
+  const safeSrc = isDisplayableAssetPath(src) ? src.trim() : undefined;
 
   // 背景 URL 变化时重置失败态，允许重试新图
   useEffect(() => {
     setFailed(false);
-  }, [src]);
+  }, [safeSrc]);
 
-  const showImage = Boolean(src) && !failed;
+  const showImage = Boolean(safeSrc) && !failed;
 
   return (
     <div
@@ -30,10 +32,10 @@ export function Background({ src, className }: BackgroundProps): JSX.Element {
         className,
       )}
     >
-      {src && !failed ? (
+      {safeSrc && !failed ? (
         <>
           <img
-            src={src}
+            src={safeSrc}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
             onError={() => {

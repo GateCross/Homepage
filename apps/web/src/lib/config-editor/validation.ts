@@ -252,6 +252,8 @@ function viewToKeepWrite(
   view: SecretFieldView | undefined,
 ): SecretFieldWrite | undefined {
   if (view === undefined) return undefined;
+  // 仅已配置密钥进入 keep；unset 不写入 draft，避免 UI 误显示「已配置」
+  if (view.status !== "configured") return undefined;
   return { mode: "keep" };
 }
 

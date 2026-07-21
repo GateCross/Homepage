@@ -199,7 +199,12 @@ export type TimedFetchOptions = {
   redirect?: "follow" | "error" | "manual";
   /** 跳过 TLS 证书校验；内网自签/IP 证书探测用 */
   insecureTls?: boolean;
+  /** nodeTimedRequest 响应体上限；默认 DEFAULT_NODE_RESPONSE_MAX_BYTES */
+  maxBytes?: number;
 };
+
+/** Probe / insecure TLS 路径默认响应体上限（ADR 0002） */
+export const DEFAULT_NODE_RESPONSE_MAX_BYTES = 1 * 1024 * 1024;
 
 /** 使用 node:http(s) 发请求，支持 rejectUnauthorized=false */
 function nodeTimedRequest(
@@ -210,6 +215,7 @@ function nodeTimedRequest(
     body?: string;
     timeoutMs: number;
     insecureTls: boolean;
+    maxBytes?: number;
   },
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
@@ -230,6 +236,7 @@ function nodeTimedRequest(
       return;
     }
 
+    const maxBytes = options.maxBytes ?? DEFAULT_NODE_RESPONSE_MAX_BYTES;
     const isHttps = parsed.protocol === "https:";
     const lib = isHttps ? https : http;
     const reqHeaders: Record<string, string> = {
@@ -252,10 +259,33 @@ function nodeTimedRequest(
       },
       (res) => {
         const chunks: Buffer[] = [];
+        let total = 0;
+        let exceeded = false;
         res.on("data", (chunk: Buffer | string) => {
-          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+          if (exceeded) {
+            return;
+          }
+          const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+          total += buf.byteLength;
+          if (total > maxBytes) {
+            exceeded = true;
+            res.destroy();
+            req.destroy();
+            reject(
+              new HttpLocalError(
+                "外部响应体积超过限制",
+                "other",
+                "other",
+              ),
+            );
+            return;
+          }
+          chunks.push(buf);
         });
         res.on("end", () => {
+          if (exceeded) {
+            return;
+          }
           const body = Buffer.concat(chunks);
           const headers = new Headers();
           for (const [key, value] of Object.entries(res.headers)) {
@@ -277,6 +307,9 @@ function nodeTimedRequest(
           );
         });
         res.on("error", (err) => {
+          if (exceeded) {
+            return;
+          }
           reject(err);
         });
       },
@@ -318,6 +351,7 @@ export async function timedFetch(
         insecureTls: true,
         ...(options.headers !== undefined ? { headers: options.headers } : {}),
         ...(options.body !== undefined ? { body: options.body } : {}),
+        ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
       });
     } catch (err) {
       if (err instanceof HttpLocalError) {
