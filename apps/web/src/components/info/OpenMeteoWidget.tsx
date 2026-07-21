@@ -319,6 +319,8 @@ export function asOpenMeteoInfo(
   const feelsLikeC = parseOptionalNumber(obj["feelsLikeC"]);
   const windSpeedKmh = parseOptionalNumber(obj["windSpeedKmh"]);
   const windDirectionDeg = parseOptionalNumber(obj["windDirectionDeg"]);
+  const uvIndex = parseOptionalNumber(obj["uvIndex"]);
+  const pressureHpa = parseOptionalNumber(obj["pressureHpa"]);
   const sunrise = parseOptionalText(obj["sunrise"]);
   const sunset = parseOptionalText(obj["sunset"]);
 
@@ -341,6 +343,10 @@ export function asOpenMeteoInfo(
     windDirectionDeg >= 0 &&
     windDirectionDeg <= 360
       ? { windDirectionDeg }
+      : {}),
+    ...(uvIndex !== undefined && uvIndex >= 0 ? { uvIndex } : {}),
+    ...(pressureHpa !== undefined && pressureHpa > 0
+      ? { pressureHpa }
       : {}),
     ...(sunrise !== undefined ? { sunrise } : {}),
     ...(sunset !== undefined ? { sunset } : {}),
@@ -778,6 +784,28 @@ export function OpenMeteoWidget({
       }
     }
 
+    if (
+      successData.uvIndex !== undefined &&
+      Number.isFinite(successData.uvIndex) &&
+      successData.uvIndex >= 0
+    ) {
+      const uv = successData.uvIndex;
+      const uvText =
+        Math.abs(uv % 1) < 1e-9
+          ? String(Math.trunc(uv))
+          : (Math.round(uv * 10) / 10).toFixed(1);
+      chips.push({ key: "uv", label: "紫外线", value: uvText });
+    }
+
+    if (
+      successData.pressureHpa !== undefined &&
+      Number.isFinite(successData.pressureHpa) &&
+      successData.pressureHpa > 0
+    ) {
+      const p = Math.round(successData.pressureHpa);
+      chips.push({ key: "pressure", label: "气压", value: `${p} hPa` });
+    }
+
     const rise = formatClockHm(successData.sunrise);
     const set = formatClockHm(successData.sunset);
     if (rise !== null && set !== null) {
@@ -880,7 +908,7 @@ export function OpenMeteoWidget({
       </div>
 
       {metricChips.length > 0 ? (
-        <div className="relative grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        <div className="relative grid grid-cols-3 gap-1.5">
           {metricChips.map((chip) => (
             <div
               key={chip.key}

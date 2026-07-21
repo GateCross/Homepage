@@ -51,6 +51,10 @@ export const OpenMeteoInfoResponseSchema = z
     windSpeedKmh: z.number().nonnegative().optional(),
     /** 风向角度 0–360（气象来向） */
     windDirectionDeg: z.number().min(0).max(360).optional(),
+    /** 紫外线指数（无量纲，通常 0–15） */
+    uvIndex: z.number().nonnegative().optional(),
+    /** 气压 hPa */
+    pressureHpa: z.number().positive().optional(),
     /** 今日日出 ISO 8601（当地偏移） */
     sunrise: z.string().min(1).optional(),
     /** 今日日落 ISO 8601（当地偏移） */

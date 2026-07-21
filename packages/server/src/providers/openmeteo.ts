@@ -523,6 +523,37 @@ export function parseTodaySunTimes(
   };
 }
 
+/** 紫外线指数；小米 current.uvIndex 多为字符串/数字。 */
+export function parseUvIndex(node: unknown): number | undefined {
+  if (typeof node === "number" && Number.isFinite(node) && node >= 0) {
+    return node <= 20 ? node : undefined;
+  }
+  if (typeof node === "string") {
+    const n = Number(node.trim());
+    if (Number.isFinite(n) && n >= 0 && n <= 20) {
+      return n;
+    }
+  }
+  const unit = readUnitValue(node);
+  if (unit !== null && unit >= 0 && unit <= 20) {
+    return unit;
+  }
+  return undefined;
+}
+
+/** 气压 hPa。 */
+export function parsePressureHpa(node: unknown): number | undefined {
+  const raw = readUnitValue(node);
+  if (raw === null) {
+    return undefined;
+  }
+  // 合理海平面气压范围
+  if (raw < 800 || raw > 1100) {
+    return undefined;
+  }
+  return raw;
+}
+
 export function convertXiaomiWeatherPayload(
   payload: unknown,
   location: string,
@@ -558,6 +589,8 @@ export function convertXiaomiWeatherPayload(
   const humidityPercent = parseHumidityPercent(cur["humidity"]);
   const feelsLikeC = parseFeelsLikeC(cur["feelsLike"]);
   const wind = parseWind(cur["wind"]);
+  const uvIndex = parseUvIndex(cur["uvIndex"]);
+  const pressureHpa = parsePressureHpa(cur["pressure"]);
   const aqi = parseChinaAqi(root["aqi"]);
   const sun = parseTodaySunTimes(root["forecastDaily"]);
   const hourly = parseXiaomiHourlyForecast(root["forecastHourly"], nowMs);
@@ -580,6 +613,8 @@ export function convertXiaomiWeatherPayload(
     ...(wind.windDirectionDeg !== undefined
       ? { windDirectionDeg: wind.windDirectionDeg }
       : {}),
+    ...(uvIndex !== undefined ? { uvIndex } : {}),
+    ...(pressureHpa !== undefined ? { pressureHpa } : {}),
     ...(aqi !== undefined ? { aqi } : {}),
     ...(sun.sunrise !== undefined ? { sunrise: sun.sunrise } : {}),
     ...(sun.sunset !== undefined ? { sunset: sun.sunset } : {}),
