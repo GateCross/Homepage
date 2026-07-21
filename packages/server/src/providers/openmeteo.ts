@@ -468,6 +468,61 @@ export function parseChinaAqi(rootAqi: unknown): number | undefined {
   return Math.round(value);
 }
 
+export function parseFeelsLikeC(node: unknown): number | undefined {
+  const raw = readUnitValue(node);
+  if (raw === null) {
+    return undefined;
+  }
+  if (raw < -90 || raw > 70) {
+    return undefined;
+  }
+  return raw;
+}
+
+export function parseWind(
+  node: unknown,
+): { windSpeedKmh?: number; windDirectionDeg?: number } {
+  const root = asRecord(node);
+  if (root === null) {
+    return {};
+  }
+  const speed = readUnitValue(root["speed"]);
+  const direction = readUnitValue(root["direction"]);
+  const out: { windSpeedKmh?: number; windDirectionDeg?: number } = {};
+  if (speed !== null && speed >= 0 && speed <= 400) {
+    out.windSpeedKmh = speed;
+  }
+  if (direction !== null && direction >= 0 && direction <= 360) {
+    out.windDirectionDeg = direction;
+  }
+  return out;
+}
+
+/** 从 forecastDaily.sunRiseSet 取今日日出/日落 ISO。 */
+export function parseTodaySunTimes(
+  forecastDaily: unknown,
+): { sunrise?: string; sunset?: string } {
+  const root = asRecord(forecastDaily);
+  if (root === null) {
+    return {};
+  }
+  const sunNode = asRecord(root["sunRiseSet"]);
+  const values = asUnknownArray(sunNode?.["value"]);
+  if (values === null || values.length === 0) {
+    return {};
+  }
+  const first = asRecord(values[0]);
+  if (first === null) {
+    return {};
+  }
+  const sunrise = normalizeIsoString(first["from"]) ?? undefined;
+  const sunset = normalizeIsoString(first["to"]) ?? undefined;
+  return {
+    ...(sunrise !== undefined ? { sunrise } : {}),
+    ...(sunset !== undefined ? { sunset } : {}),
+  };
+}
+
 export function convertXiaomiWeatherPayload(
   payload: unknown,
   location: string,
@@ -501,7 +556,10 @@ export function convertXiaomiWeatherPayload(
 
   const weatherCode = readWeatherCode(cur["weather"]);
   const humidityPercent = parseHumidityPercent(cur["humidity"]);
+  const feelsLikeC = parseFeelsLikeC(cur["feelsLike"]);
+  const wind = parseWind(cur["wind"]);
   const aqi = parseChinaAqi(root["aqi"]);
+  const sun = parseTodaySunTimes(root["forecastDaily"]);
   const hourly = parseXiaomiHourlyForecast(root["forecastHourly"], nowMs);
   const daily = parseXiaomiDailyForecast(root["forecastDaily"]);
 
@@ -515,7 +573,16 @@ export function convertXiaomiWeatherPayload(
         }
       : { conditionText: "未知" }),
     ...(humidityPercent !== undefined ? { humidityPercent } : {}),
+    ...(feelsLikeC !== undefined ? { feelsLikeC } : {}),
+    ...(wind.windSpeedKmh !== undefined
+      ? { windSpeedKmh: wind.windSpeedKmh }
+      : {}),
+    ...(wind.windDirectionDeg !== undefined
+      ? { windDirectionDeg: wind.windDirectionDeg }
+      : {}),
     ...(aqi !== undefined ? { aqi } : {}),
+    ...(sun.sunrise !== undefined ? { sunrise: sun.sunrise } : {}),
+    ...(sun.sunset !== undefined ? { sunset: sun.sunset } : {}),
     ...(hourly.length > 0 ? { hourly } : {}),
     ...(daily.length > 0 ? { daily } : {}),
   };

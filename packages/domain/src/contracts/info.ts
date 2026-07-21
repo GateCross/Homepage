@@ -45,6 +45,16 @@ export const OpenMeteoInfoResponseSchema = z
      * 仅在数值可确认为国标口径时提供；不得用美标数字填充。
      */
     aqi: z.number().nonnegative().optional(),
+    /** 体感温度 ℃ */
+    feelsLikeC: z.number().optional(),
+    /** 风速 km/h */
+    windSpeedKmh: z.number().nonnegative().optional(),
+    /** 风向角度 0–360（气象来向） */
+    windDirectionDeg: z.number().min(0).max(360).optional(),
+    /** 今日日出 ISO 8601（当地偏移） */
+    sunrise: z.string().min(1).optional(),
+    /** 今日日落 ISO 8601（当地偏移） */
+    sunset: z.string().min(1).optional(),
     /** 未来逐小时（已截断，通常约 12–24 点） */
     hourly: z.array(WeatherHourlyItemSchema).optional(),
     /** 未来逐日（含今天，通常约 5–7 天） */

@@ -36,6 +36,7 @@ import {
 } from "@/lib/format-error";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { formatWindLabel } from "@/lib/wind";
 
 export const OPEN_METEO_REVALIDATE_MS = 15 * 60 * 1000;
 
@@ -315,6 +316,11 @@ export function asOpenMeteoInfo(
 
   const humidityPercent = parseOptionalNumber(obj["humidityPercent"]);
   const aqi = parseOptionalNumber(obj["aqi"]);
+  const feelsLikeC = parseOptionalNumber(obj["feelsLikeC"]);
+  const windSpeedKmh = parseOptionalNumber(obj["windSpeedKmh"]);
+  const windDirectionDeg = parseOptionalNumber(obj["windDirectionDeg"]);
+  const sunrise = parseOptionalText(obj["sunrise"]);
+  const sunset = parseOptionalText(obj["sunset"]);
 
   return {
     temperatureC,
@@ -327,9 +333,43 @@ export function asOpenMeteoInfo(
       ? { humidityPercent }
       : {}),
     ...(aqi !== undefined && aqi >= 0 ? { aqi } : {}),
+    ...(feelsLikeC !== undefined ? { feelsLikeC } : {}),
+    ...(windSpeedKmh !== undefined && windSpeedKmh >= 0
+      ? { windSpeedKmh }
+      : {}),
+    ...(windDirectionDeg !== undefined &&
+    windDirectionDeg >= 0 &&
+    windDirectionDeg <= 360
+      ? { windDirectionDeg }
+      : {}),
+    ...(sunrise !== undefined ? { sunrise } : {}),
+    ...(sunset !== undefined ? { sunset } : {}),
     ...(hourly !== undefined ? { hourly } : {}),
     ...(daily !== undefined ? { daily } : {}),
   };
+}
+
+function formatClockHm(iso: string | undefined): string | null {
+  if (iso === undefined) {
+    return null;
+  }
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) {
+    const m = /T(\d{2}):(\d{2})/.exec(iso);
+    return m?.[1] !== undefined && m[2] !== undefined
+      ? `${m[1]}:${m[2]}`
+      : null;
+  }
+  try {
+    return new Intl.DateTimeFormat("zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(ms));
+  } catch {
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
 }
 
 function resolveErrorMessage(error: unknown): string {
@@ -686,19 +726,73 @@ export function OpenMeteoWidget({
     return `${minT.value}–${maxT.value}°`;
   }, [successData]);
 
-  const humidityText = useMemo(() => {
-    const h = successData?.humidityPercent;
-    if (h === undefined || !Number.isFinite(h) || h < 0 || h > 100) {
-      return null;
+  const metricChips = useMemo(() => {
+    if (successData === null) {
+      return [] as Array<{
+        key: string;
+        label: string;
+        value: string;
+        valueClass?: string;
+      }>;
     }
-    return `湿度 ${Math.round(h)}%`;
-  }, [successData]);
+    const chips: Array<{
+      key: string;
+      label: string;
+      value: string;
+      valueClass?: string;
+    }> = [];
 
-  const aqiDisplay = useMemo(() => {
-    if (successData?.aqi === undefined) {
-      return null;
+    if (successData.feelsLikeC !== undefined) {
+      const f = formatTemperatureC(successData.feelsLikeC);
+      if (f.value !== "—") {
+        chips.push({ key: "feels", label: "体感", value: `${f.value}°` });
+      }
     }
-    return chinaAqiInfo(successData.aqi);
+
+    const h = successData.humidityPercent;
+    if (h !== undefined && Number.isFinite(h) && h >= 0 && h <= 100) {
+      chips.push({
+        key: "humidity",
+        label: "湿度",
+        value: `${Math.round(h)}%`,
+      });
+    }
+
+    const wind = formatWindLabel(
+      successData.windSpeedKmh,
+      successData.windDirectionDeg,
+    );
+    if (wind !== null) {
+      chips.push({ key: "wind", label: "风力", value: wind });
+    }
+
+    if (successData.aqi !== undefined) {
+      const info = chinaAqiInfo(successData.aqi);
+      if (info !== null) {
+        chips.push({
+          key: "aqi",
+          label: "AQI",
+          value: `${info.value} ${info.label}`,
+          valueClass: chinaAqiTextClass(info.level),
+        });
+      }
+    }
+
+    const rise = formatClockHm(successData.sunrise);
+    const set = formatClockHm(successData.sunset);
+    if (rise !== null && set !== null) {
+      chips.push({
+        key: "sun",
+        label: "日出日落",
+        value: `${rise} / ${set}`,
+      });
+    } else if (rise !== null) {
+      chips.push({ key: "sunrise", label: "日出", value: rise });
+    } else if (set !== null) {
+      chips.push({ key: "sunset", label: "日落", value: set });
+    }
+
+    return chips;
   }, [successData]);
 
   if (state.status === "loading") {
@@ -706,7 +800,7 @@ export function OpenMeteoWidget({
       <div
         data-slot="openmeteo-widget"
         data-state="loading"
-        className={cn("min-h-[8.75rem] p-4", className)}
+        className={cn("min-h-[9.5rem] p-4", className)}
       >
         <LoadingStatus message={messages.loading.weather} skeleton />
       </div>
@@ -718,7 +812,7 @@ export function OpenMeteoWidget({
       <div
         data-slot="openmeteo-widget"
         data-state="error"
-        className={cn("min-h-[8.75rem] p-4", className)}
+        className={cn("min-h-[9.5rem] p-4", className)}
       >
         <ErrorStatus message={state.message} onRetry={handleRetry} />
       </div>
@@ -743,7 +837,7 @@ export function OpenMeteoWidget({
       data-info-id={infoId}
       data-forecast-mode={showForecast ? activeMode : undefined}
       className={cn(
-        "relative flex min-h-[8.75rem] flex-col justify-between gap-3 p-4",
+        "relative flex min-h-[9.5rem] flex-col gap-2.5 p-4",
         className,
       )}
       role="status"
@@ -759,34 +853,23 @@ export function OpenMeteoWidget({
           <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
             {title}
           </p>
-          <p className="mt-3 text-[2.55rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[2.75rem]">
-            {temperature.value}
-            <span className="ml-1 align-top text-base font-medium text-muted-foreground">
-              {temperature.unit}
-            </span>
-          </p>
-          {dayRange !== null ? (
-            <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
-              {dayRange}
+          <div className="mt-2 flex items-end gap-2.5">
+            <p className="text-[2.55rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[2.75rem]">
+              {temperature.value}
+              <span className="ml-1 align-top text-base font-medium text-muted-foreground">
+                {temperature.unit}
+              </span>
             </p>
-          ) : null}
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-sm font-medium text-foreground/85">{condition}</p>
-            {humidityText !== null ? (
-              <span className="text-xs text-muted-foreground">
-                {humidityText}
-              </span>
-            ) : null}
-            {aqiDisplay !== null ? (
-              <span
-                className={cn(
-                  "text-xs font-medium tabular-nums",
-                  chinaAqiTextClass(aqiDisplay.level),
-                )}
-              >
-                AQI {aqiDisplay.value} {aqiDisplay.label}
-              </span>
-            ) : null}
+            <div className="mb-0.5 min-w-0 pb-0.5">
+              <p className="text-sm font-medium text-foreground/85">
+                {condition}
+              </p>
+              {dayRange !== null ? (
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                  {dayRange}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
         <WeatherIcon
@@ -796,8 +879,31 @@ export function OpenMeteoWidget({
         />
       </div>
 
+      {metricChips.length > 0 ? (
+        <div className="relative grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          {metricChips.map((chip) => (
+            <div
+              key={chip.key}
+              className="rounded-lg border border-border/45 bg-background/35 px-2 py-1.5"
+            >
+              <p className="text-[10px] tracking-wide text-muted-foreground">
+                {chip.label}
+              </p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs font-medium tabular-nums text-foreground/90",
+                  chip.valueClass,
+                )}
+              >
+                {chip.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {showForecast ? (
-        <div className="relative mt-1 space-y-2 border-t border-border/40 pt-3">
+        <div className="relative space-y-2 border-t border-border/40 pt-2.5">
           <div className="flex items-center justify-between gap-2">
             <p
               id={forecastHeadingId}

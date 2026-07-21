@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type JSX } from "react";
 
 import { nextStatutoryHolidayCountdown } from "@/lib/holidays";
 import { lunarFromDate } from "@/lib/lunar";
+import { shichenFromDate, yearDayInfo } from "@/lib/shichen";
 import { currentSolarTerm } from "@/lib/solar-terms";
 import { cn } from "@/lib/utils";
 
@@ -319,6 +320,29 @@ export function DateTimeWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
     [localDateKey, parsed.timezone],
   );
+  const yearInfo = useMemo(
+    () => yearDayInfo(now, parsed.timezone),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
+    [localDateKey, parsed.timezone],
+  );
+  // 时辰约两小时一变，用整点桶避免每秒重算
+  const hourBucket = useMemo(() => {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: parsed.timezone,
+        hour: "2-digit",
+        hour12: false,
+      }).formatToParts(now);
+      return parts.find((p) => p.type === "hour")?.value ?? "";
+    } catch {
+      return String(now.getHours());
+    }
+  }, [now, parsed.timezone]);
+  const shichen = useMemo(
+    () => shichenFromDate(now, parsed.timezone),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by hourBucket
+    [hourBucket, parsed.timezone],
+  );
   const label = parsed.label ?? "本地时间";
 
   const lunarLine = useMemo(() => {
@@ -340,14 +364,33 @@ export function DateTimeWidget({
     return parts;
   }, [lunar, solarTerm]);
 
+  const metaChips = useMemo(() => {
+    const chips: Array<{ key: string; text: string; emphasis?: boolean }> = [];
+    if (yearInfo !== null) {
+      chips.push({
+        key: "yearday",
+        text: `${yearInfo.label} · ${yearInfo.percent}%`,
+      });
+    }
+    if (holidayCountdown !== null) {
+      chips.push({
+        key: "holiday",
+        text: holidayCountdown.label,
+        emphasis: true,
+      });
+    }
+    return chips;
+  }, [yearInfo, holidayCountdown]);
+
   return (
     <div
       data-slot="datetime-widget"
       data-timezone={parsed.timezone}
       data-solar-term={solarTerm?.name}
       data-next-holiday={holidayCountdown?.holiday.id}
+      data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-[8.75rem] flex-col justify-between p-4",
+        "relative flex h-full min-h-[9.5rem] flex-col gap-2.5 p-4",
         className,
       )}
     >
@@ -381,7 +424,7 @@ export function DateTimeWidget({
 
       <time
         dateTime={now.toISOString()}
-        className="relative mt-4 flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground"
+        className="relative flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground"
         aria-live="polite"
         aria-atomic="true"
       >
@@ -393,11 +436,34 @@ export function DateTimeWidget({
         <span className="pb-1 text-lg tabular-nums text-muted-foreground">
           {second}
         </span>
+        {shichen !== null ? (
+          <span className="ml-1 pb-1 text-sm font-medium text-muted-foreground/90">
+            {shichen.label}
+          </span>
+        ) : null}
       </time>
 
-      <p className="relative mt-3 text-[11px] tracking-wide text-muted-foreground/80">
-        {holidayCountdown !== null ? holidayCountdown.label : " "}
-      </p>
+      {metaChips.length > 0 ? (
+        <div className="relative mt-auto flex flex-wrap gap-1.5">
+          {metaChips.map((chip) => (
+            <span
+              key={chip.key}
+              className={cn(
+                "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] leading-snug",
+                chip.emphasis
+                  ? "border-sky-500/25 bg-sky-500/10 text-foreground/90"
+                  : "border-border/50 bg-background/40 text-muted-foreground",
+              )}
+            >
+              {chip.text}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="relative mt-auto text-[11px] tracking-wide text-muted-foreground/80">
+
+        </p>
+      )}
     </div>
   );
 }
