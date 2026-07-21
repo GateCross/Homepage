@@ -1,10 +1,33 @@
 import type { JSX, ReactNode } from "react";
-import { LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+
+function Spinner({
+  className,
+  size = "md",
+}: {
+  className?: string;
+  size?: "sm" | "md";
+}): JSX.Element {
+  const dim = size === "sm" ? "size-4" : "size-8";
+  return (
+    <span
+      aria-hidden="true"
+      data-slot="spinner"
+      className={cn(
+        "relative inline-block shrink-0 rounded-full",
+        dim,
+        className,
+      )}
+    >
+      <span className="absolute inset-0 rounded-full border-2 border-primary/15" />
+      <span className="absolute inset-0 animate-[spin_0.75s_linear_infinite] rounded-full border-2 border-transparent border-t-primary border-r-primary/50" />
+    </span>
+  );
+}
 
 export type LoadingStatusProps = {
   message?: string;
@@ -32,12 +55,7 @@ export function LoadingStatus({
           className,
         )}
       >
-        <div
-          className="relative flex size-11 items-center justify-center rounded-2xl border border-border/60 bg-muted/40 shadow-sm ring-1 ring-black/5 dark:bg-muted/30 dark:ring-white/10"
-          aria-hidden="true"
-        >
-          <LoaderCircle className="size-5 animate-spin text-primary" />
-        </div>
+        <Spinner size="md" />
         <div className="space-y-0.5">
           <p className="text-sm font-medium tracking-tight text-foreground">
             {message}
@@ -65,10 +83,7 @@ export function LoadingStatus({
         className,
       )}
     >
-      <LoaderCircle
-        className="size-4 shrink-0 animate-spin text-primary"
-        aria-hidden="true"
-      />
+      <Spinner size="sm" />
       {skeleton ? <Skeleton className="h-3.5 w-28 max-w-[60%]" /> : null}
       <span>{message}</span>
     </div>
