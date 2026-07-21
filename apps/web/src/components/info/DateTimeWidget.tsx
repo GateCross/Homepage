@@ -400,15 +400,10 @@ export function DateTimeWidget({
         className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(56,189,248,0.18),transparent_70%)]"
       />
 
-      <div className="relative flex items-center justify-between gap-3">
+      <div className="relative flex items-center justify-center">
         <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
           {label}
         </p>
-        {shichen !== null ? (
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground">
-            {shichen.label}
-          </p>
-        ) : null}
       </div>
 
       <div className="relative min-w-0 space-y-1">
@@ -452,6 +447,11 @@ export function DateTimeWidget({
           <span className="pb-1 text-xl tabular-nums text-muted-foreground">
             {second}
           </span>
+          {shichen !== null ? (
+            <span className="ml-1 pb-1 text-base font-medium text-muted-foreground/90">
+              {shichen.label}
+            </span>
+          ) : null}
         </span>
       </time>
 
