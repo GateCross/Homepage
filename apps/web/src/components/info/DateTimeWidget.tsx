@@ -345,7 +345,7 @@ export function DateTimeWidget({
   );
   const label = parsed.label ?? "本地时间";
 
-  const termCountdownLabel = useMemo(() => {
+  const termCountdown = useMemo(() => {
     if (upcomingTerm === null || localDateKey.length < 8) {
       return null;
     }
@@ -356,26 +356,32 @@ export function DateTimeWidget({
       return null;
     }
     const days = Math.round((termMs - todayMs) / 86_400_000);
-    if (days <= 0) {
-      return `今日${upcomingTerm.name}`;
+    if (days < 0) {
+      return null;
     }
-    return `距${upcomingTerm.name} ${days} 天`;
+    return {
+      name: upcomingTerm.name,
+      days,
+      title: days === 0 ? `今日${upcomingTerm.name}` : upcomingTerm.name,
+      detail: days === 0 ? "今天" : `还有 ${days} 天`,
+    };
   }, [upcomingTerm, localDateKey]);
 
-  const metaChips = useMemo(() => {
-    const chips: Array<{ key: string; text: string; emphasis?: boolean }> = [];
-    if (termCountdownLabel !== null) {
-      chips.push({ key: "term", text: termCountdownLabel });
+  const holidayPanel = useMemo(() => {
+    if (holidayCountdown === null) {
+      return null;
     }
-    if (holidayCountdown !== null) {
-      chips.push({
-        key: "holiday",
-        text: holidayCountdown.label,
-        emphasis: true,
-      });
-    }
-    return chips;
-  }, [termCountdownLabel, holidayCountdown]);
+    const days = holidayCountdown.daysUntil;
+    return {
+      name: holidayCountdown.holiday.name,
+      days,
+      title:
+        days === 0
+          ? `今天 · ${holidayCountdown.holiday.name}`
+          : holidayCountdown.holiday.name,
+      detail: days === 0 ? "今天" : `还有 ${days} 天`,
+    };
+  }, [holidayCountdown]);
 
   return (
     <div
@@ -385,7 +391,7 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-[9.5rem] flex-col p-4",
+        "relative flex h-full min-h-[9.5rem] flex-col gap-3 p-4",
         className,
       )}
     >
@@ -398,72 +404,89 @@ export function DateTimeWidget({
         <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
           {label}
         </p>
+        {shichen !== null ? (
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground">
+            {shichen.label}
+          </p>
+        ) : null}
       </div>
 
-      <div className="relative flex flex-1 flex-col justify-center gap-2.5 py-2">
-        <time
-          dateTime={now.toISOString()}
-          className="flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span className="text-[2.55rem] leading-none tabular-nums sm:text-[2.75rem]">
+      <div className="relative min-w-0 space-y-1">
+        <p className="text-base font-medium leading-snug text-foreground/90 sm:text-lg">
+          {dateLine}
+        </p>
+        {lunar !== null ? (
+          <>
+            <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+              农历{lunar.text}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {lunar.yearText}
+              {solarTerm !== null ? (
+                <>
+                  <span className="mx-1.5 text-muted-foreground/40">·</span>
+                  {solarTerm.name}
+                </>
+              ) : null}
+            </p>
+          </>
+        ) : solarTerm !== null ? (
+          <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+            {solarTerm.name}
+          </p>
+        ) : null}
+      </div>
+
+      <time
+        dateTime={now.toISOString()}
+        className="relative flex flex-1 items-center"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span className="flex items-baseline gap-1.5 font-semibold tracking-tight text-foreground">
+          <span className="text-[2.75rem] leading-none tabular-nums sm:text-[3rem]">
             {hour}
             <span className="mx-0.5 text-foreground/35">:</span>
             {minute}
           </span>
-          <span className="pb-1 text-lg tabular-nums text-muted-foreground">
+          <span className="pb-1 text-xl tabular-nums text-muted-foreground">
             {second}
           </span>
-          {shichen !== null ? (
-            <span className="ml-1 pb-1 text-sm font-medium text-muted-foreground/90">
-              {shichen.label}
-            </span>
-          ) : null}
-        </time>
+        </span>
+      </time>
 
-        <div className="min-w-0 space-y-1">
-          <p className="text-base font-medium leading-snug text-foreground/90 sm:text-lg">
-            {dateLine}
-          </p>
-          {lunar !== null ? (
-            <>
-              <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
-                农历{lunar.text}
+      {termCountdown !== null || holidayPanel !== null ? (
+        <div className="relative grid grid-cols-2 gap-2">
+          {termCountdown !== null ? (
+            <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2.5">
+              <p className="text-[11px] tracking-wide text-muted-foreground">
+                下一节气
               </p>
-              <p className="text-sm text-muted-foreground">
-                {lunar.yearText}
-                {solarTerm !== null ? (
-                  <>
-                    <span className="mx-1.5 text-muted-foreground/40">·</span>
-                    {solarTerm.name}
-                  </>
-                ) : null}
+              <p className="mt-1 text-base font-semibold leading-tight text-foreground">
+                {termCountdown.title}
               </p>
-            </>
-          ) : solarTerm !== null ? (
-            <p className="text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
-              {solarTerm.name}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      {metaChips.length > 0 ? (
-        <div className="relative flex flex-wrap gap-1.5">
-          {metaChips.map((chip) => (
-            <span
-              key={chip.key}
-              className={cn(
-                "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] leading-snug",
-                chip.emphasis
-                  ? "border-sky-500/25 bg-sky-500/10 text-foreground/90"
-                  : "border-border/50 bg-background/40 text-muted-foreground",
-              )}
-            >
-              {chip.text}
-            </span>
-          ))}
+              <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+                {termCountdown.detail}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border/40 bg-background/25 px-3 py-2.5" />
+          )}
+          {holidayPanel !== null ? (
+            <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2.5">
+              <p className="text-[11px] tracking-wide text-sky-700/80 dark:text-sky-200/80">
+                下一节日
+              </p>
+              <p className="mt-1 text-base font-semibold leading-tight text-foreground">
+                {holidayPanel.title}
+              </p>
+              <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+                {holidayPanel.detail}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border/40 bg-background/25 px-3 py-2.5" />
+          )}
         </div>
       ) : null}
     </div>
