@@ -456,36 +456,44 @@ export function DateTimeWidget({
       </time>
 
       {termCountdown !== null || holidayPanel !== null ? (
-        <div className="relative grid grid-cols-2 gap-2">
+        <div className="relative grid grid-cols-2 gap-2.5">
           {termCountdown !== null ? (
-            <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2.5">
-              <p className="text-[11px] tracking-wide text-muted-foreground">
+            <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/15 via-background/35 to-background/20 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-amber-300/20 dark:from-amber-300/15">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-3 -top-3 size-14 rounded-full bg-amber-400/15 blur-2xl dark:bg-amber-200/15"
+              />
+              <p className="relative text-[11px] font-medium tracking-[0.12em] text-amber-800/75 dark:text-amber-100/75">
                 下一节气
               </p>
-              <p className="mt-1 text-base font-semibold leading-tight text-foreground">
+              <p className="relative mt-1.5 text-lg font-semibold leading-none tracking-tight text-foreground">
                 {termCountdown.title}
               </p>
-              <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+              <p className="relative mt-1.5 text-sm tabular-nums text-muted-foreground">
                 {termCountdown.detail}
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-border/40 bg-background/25 px-3 py-2.5" />
+            <div className="rounded-2xl border border-border/35 bg-background/20 px-3 py-3" />
           )}
           {holidayPanel !== null ? (
-            <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2.5">
-              <p className="text-[11px] tracking-wide text-sky-700/80 dark:text-sky-200/80">
+            <div className="relative overflow-hidden rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-500/18 via-background/35 to-background/20 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-sky-300/25 dark:from-sky-300/15">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-3 -top-3 size-14 rounded-full bg-sky-400/20 blur-2xl dark:bg-sky-200/15"
+              />
+              <p className="relative text-[11px] font-medium tracking-[0.12em] text-sky-800/80 dark:text-sky-100/80">
                 下一节日
               </p>
-              <p className="mt-1 text-base font-semibold leading-tight text-foreground">
+              <p className="relative mt-1.5 text-lg font-semibold leading-none tracking-tight text-foreground">
                 {holidayPanel.title}
               </p>
-              <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+              <p className="relative mt-1.5 text-sm tabular-nums text-muted-foreground">
                 {holidayPanel.detail}
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-border/40 bg-background/25 px-3 py-2.5" />
+            <div className="rounded-2xl border border-border/35 bg-background/20 px-3 py-3" />
           )}
         </div>
       ) : null}
