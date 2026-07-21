@@ -1,0 +1,36 @@
+# VCS / IDE
+.git
+.github
+.claude
+.kiro
+.scratch
+.vscode
+.idea
+**/.DS_Store
+**/Thumbs.db
+
+# deps & build
+**/node_modules
+**/.pnpm-store
+**/dist
+**/*.tsbuildinfo
+coverage
+.turbo
+.cache
+tmp
+temp
+logs
+*.log
+
+# local secrets & runtime mounts (compose 挂载，不打进镜像)
+.env
+.env.*
+!.env.example
+config/
+
+# docs / misc
+docs
+*.md
+!package.json
+CONTEXT.md
+DEPLOY.md

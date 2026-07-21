@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": [
+    "eslint.config.js",
+    "scripts/**/*.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/dist",
+    "**/build",
+    "coverage"
+  ],
+  "references": [
+    { "path": "packages/domain" },
+    { "path": "packages/config" },
+    { "path": "packages/adapters" },
+    { "path": "packages/server" }
+  ]
+}

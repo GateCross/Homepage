@@ -1,0 +1,25 @@
+services:
+  app:
+    image: sereindusk/homepage:latest
+    container_name: homepage
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      CONFIG_DIR: /app/config
+      # 密钥类变量按需注入（配置 YAML 中用 ${ENV_VAR} 引用）
+      # QBIT_PASSWORD: ""
+      # EMBY_API_KEY: ""
+    volumes:
+      # 将本机配置目录挂进容器（五文件 + images/icons）
+      # 注意：容器以非 root 用户 homepage 运行，宿主机 ./config 需可写，
+      # 否则图标导入/图片上传会失败。示例：
+      #   mkdir -p ./config/images && chmod -R a+rwX ./config
+      # 或：sudo chown -R $(docker compose exec -T app id -u):$(docker compose exec -T app id -g) ./config
+      - ./config:/app/config
+      # 需要 Docker 容器状态时，只读挂载 socket（可选）
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      # 监控宿主机磁盘时，只读挂载根分区，并在 widgets.yaml 中写 disk: /host（可选）
+      # - /:/host:ro
+    restart: unless-stopped

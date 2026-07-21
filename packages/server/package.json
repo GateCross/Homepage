@@ -1,0 +1,37 @@
+{
+  "name": "@homepage/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "服务端：API、代理门禁、Docker、静态托管（依赖 domain/config/adapters）",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch --clear-screen=false src/dev.ts",
+    "start": "node dist/index.js",
+    "clean": "node -e \"import('node:fs').then(fs=>fs.rmSync('dist',{recursive:true,force:true}))\""
+  },
+  "dependencies": {
+    "@homepage/adapters": "workspace:*",
+    "@homepage/config": "workspace:*",
+    "@homepage/domain": "workspace:*",
+    "@hono/node-server": "^2.0.10",
+    "hono": "^4.12.31"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
+  }
+}

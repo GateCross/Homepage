@@ -1,0 +1,50 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# 测试与覆盖率
+coverage/
+.vitest/
+*.lcov
+
+# 环境与本地密钥（运行时 config 可挂载，但不得提交密钥）
+.env
+.env.*
+!.env.example
+
+# 运行时配置与本地资产（仅仓库根目录，由部署挂载；勿写成 config/ 以免误伤 packages/config）
+/config/
+
+# 日志与临时文件
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+tmp/
+temp/
+.cache/
+
+# 编辑器与系统
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 可选本地覆盖
+*.local
+docs/adr/*
+.scratch/*
+.claude/*

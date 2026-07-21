@@ -1,0 +1,36 @@
+{
+  "name": "homepage",
+  "private": true,
+  "version": "0.1.0",
+  "description": "自托管仪表盘 monorepo（React + Tailwind CSS + shadcn/ui + Hono）",
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=20.19.0 <26",
+    "pnpm": ">=9.0.0 <11"
+  },
+  "scripts": {
+    "typecheck": "tsc -b packages/domain packages/config packages/adapters packages/server --pretty false && tsc -p apps/web --noEmit --pretty false && tsc --noEmit -p tsconfig.json --pretty false",
+    "lint": "eslint .",
+    "build": "pnpm -r --sort --workspace-concurrency=Infinity run build",
+    "build:libs": "tsc -b packages/domain packages/config packages/adapters --pretty false",
+    "dev": "pnpm run build:libs && pnpm exec concurrently -k -n pkg,api,web -c cyan,green,magenta \"pnpm run dev:packages\" \"pnpm run dev:server\" \"pnpm run dev:web\"",
+    "dev:packages": "tsc -b packages/domain packages/config packages/adapters --watch --preserveWatchOutput --pretty false",
+    "dev:server": "pnpm exec tsx watch --clear-screen=false --include packages/domain/dist --include packages/config/dist --include packages/adapters/dist packages/server/src/dev.ts",
+    "dev:web": "pnpm --filter @homepage/web dev",
+    "start": "pnpm --filter @homepage/server start",
+    "clean": "pnpm -r run clean"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "tsx": "^4.21.0",
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4"
+  }
+}
