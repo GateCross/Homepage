@@ -806,21 +806,26 @@ export function OpenMeteoWidget({
       chips.push({ key: "pressure", label: "气压", value: `${p} hPa` });
     }
 
+    // 日出日落提到主区展示，不占指标栅格，保证 3×2 满铺
+    return chips;
+  }, [successData]);
+
+  const sunRange = useMemo(() => {
+    if (successData === null) {
+      return null;
+    }
     const rise = formatClockHm(successData.sunrise);
     const set = formatClockHm(successData.sunset);
     if (rise !== null && set !== null) {
-      chips.push({
-        key: "sun",
-        label: "日出日落",
-        value: `${rise} / ${set}`,
-      });
-    } else if (rise !== null) {
-      chips.push({ key: "sunrise", label: "日出", value: rise });
-    } else if (set !== null) {
-      chips.push({ key: "sunset", label: "日落", value: set });
+      return `${rise} / ${set}`;
     }
-
-    return chips;
+    if (rise !== null) {
+      return `日出 ${rise}`;
+    }
+    if (set !== null) {
+      return `日落 ${set}`;
+    }
+    return null;
   }, [successData]);
 
   if (state.status === "loading") {
@@ -895,6 +900,11 @@ export function OpenMeteoWidget({
               {dayRange !== null ? (
                 <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
                   {dayRange}
+                </p>
+              ) : null}
+              {sunRange !== null ? (
+                <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground/85">
+                  {sunRange}
                 </p>
               ) : null}
             </div>
