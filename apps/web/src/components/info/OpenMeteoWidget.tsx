@@ -29,6 +29,7 @@ import {
   fetchInfo,
   isApiClientError,
 } from "@/lib/api";
+import { chinaAqiInfo, chinaAqiTextClass } from "@/lib/aqi";
 import {
   formatPublicError,
   formatUnknownError,
@@ -312,11 +313,20 @@ export function asOpenMeteoInfo(
     }
   }
 
+  const humidityPercent = parseOptionalNumber(obj["humidityPercent"]);
+  const aqi = parseOptionalNumber(obj["aqi"]);
+
   return {
     temperatureC,
     ...(conditionText !== undefined ? { conditionText } : {}),
     ...(weatherCode !== undefined ? { weatherCode } : {}),
     ...(location !== undefined ? { location } : {}),
+    ...(humidityPercent !== undefined &&
+    humidityPercent >= 0 &&
+    humidityPercent <= 100
+      ? { humidityPercent }
+      : {}),
+    ...(aqi !== undefined && aqi >= 0 ? { aqi } : {}),
     ...(hourly !== undefined ? { hourly } : {}),
     ...(daily !== undefined ? { daily } : {}),
   };
@@ -660,6 +670,37 @@ export function OpenMeteoWidget({
     return "daily";
   }, [forecastMode, hasHourly, hasDaily]);
 
+  const successData =
+    state.status === "success" ? state.data : null;
+
+  const dayRange = useMemo(() => {
+    const today = successData?.daily?.[0];
+    if (today === undefined) {
+      return null;
+    }
+    const maxT = formatTemperatureC(today.temperatureMaxC);
+    const minT = formatTemperatureC(today.temperatureMinC);
+    if (maxT.value === "—" || minT.value === "—") {
+      return null;
+    }
+    return `${minT.value}–${maxT.value}°`;
+  }, [successData]);
+
+  const humidityText = useMemo(() => {
+    const h = successData?.humidityPercent;
+    if (h === undefined || !Number.isFinite(h) || h < 0 || h > 100) {
+      return null;
+    }
+    return `湿度 ${Math.round(h)}%`;
+  }, [successData]);
+
+  const aqiDisplay = useMemo(() => {
+    if (successData?.aqi === undefined) {
+      return null;
+    }
+    return chinaAqiInfo(successData.aqi);
+  }, [successData]);
+
   if (state.status === "loading") {
     return (
       <div
@@ -724,9 +765,29 @@ export function OpenMeteoWidget({
               {temperature.unit}
             </span>
           </p>
-          <p className="mt-2 text-sm font-medium text-foreground/85">
-            {condition}
-          </p>
+          {dayRange !== null ? (
+            <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
+              {dayRange}
+            </p>
+          ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-sm font-medium text-foreground/85">{condition}</p>
+            {humidityText !== null ? (
+              <span className="text-xs text-muted-foreground">
+                {humidityText}
+              </span>
+            ) : null}
+            {aqiDisplay !== null ? (
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  chinaAqiTextClass(aqiDisplay.level),
+                )}
+              >
+                AQI {aqiDisplay.value} {aqiDisplay.label}
+              </span>
+            ) : null}
+          </div>
         </div>
         <WeatherIcon
           aria-hidden="true"

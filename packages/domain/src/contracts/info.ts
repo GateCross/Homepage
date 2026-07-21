@@ -38,6 +38,13 @@ export const OpenMeteoInfoResponseSchema = z
     weatherCode: z.number().optional(),
     /** 地点名称（展示用） */
     location: z.string().min(1).optional(),
+    /** 相对湿度 0–100（百分比） */
+    humidityPercent: z.number().min(0).max(100).optional(),
+    /**
+     * 中国国标 AQI（HJ633）。
+     * 仅在数值可确认为国标口径时提供；不得用美标数字填充。
+     */
+    aqi: z.number().nonnegative().optional(),
     /** 未来逐小时（已截断，通常约 12–24 点） */
     hourly: z.array(WeatherHourlyItemSchema).optional(),
     /** 未来逐日（含今天，通常约 5–7 天） */

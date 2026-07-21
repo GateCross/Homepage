@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type JSX } from "react";
 
+import { nextStatutoryHolidayCountdown } from "@/lib/holidays";
 import { lunarFromDate } from "@/lib/lunar";
+import { currentSolarTerm } from "@/lib/solar-terms";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_TIMEZONE = "UTC" as const;
@@ -284,16 +286,66 @@ export function DateTimeWidget({
       }),
     [now, parsed.timezone],
   );
+
+  // 历法类信息只依赖本地日历日，避免每秒重算农历/节气/节日
+  const localDateKey = useMemo(() => {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: parsed.timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(now);
+      const map = new Map(parts.map((p) => [p.type, p.value]));
+      return `${map.get("year")}-${map.get("month")}-${map.get("day")}`;
+    } catch {
+      return now.toISOString().slice(0, 10);
+    }
+  }, [now, parsed.timezone]);
+
+  // 仅在本地日历日变化时重算（故意不把 now 列入依赖）
   const lunar = useMemo(
     () => lunarFromDate(now, parsed.timezone),
-    [now, parsed.timezone],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
+    [localDateKey, parsed.timezone],
+  );
+  const solarTerm = useMemo(
+    () => currentSolarTerm(now, parsed.timezone),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
+    [localDateKey, parsed.timezone],
+  );
+  const holidayCountdown = useMemo(
+    () => nextStatutoryHolidayCountdown(now, parsed.timezone),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
+    [localDateKey, parsed.timezone],
   );
   const label = parsed.label ?? "本地时间";
+
+  const lunarLine = useMemo(() => {
+    if (lunar === null && solarTerm === null) {
+      return null;
+    }
+    const parts: string[] = [];
+    if (lunar !== null) {
+      parts.push(`农历${lunar.text}`);
+      if (solarTerm !== null) {
+        parts.push(solarTerm.name);
+        parts.push(`${lunar.yearGanZhi}·${lunar.animal}`);
+      } else {
+        parts.push(lunar.yearText);
+      }
+    } else if (solarTerm !== null) {
+      parts.push(solarTerm.name);
+    }
+    return parts;
+  }, [lunar, solarTerm]);
 
   return (
     <div
       data-slot="datetime-widget"
       data-timezone={parsed.timezone}
+      data-solar-term={solarTerm?.name}
+      data-next-holiday={holidayCountdown?.holiday.id}
       className={cn(
         "relative flex h-full min-h-[8.75rem] flex-col justify-between p-4",
         className,
@@ -312,11 +364,16 @@ export function DateTimeWidget({
           <p className="text-xs leading-snug text-muted-foreground/90">
             {dateLine}
           </p>
-          {lunar !== null ? (
+          {lunarLine !== null ? (
             <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/75">
-              农历{lunar.text}
-              <span className="mx-1 text-muted-foreground/40">·</span>
-              {lunar.yearText}
+              {lunarLine.map((part, index) => (
+                <span key={`${part}-${index}`}>
+                  {index > 0 ? (
+                    <span className="mx-1 text-muted-foreground/40">·</span>
+                  ) : null}
+                  {part}
+                </span>
+              ))}
             </p>
           ) : null}
         </div>
@@ -339,7 +396,7 @@ export function DateTimeWidget({
       </time>
 
       <p className="relative mt-3 text-[11px] tracking-wide text-muted-foreground/80">
-        {parsed.timezone}
+        {holidayCountdown !== null ? holidayCountdown.label : " "}
       </p>
     </div>
   );

@@ -431,6 +431,43 @@ export function parseXiaomiDailyForecast(
   return items;
 }
 
+/** 相对湿度 0–100；非法则 undefined。 */
+export function parseHumidityPercent(node: unknown): number | undefined {
+  const raw = readUnitValue(node);
+  if (raw === null) {
+    return undefined;
+  }
+  if (raw < 0 || raw > 100) {
+    return undefined;
+  }
+  return raw;
+}
+
+/**
+ * 解析中国国标 AQI（HJ633）。
+ * 本 provider 仅走 weathercn 中国城市；根级 `aqi.aqi` 按国标整数读取。
+ * 拒绝非有限 / 负值 / >500 的异常数，避免把垃圾字段当 AQI。
+ */
+export function parseChinaAqi(rootAqi: unknown): number | undefined {
+  const node = asRecord(rootAqi);
+  if (node === null) {
+    return undefined;
+  }
+
+  const aqiRaw = node["aqi"];
+  let value: number | null = null;
+  if (typeof aqiRaw === "number" && Number.isFinite(aqiRaw)) {
+    value = aqiRaw;
+  } else if (typeof aqiRaw === "string") {
+    const n = Number(aqiRaw.trim());
+    value = Number.isFinite(n) ? n : null;
+  }
+  if (value === null || value < 0 || value > 500) {
+    return undefined;
+  }
+  return Math.round(value);
+}
+
 export function convertXiaomiWeatherPayload(
   payload: unknown,
   location: string,
@@ -463,6 +500,8 @@ export function convertXiaomiWeatherPayload(
   }
 
   const weatherCode = readWeatherCode(cur["weather"]);
+  const humidityPercent = parseHumidityPercent(cur["humidity"]);
+  const aqi = parseChinaAqi(root["aqi"]);
   const hourly = parseXiaomiHourlyForecast(root["forecastHourly"], nowMs);
   const daily = parseXiaomiDailyForecast(root["forecastDaily"]);
 
@@ -475,6 +514,8 @@ export function convertXiaomiWeatherPayload(
           conditionText: weatherCodeToConditionText(weatherCode),
         }
       : { conditionText: "未知" }),
+    ...(humidityPercent !== undefined ? { humidityPercent } : {}),
+    ...(aqi !== undefined ? { aqi } : {}),
     ...(hourly.length > 0 ? { hourly } : {}),
     ...(daily.length > 0 ? { daily } : {}),
   };
