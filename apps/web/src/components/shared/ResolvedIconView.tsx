@@ -66,6 +66,10 @@ export function IconImage({
   );
 }
 
+/** 服务/书签图标共用的磁贴底，统一尺寸与玻璃质感。 */
+const ICON_TILE_CLASS =
+  "inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/35 bg-gradient-to-br from-white/55 to-white/20 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_4px_12px_-6px_rgba(0,0,0,0.35)] ring-1 ring-black/5 backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-150 dark:border-white/12 dark:from-white/12 dark:to-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_6px_14px_-8px_rgba(0,0,0,0.55)] dark:ring-white/5";
+
 /** 无/坏 Icon 时的统一通用占位（书签与服务共用）。 */
 export function GenericIconPlaceholder({
   className,
@@ -76,15 +80,12 @@ export function GenericIconPlaceholder({
     <span
       aria-hidden="true"
       data-slot="generic-icon-placeholder"
-      className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground",
-        className,
-      )}
+      className={cn(ICON_TILE_CLASS, "text-muted-foreground/80", className)}
     >
       <svg
         viewBox="0 0 24 24"
-        width="16"
-        height="16"
+        width="18"
+        height="18"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.75"
@@ -146,7 +147,8 @@ export function ServiceIconView({
     <span
       data-slot="service-icon"
       className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background/80",
+        ICON_TILE_CLASS,
+        "group-hover:scale-[1.04] group-hover:border-white/50 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_8px_16px_-8px_rgba(0,0,0,0.4)] dark:group-hover:border-white/18",
         className,
       )}
       aria-hidden={name ? undefined : true}
@@ -154,7 +156,7 @@ export function ServiceIconView({
       <IconImage
         icon={display.icon}
         alt=""
-        className="size-5"
+        className="size-[1.35rem]"
         onFailed={() => setFailed(true)}
       />
     </span>
@@ -188,7 +190,8 @@ export function BookmarkIconView({
       <span
         data-slot="bookmark-icon"
         className={cn(
-          "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background/80",
+          ICON_TILE_CLASS,
+          "group-hover:scale-[1.04] group-hover:border-white/50 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_8px_16px_-8px_rgba(0,0,0,0.4)] dark:group-hover:border-white/18",
           className,
         )}
         aria-hidden="true"
@@ -196,7 +199,7 @@ export function BookmarkIconView({
         <IconImage
           icon={display.icon}
           alt=""
-          className="size-5"
+          className="size-[1.35rem]"
           onFailed={() => setFailed(true)}
         />
       </span>

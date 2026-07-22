@@ -22,6 +22,24 @@ export type ServiceSectionsProps = {
   className?: string;
 };
 
+/** 按分组名哈希选 inset 轻色 wash（伪元素），稳定且不覆盖外阴影。 */
+const GROUP_ACCENT_CLASSES = [
+  "before:bg-sky-400/12 dark:before:bg-sky-300/10",
+  "before:bg-violet-400/12 dark:before:bg-violet-300/10",
+  "before:bg-emerald-400/12 dark:before:bg-emerald-300/10",
+  "before:bg-amber-400/12 dark:before:bg-amber-300/10",
+  "before:bg-rose-400/10 dark:before:bg-rose-300/8",
+  "before:bg-cyan-400/12 dark:before:bg-cyan-300/10",
+] as const;
+
+function groupAccentClass(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return GROUP_ACCENT_CLASSES[hash % GROUP_ACCENT_CLASSES.length]!;
+}
+
 function isServiceError(
   item: ServiceGroupItem,
 ): item is Extract<ServiceGroupItem, { kind: "error" }> {
@@ -58,16 +76,19 @@ export function ServiceSections({
     );
   }
 
+  let riseIndex = 0;
+
   return (
     <section
       aria-label={messages.layout.servicesSection}
       data-slot="service-sections"
       data-equal-heights={useEqualHeights ? "true" : "false"}
-      className={cn("flex w-full flex-col gap-6", className)}
+      className={cn("flex w-full flex-col gap-7", className)}
     >
       {groups.map((group) => {
         const maxColumns =
           layout[group.name]?.maxColumns ?? ADAPTIVE_GRID_UNBOUNDED_MAX_COLUMNS;
+        const accent = groupAccentClass(group.name);
         return (
           <CollapsibleGroup
             key={group.name}
@@ -103,9 +124,16 @@ export function ServiceSections({
                       </li>
                     );
                   }
+                  const delay = Math.min(riseIndex, 24) * 28;
+                  riseIndex += 1;
                   return (
                     <li key={item.id} className="min-h-0 list-none">
-                      <ServiceCard service={item} className="h-full" />
+                      <ServiceCard
+                        service={item}
+                        className="h-full"
+                        accentClass={accent}
+                        riseDelayMs={delay}
+                      />
                     </li>
                   );
                 })}

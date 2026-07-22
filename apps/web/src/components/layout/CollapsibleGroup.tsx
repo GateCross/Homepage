@@ -60,7 +60,7 @@ export function CollapsibleGroup({
         : {})}
       className={cn("min-w-0", className)}
     >
-      <h2 className="mb-2.5">
+      <h2 className="mb-3">
         <button
           type="button"
           aria-expanded={!collapsed}
@@ -72,36 +72,36 @@ export function CollapsibleGroup({
           }
           onClick={handleToggle}
           className={cn(
-            "group/title -ml-1.5 inline-flex max-w-full items-center gap-2 rounded-lg px-1.5 py-1",
+            "group/title -ml-1.5 inline-flex max-w-full items-center gap-2 rounded-xl px-2 py-1",
             "text-left transition-colors duration-150",
-            "hover:bg-white/10 dark:hover:bg-white/5",
-            "active:bg-white/15 dark:active:bg-white/8",
+            "hover:bg-white/12 dark:hover:bg-white/6",
+            "active:bg-white/16 dark:active:bg-white/10",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
           )}
         >
           <span
             aria-hidden="true"
-            className="inline-flex size-3.5 shrink-0 items-center justify-center text-foreground/75 transition-transform duration-200 ease-out will-change-transform [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] group-hover/title:text-foreground"
+            className="inline-flex size-4 shrink-0 items-center justify-center text-foreground/70 transition-transform duration-200 ease-out will-change-transform [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] group-hover/title:text-foreground"
             style={{
               transform: collapsed ? "rotate(0deg)" : "rotate(90deg)",
             }}
           >
-            <ChevronRight className="size-3.5" strokeWidth={2.5} />
+            <ChevronRight className="size-4" strokeWidth={2.4} />
           </span>
           <span
             aria-hidden="true"
-            className="h-3.5 w-0.5 shrink-0 rounded-full bg-primary/80"
+            className="h-4 w-1 shrink-0 rounded-full bg-gradient-to-b from-primary to-primary/55 shadow-[0_0_8px_rgba(56,140,220,0.35)]"
           />
           <span
             aria-hidden="true"
-            className="min-w-0 truncate text-sm font-semibold tracking-tight text-foreground [text-shadow:0_1px_2px_rgba(0,0,0,0.28)]"
+            className="min-w-0 truncate text-[0.95rem] font-semibold tracking-tight text-foreground [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] sm:text-base"
           >
             {name}
           </span>
           {typeof count === "number" ? (
             <span
               aria-hidden="true"
-              className="shrink-0 rounded-md bg-black/15 px-1.5 py-px text-[11px] font-semibold tabular-nums leading-4 text-foreground/85 [text-shadow:0_1px_1px_rgba(0,0,0,0.18)] group-hover/title:bg-black/20 group-hover/title:text-foreground dark:bg-white/15 dark:group-hover/title:bg-white/20"
+              className="shrink-0 rounded-full border border-white/15 bg-black/12 px-2 py-0.5 text-[11px] font-semibold tabular-nums leading-none text-foreground/80 backdrop-blur-sm [text-shadow:0_1px_1px_rgba(0,0,0,0.18)] group-hover/title:border-white/25 group-hover/title:bg-black/18 group-hover/title:text-foreground dark:border-white/12 dark:bg-white/10 dark:group-hover/title:bg-white/16"
             >
               {count}
             </span>

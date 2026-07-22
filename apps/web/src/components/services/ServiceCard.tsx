@@ -1,4 +1,4 @@
-import type { KeyboardEvent, JSX } from "react";
+import type { CSSProperties, KeyboardEvent, JSX } from "react";
 
 import type { NormalizedService } from "@homepage/domain";
 
@@ -13,11 +13,17 @@ import { cn } from "@/lib/utils";
 export type ServiceCardProps = {
   service: NormalizedService;
   className?: string;
+  /** 分组轻色点缀，叠加在玻璃底上 */
+  accentClass?: string;
+  /** 入场 stagger 延迟（ms） */
+  riseDelayMs?: number;
 };
 
 export function ServiceCard({
   service,
   className,
+  accentClass,
+  riseDelayMs,
 }: ServiceCardProps): JSX.Element {
   const link = resolveSafeHref(service.href, service.target);
   const isNavigable = link.ok;
@@ -39,11 +45,11 @@ export function ServiceCard({
 
   const body = (
     <>
-      <div className="flex items-start gap-2.5">
+      <div className="relative z-[1] flex items-start gap-3">
         <ServiceIconView icon={service.icon} name={service.name} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-foreground">
+            <h3 className="min-w-0 truncate text-[0.9rem] font-semibold leading-snug tracking-tight text-foreground">
               {service.name}
             </h3>
             {showTopStatus ? (
@@ -75,7 +81,7 @@ export function ServiceCard({
 
       {hasBottomStatus ? (
         <div
-          className="mt-1.5 flex flex-col gap-1 empty:hidden"
+          className="relative z-[1] mt-1.5 flex flex-col gap-1 empty:hidden"
           // 避免点到底部状态/组件区时触发整卡外链跳转
           onClick={(e) => e.preventDefault()}
         >
@@ -106,12 +112,22 @@ export function ServiceCard({
   );
 
   const shellClass = cn(
-    "group flex h-full min-h-0 flex-col rounded-xl border border-white/25 bg-card/45 p-3 text-left shadow-[0_8px_24px_-12px_rgba(0,0,0,0.35)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-150 dark:border-white/10 dark:bg-card/55",
+    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/25 bg-card/45 p-3 text-left shadow-[0_10px_28px_-14px_rgba(0,0,0,0.4)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/55",
+    accentClass &&
+      "before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:content-['']",
+    accentClass,
     isNavigable &&
-      "cursor-pointer hover:-translate-y-0.5 hover:border-white/40 hover:bg-card/62 hover:shadow-[0_14px_28px_-14px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card/70",
+      "cursor-pointer hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card/68 hover:shadow-[0_16px_32px_-14px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/40 dark:hover:bg-card/72",
     !isNavigable && "cursor-default",
     className,
   );
+
+  const riseStyle: CSSProperties | undefined =
+    riseDelayMs !== undefined
+      ? ({
+          ["--homepage-rise-delay"]: `${riseDelayMs}ms`,
+        } as CSSProperties)
+      : undefined;
 
   if (isNavigable) {
     return (
@@ -122,6 +138,7 @@ export function ServiceCard({
         data-service-id={service.id}
         data-navigable="true"
         className={shellClass}
+        style={riseStyle}
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
@@ -136,6 +153,7 @@ export function ServiceCard({
       data-service-id={service.id}
       data-navigable="false"
       className={shellClass}
+      style={riseStyle}
     >
       {body}
     </div>

@@ -141,3 +141,31 @@
     color: var(--popover-foreground);
   }
 }
+
+/*
+ * 仪表盘入场：轻微上浮淡入。尊重 prefers-reduced-motion。
+ * --homepage-rise-delay 由调用方按索引写入，形成 stagger。
+ */
+@keyframes homepage-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .homepage-rise {
+    animation: homepage-rise 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--homepage-rise-delay, 0ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .homepage-rise {
+      animation: none;
+    }
+  }
+}

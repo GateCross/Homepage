@@ -54,11 +54,13 @@ export function BookmarkSections({
     );
   }
 
+  let riseIndex = 0;
+
   return (
     <section
       aria-label={messages.layout.bookmarksSection}
       data-slot="bookmark-sections"
-      className={cn("flex w-full flex-col gap-6", className)}
+      className={cn("flex w-full flex-col gap-7", className)}
     >
       {groups.map((group) => (
         <CollapsibleGroup
@@ -89,9 +91,11 @@ export function BookmarkSections({
                     </li>
                   );
                 }
+                const delay = Math.min(riseIndex, 20) * 24;
+                riseIndex += 1;
                 return (
                   <li key={item.id} className="list-none">
-                    <BookmarkItem bookmark={item} />
+                    <BookmarkItem bookmark={item} riseDelayMs={delay} />
                   </li>
                 );
               })}

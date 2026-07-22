@@ -39,14 +39,15 @@ export function Header({
     <header
       data-slot="dashboard-header"
       className={cn(
-        "sticky top-0 z-40 border-b border-white/15 bg-background/35 backdrop-blur-xl supports-[backdrop-filter]:bg-background/25 dark:border-white/10",
+        // sticky 顶栏：整条毛玻璃贴顶，不再留可透出下层内容的空隙
+        "sticky top-0 z-40 border-b border-white/15 bg-background/65 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/50 dark:border-white/10 dark:bg-background/60 dark:supports-[backdrop-filter]:bg-background/45",
         className,
       )}
     >
       <div
         className={cn(
           DASHBOARD_SHELL_CLASS,
-          "flex items-center justify-between gap-4 py-3 sm:py-3.5",
+          "flex items-center justify-between gap-4 py-2.5 sm:py-3",
         )}
       >
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -57,7 +58,7 @@ export function Header({
               width={28}
               height={28}
               decoding="async"
-              className="h-7 w-7 min-w-7 shrink-0 rounded-md object-contain shadow-sm ring-1 ring-white/25 dark:ring-white/15"
+              className="h-7 w-7 min-w-7 shrink-0 rounded-lg object-contain shadow-sm ring-1 ring-white/30 dark:ring-white/15"
               onError={() => setIconFailed(true)}
             />
           ) : null}

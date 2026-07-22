@@ -1,5 +1,5 @@
 import type { InfoWidgetConfig } from "@homepage/domain";
-import type { JSX } from "react";
+import type { CSSProperties, JSX } from "react";
 
 import {
   EmptyStatus,
@@ -39,6 +39,20 @@ function renderWidget(widget: InfoWidgetConfig): JSX.Element {
   }
 }
 
+/** 信息卡顶边色，帮助三块玻璃在视觉上拉开类型。 */
+function infoAccentClass(type: InfoWidgetConfig["type"]): string {
+  switch (type) {
+    case "datetime":
+      return "before:bg-sky-400/75 dark:before:bg-sky-300/55";
+    case "openmeteo":
+      return "before:bg-amber-400/75 dark:before:bg-amber-300/50";
+    case "resources":
+      return "before:bg-emerald-400/75 dark:before:bg-emerald-300/50";
+    default:
+      return "before:bg-primary/55";
+  }
+}
+
 export function InfoSection({
   widgets,
   className,
@@ -62,12 +76,21 @@ export function InfoSection({
       className={cn("w-full", className)}
     >
       <div className="grid gap-3 md:grid-cols-3">
-        {widgets.map((widget) => (
+        {widgets.map((widget, index) => (
           <div
             key={widget.infoId}
             data-info-id={widget.infoId}
             data-info-type={widget.type}
-            className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/20 bg-card/48 text-card-foreground shadow-[0_12px_32px_-18px_rgba(0,0,0,0.45)] backdrop-blur-xl dark:border-white/10 dark:bg-card/60"
+            className={cn(
+              "homepage-rise relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/20 bg-card/48 text-card-foreground shadow-[0_14px_36px_-18px_rgba(0,0,0,0.48)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/60",
+              "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[2.5px] before:content-['']",
+              infoAccentClass(widget.type),
+            )}
+            style={
+              {
+                ["--homepage-rise-delay"]: `${index * 60}ms`,
+              } as CSSProperties
+            }
           >
             {renderWidget(widget)}
           </div>

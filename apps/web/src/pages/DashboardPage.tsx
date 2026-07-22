@@ -320,7 +320,7 @@ export function DashboardPage(): JSX.Element {
           <main
             className={cn(
               DASHBOARD_SHELL_CLASS,
-              "flex flex-1 flex-col gap-8 py-5 sm:gap-9 sm:py-7",
+              "flex flex-1 flex-col gap-8 py-4 sm:gap-9 sm:py-6",
             )}
           >
             <SectionErrorBoundary
