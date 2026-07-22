@@ -587,7 +587,8 @@ function ServiceItemForm({
             placeholder="可选"
             onChange={(e) =>
               patch({
-                description: e.target.value || undefined,
+                // 空串表示清除；undefined 会在 merge 时保留磁盘原值
+                description: e.target.value,
               })
             }
           />
@@ -603,7 +604,8 @@ function ServiceItemForm({
           siteIconSourceUrl={value.href ?? ""}
           onChange={(next) =>
             patch({
-              icon: next?.trim() || undefined,
+              // 空串清除；undefined 会在 merge 时保留磁盘原值
+              icon: next.trim(),
             })
           }
         />

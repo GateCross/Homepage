@@ -420,8 +420,8 @@ function mergeServiceItem(
   }
 
   if (editable.description !== undefined) {
-    if (editable.description.length > 0) {
-      base["description"] = editable.description;
+    if (editable.description.trim().length > 0) {
+      base["description"] = editable.description.trim();
     } else {
       delete base["description"];
     }
@@ -574,8 +574,11 @@ function mergeBookmarks(
         else delete base["abbr"];
       }
       if (item.description !== undefined) {
-        if (item.description.length > 0) base["description"] = item.description;
-        else delete base["description"];
+        if (item.description.trim().length > 0) {
+          base["description"] = item.description.trim();
+        } else {
+          delete base["description"];
+        }
       }
       items.push(base);
     }

@@ -143,7 +143,8 @@ function BookmarkItemForm({
           siteIconSourceUrl={value.href}
           onChange={(next) =>
             patch({
-              icon: next?.trim() || undefined,
+              // 空串清除；undefined 会在 merge 时保留磁盘原值
+              icon: next.trim(),
             })
           }
         />
@@ -154,7 +155,8 @@ function BookmarkItemForm({
             disabled={disabled}
             onChange={(e) =>
               patch({
-                abbr: e.target.value.trim() || undefined,
+                // 空串清除；undefined 会在 merge 时保留磁盘原值
+                abbr: e.target.value,
               })
             }
           />
@@ -169,7 +171,8 @@ function BookmarkItemForm({
             disabled={disabled}
             onChange={(e) =>
               patch({
-                description: e.target.value || undefined,
+                // 空串表示清除；undefined 会在 merge 时保留磁盘原值
+                description: e.target.value,
               })
             }
           />

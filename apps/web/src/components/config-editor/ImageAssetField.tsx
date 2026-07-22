@@ -38,7 +38,8 @@ export type ImageAssetFieldProps = {
   id?: string;
   label: string;
   value: string;
-  onChange: (next: string | undefined) => void;
+  /** 空串表示清除；勿用 undefined（merge 会保留磁盘原值） */
+  onChange: (next: string) => void;
   disabled?: boolean;
   placeholder?: string;
   hint?: string;
@@ -112,11 +113,8 @@ export function ImageAssetField({
     setError(null);
     setPreviewFailed(false);
     const v = e.target.value;
-    if (v.trim().length === 0) {
-      onChange(undefined);
-    } else {
-      onChange(v);
-    }
+    // 空串表示清除；undefined 会在 merge 时保留磁盘原值
+    onChange(v.trim().length === 0 ? "" : v);
   };
 
   const handlePickClick = (): void => {
@@ -326,7 +324,7 @@ export function ImageAssetField({
                       onClick={() => {
                         setError(null);
                         setPreviewFailed(false);
-                        onChange(undefined);
+                        onChange("");
                       }}
                     >
                       <Trash2 className="size-3.5" aria-hidden="true" />

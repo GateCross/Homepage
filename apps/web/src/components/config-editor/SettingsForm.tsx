@@ -44,13 +44,8 @@ export function SettingsForm({
         preview="background"
         placeholder="可选，绝对 http(s) 或 /images/... 路径"
         onChange={(next) => {
-          if (next === undefined) {
-            const { background: _b, ...rest } = value;
-            void _b;
-            onChange(rest);
-          } else {
-            onChange({ ...value, background: next });
-          }
+          // 空串清除；与 merge 语义一致
+          onChange({ ...value, background: next });
         }}
       />
 
@@ -63,13 +58,7 @@ export function SettingsForm({
         placeholder="可选，绝对 http(s) 或 /images/... 路径"
         hint="用于浏览器标签页与首页标题旁"
         onChange={(next) => {
-          if (next === undefined) {
-            const { favicon: _f, ...rest } = value;
-            void _f;
-            onChange(rest);
-          } else {
-            onChange({ ...value, favicon: next });
-          }
+          onChange({ ...value, favicon: next });
         }}
       />
 
