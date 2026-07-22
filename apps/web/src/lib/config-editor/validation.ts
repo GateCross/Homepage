@@ -287,6 +287,7 @@ export function editableViewToDefaultWrite(
             ...(item.description !== undefined
               ? { description: item.description }
               : {}),
+            ...(item.hidden !== undefined ? { hidden: item.hidden } : {}),
             ...(item.httpProbe !== undefined
               ? { httpProbe: { ...item.httpProbe } }
               : {}),
@@ -326,6 +327,21 @@ export function editableViewToDefaultWrite(
               : {}),
             ...(item.widget.mappings !== undefined
               ? { mappings: item.widget.mappings.map((m) => ({ ...m })) }
+              : {}),
+            ...(item.widget.enableBlocks !== undefined
+              ? { enableBlocks: item.widget.enableBlocks }
+              : {}),
+            ...(item.widget.enableNowPlaying !== undefined
+              ? { enableNowPlaying: item.widget.enableNowPlaying }
+              : {}),
+            ...(item.widget.enableUser !== undefined
+              ? { enableUser: item.widget.enableUser }
+              : {}),
+            ...(item.widget.showEpisodeNumber !== undefined
+              ? { showEpisodeNumber: item.widget.showEpisodeNumber }
+              : {}),
+            ...(item.widget.fields !== undefined
+              ? { fields: [...item.widget.fields] }
               : {}),
           };
         }

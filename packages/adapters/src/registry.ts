@@ -3,6 +3,7 @@ import type { ServiceWidgetResult, ServiceWidgetType } from "@homepage/domain";
 import { customApiAdapter } from "./customapi.js";
 import { embyAdapter } from "./emby.js";
 import { qbittorrentAdapter } from "./qbittorrent.js";
+import { transmissionAdapter } from "./transmission.js";
 import type {
   AdapterRunInput,
   RunServiceWidgetInput,
@@ -16,6 +17,7 @@ import {
 
 const serviceAdapters = new Map<string, ServiceWidgetAdapter>([
   [qbittorrentAdapter.type, qbittorrentAdapter],
+  [transmissionAdapter.type, transmissionAdapter],
   [embyAdapter.type, embyAdapter],
   [customApiAdapter.type, customApiAdapter],
 ]);
@@ -35,6 +37,7 @@ export function getServiceWidgetAdapter(
 export function listRegisteredServiceWidgetTypes(): ServiceWidgetType[] {
   return [
     qbittorrentAdapter.type,
+    transmissionAdapter.type,
     embyAdapter.type,
     customApiAdapter.type,
   ].filter((type) => serviceAdapters.has(type));

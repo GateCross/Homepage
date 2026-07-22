@@ -123,6 +123,405 @@ function itemHasErrors(
   return Object.keys(errors).some((k) => k.startsWith(prefix));
 }
 
+const EMBY_FIELD_OPTIONS = [
+  { id: "movies", label: "电影" },
+  { id: "series", label: "剧集" },
+  { id: "episodes", label: "集数" },
+  { id: "songs", label: "歌曲" },
+] as const;
+
+const CUSTOM_API_FORMAT_OPTIONS = [
+  "number",
+  "percent",
+  "bytes",
+  "duration",
+  "text",
+] as const;
+
+type WidgetWrite = NonNullable<EditableServiceItemWrite["widget"]>;
+
+function OptionSwitchRow({
+  label,
+  description,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean | undefined;
+  onCheckedChange: (checked: boolean) => void;
+}): JSX.Element {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+      <div className="space-y-0.5 pr-3">
+        <Label>{label}</Label>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
+  );
+}
+
+function EmbyWidgetOptionsForm({
+  widget,
+  disabled,
+  onChange,
+}: {
+  widget: WidgetWrite;
+  disabled?: boolean | undefined;
+  onChange: (next: WidgetWrite) => void;
+}): JSX.Element {
+  const fields = widget.fields ?? [];
+  // 空 fields = 全部展示；有值则按白名单过滤
+  const allSelected = fields.length === 0;
+
+  const toggleField = (id: string, on: boolean): void => {
+    if (allSelected) {
+      // 从「全部」切到显式列表：保留其余项，去掉当前关闭项
+      const next = EMBY_FIELD_OPTIONS.map((f) => f.id).filter(
+        (fid) => (fid === id ? on : true),
+      );
+      onChange({
+        ...widget,
+        fields: next.length === EMBY_FIELD_OPTIONS.length ? undefined : next,
+      });
+      return;
+    }
+    const set = new Set(fields);
+    if (on) set.add(id);
+    else set.delete(id);
+    const next = EMBY_FIELD_OPTIONS.map((f) => f.id).filter((fid) =>
+      set.has(fid),
+    );
+    onChange({
+      ...widget,
+      fields: next.length === 0 || next.length === EMBY_FIELD_OPTIONS.length
+        ? undefined
+        : next,
+    });
+  };
+
+  return (
+    <div className="space-y-3 border-t border-border/50 pt-3">
+      <p className="text-xs font-medium text-muted-foreground">Emby 展示选项</p>
+      <OptionSwitchRow
+        label="媒体库数量"
+        description="显示电影 / 剧集 / 集数 / 歌曲数量"
+        checked={widget.enableBlocks === true}
+        disabled={disabled}
+        onCheckedChange={(checked) =>
+          onChange({ ...widget, enableBlocks: checked })
+        }
+      />
+      {widget.enableBlocks === true ? (
+        <div className="space-y-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
+          <Label>数量字段</Label>
+          <p className="text-xs text-muted-foreground">
+            不勾选任何项时显示全部字段
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {EMBY_FIELD_OPTIONS.map((opt) => {
+              const checked = allSelected || fields.includes(opt.id);
+              return (
+                <label
+                  key={opt.id}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-3.5 rounded border-border"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={(e) => toggleField(opt.id, e.target.checked)}
+                  />
+                  {opt.label}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      <OptionSwitchRow
+        label="正在播放"
+        description="显示当前播放会话与数量"
+        checked={widget.enableNowPlaying !== false}
+        disabled={disabled}
+        onCheckedChange={(checked) =>
+          onChange({ ...widget, enableNowPlaying: checked })
+        }
+      />
+      <OptionSwitchRow
+        label="显示用户"
+        description="会话行展示播放用户名"
+        checked={widget.enableUser === true}
+        disabled={disabled || widget.enableNowPlaying === false}
+        onCheckedChange={(checked) =>
+          onChange({ ...widget, enableUser: checked })
+        }
+      />
+      <OptionSwitchRow
+        label="显示季集号"
+        description="剧集会话附加 Sxx · Exx"
+        checked={widget.showEpisodeNumber === true}
+        disabled={disabled || widget.enableNowPlaying === false}
+        onCheckedChange={(checked) =>
+          onChange({ ...widget, showEpisodeNumber: checked })
+        }
+      />
+    </div>
+  );
+}
+
+function CustomApiWidgetOptionsForm({
+  widget,
+  disabled,
+  onChange,
+}: {
+  widget: WidgetWrite;
+  disabled?: boolean | undefined;
+  onChange: (next: WidgetWrite) => void;
+}): JSX.Element {
+  const headers = widget.headers ?? [];
+  const mappings = widget.mappings ?? [];
+
+  const updateHeader = (
+    index: number,
+    patch: Partial<(typeof headers)[number]>,
+  ): void => {
+    const next = headers.map((h, i) => (i === index ? { ...h, ...patch } : h));
+    onChange({ ...widget, headers: next });
+  };
+
+  const removeHeader = (index: number): void => {
+    const next = headers.filter((_, i) => i !== index);
+    onChange({
+      ...widget,
+      headers: next.length > 0 ? next : undefined,
+    });
+  };
+
+  const addHeader = (): void => {
+    onChange({
+      ...widget,
+      headers: [...headers, { name: "", value: { mode: "set", value: "" } }],
+    });
+  };
+
+  const updateMapping = (
+    index: number,
+    patch: Partial<(typeof mappings)[number]>,
+  ): void => {
+    const next = mappings.map((m, i) => (i === index ? { ...m, ...patch } : m));
+    onChange({ ...widget, mappings: next });
+  };
+
+  const removeMapping = (index: number): void => {
+    const next = mappings.filter((_, i) => i !== index);
+    onChange({
+      ...widget,
+      mappings: next.length > 0 ? next : undefined,
+    });
+  };
+
+  const addMapping = (): void => {
+    onChange({
+      ...widget,
+      mappings: [
+        ...mappings,
+        { label: "", field: "", path: "", format: "number" },
+      ],
+    });
+  };
+
+  return (
+    <div className="space-y-3 border-t border-border/50 pt-3">
+      <p className="text-xs font-medium text-muted-foreground">
+        Custom API 选项
+      </p>
+      <div className="space-y-1.5">
+        <Label>请求方法</Label>
+        <Select
+          value={widget.method ?? "GET"}
+          disabled={disabled}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({
+              ...widget,
+              method: v === "GET" ? "GET" : undefined,
+            });
+          }}
+        >
+          <option value="GET">GET</option>
+        </Select>
+        <p className="text-xs text-muted-foreground">当前仅支持 GET</p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>请求头</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={addHeader}
+          >
+            添加
+          </Button>
+        </div>
+        {headers.length === 0 ? (
+          <p className="text-xs text-muted-foreground">无自定义请求头</p>
+        ) : (
+          <div className="space-y-2">
+            {headers.map((h, index) => (
+              <div
+                key={`header-${index}`}
+                className="grid gap-2 rounded-lg border border-border/50 bg-muted/10 p-2 sm:grid-cols-[1fr_1fr_auto]"
+              >
+                <div className="space-y-1">
+                  <Label className="text-xs">名称</Label>
+                  <Input
+                    value={h.name}
+                    disabled={disabled}
+                    placeholder="Authorization"
+                    onChange={(e) =>
+                      updateHeader(index, { name: e.target.value })
+                    }
+                  />
+                </div>
+                <SecretFieldInput
+                  label="值"
+                  value={h.value}
+                  disabled={disabled}
+                  onChange={(next) => updateHeader(index, { value: next })}
+                />
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => removeHeader(index)}
+                  >
+                    删除
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>字段映射</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={addMapping}
+          >
+            添加
+          </Button>
+        </div>
+        {mappings.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            未配置映射时组件无指标
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {mappings.map((m, index) => (
+              <div
+                key={`mapping-${index}`}
+                className="space-y-2 rounded-lg border border-border/50 bg-muted/10 p-2"
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">标签</Label>
+                    <Input
+                      value={m.label ?? ""}
+                      disabled={disabled}
+                      placeholder="温度"
+                      onChange={(e) =>
+                        updateMapping(index, {
+                          label: e.target.value || undefined,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">字段 ID</Label>
+                    <Input
+                      value={m.field ?? m.id ?? ""}
+                      disabled={disabled}
+                      placeholder="temp"
+                      onChange={(e) =>
+                        updateMapping(index, {
+                          field: e.target.value || undefined,
+                          id: e.target.value || undefined,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">JSON 路径</Label>
+                    <Input
+                      value={m.path ?? ""}
+                      disabled={disabled}
+                      placeholder="data.temp"
+                      onChange={(e) =>
+                        updateMapping(index, {
+                          path: e.target.value || undefined,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">格式</Label>
+                    <Select
+                      value={m.format ?? "number"}
+                      disabled={disabled}
+                      onChange={(e) =>
+                        updateMapping(index, {
+                          format: e.target.value || undefined,
+                        })
+                      }
+                    >
+                      {CUSTOM_API_FORMAT_OPTIONS.map((fmt) => (
+                        <option key={fmt} value={fmt}>
+                          {fmt}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => removeMapping(index)}
+                  >
+                    删除映射
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ServiceItemForm({
   value,
   onChange,
@@ -403,6 +802,7 @@ function ServiceItemForm({
                   }
                 >
                   <option value="qbittorrent">qbittorrent</option>
+                  <option value="transmission">transmission</option>
                   <option value="emby">emby</option>
                   <option value="customapi">customapi</option>
                 </Select>
@@ -424,6 +824,7 @@ function ServiceItemForm({
               </div>
             </div>
             {(value.widget.type === "qbittorrent" ||
+              value.widget.type === "transmission" ||
               value.widget.type === "customapi") && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <SecretFieldInput
@@ -488,6 +889,20 @@ function ServiceItemForm({
                 }}
               />
             )}
+            {value.widget.type === "emby" ? (
+              <EmbyWidgetOptionsForm
+                widget={value.widget}
+                disabled={disabled}
+                onChange={(next) => patch({ widget: next })}
+              />
+            ) : null}
+            {value.widget.type === "customapi" ? (
+              <CustomApiWidgetOptionsForm
+                widget={value.widget}
+                disabled={disabled}
+                onChange={(next) => patch({ widget: next })}
+              />
+            ) : null}
           </div>
         ) : null}
       </section>

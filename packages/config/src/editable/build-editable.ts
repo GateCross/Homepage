@@ -322,6 +322,29 @@ function buildWidgetView(
     if (mappings.length > 0) widget.mappings = mappings;
   }
 
+  // Emby 展示选项（与 normalize-widget options 对齐，供编辑器往返）
+  if (typeof raw["enableBlocks"] === "boolean") {
+    widget.enableBlocks = raw["enableBlocks"];
+  }
+  if (typeof raw["enableNowPlaying"] === "boolean") {
+    widget.enableNowPlaying = raw["enableNowPlaying"];
+  }
+  if (typeof raw["enableUser"] === "boolean") {
+    widget.enableUser = raw["enableUser"];
+  }
+  if (typeof raw["showEpisodeNumber"] === "boolean") {
+    widget.showEpisodeNumber = raw["showEpisodeNumber"];
+  }
+  if (Array.isArray(raw["fields"])) {
+    const fields = raw["fields"]
+      .filter((f): f is string => typeof f === "string")
+      .map((f) => f.trim().toLowerCase())
+      .filter((f) => f.length > 0);
+    if (fields.length > 0) {
+      widget.fields = fields;
+    }
+  }
+
   return widget;
 }
 

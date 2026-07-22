@@ -3,6 +3,7 @@ import { MetricSchema } from "./common.js";
 
 export const ServiceWidgetTypeSchema = z.enum([
   "qbittorrent",
+  "transmission",
   "emby",
   "customapi",
 ]);
@@ -14,6 +15,8 @@ export const EmbySessionSummarySchema = z.object({
   title: z.string().min(1),
   user: z.string().min(1).optional(),
   episode: z.string().min(1).optional(),
+  /** 播放进度 0–100 */
+  progress: z.number().min(0).max(100).optional(),
 });
 
 export type EmbySessionSummary = z.infer<typeof EmbySessionSummarySchema>;

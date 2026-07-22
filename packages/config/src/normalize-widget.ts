@@ -12,6 +12,7 @@ import type { AllowList, ResolvedSecrets, WidgetTarget } from "./allowlist.js";
 
 export const SUPPORTED_SERVICE_WIDGET_TYPES = [
   "qbittorrent",
+  "transmission",
   "emby",
   "customapi",
 ] as const satisfies readonly ServiceWidgetType[];
@@ -272,7 +273,7 @@ function buildTypePayload(
 ):
   | { ok: true; secrets: ResolvedSecrets; options: Record<string, unknown> }
   | { ok: false; message: string } {
-  if (type === "qbittorrent") {
+  if (type === "qbittorrent" || type === "transmission") {
     const secretsResult = resolveSecretFields(raw, env, [
       "username",
       "password",
@@ -331,7 +332,28 @@ function buildTypePayload(
       }
     }
 
-    return { ok: true, secrets, options: {} };
+    // 展示开关仅进 options（不进浏览器视图）
+    const options: Record<string, unknown> = {};
+    for (const key of [
+      "enableBlocks",
+      "enableNowPlaying",
+      "enableUser",
+      "showEpisodeNumber",
+    ] as const) {
+      if (typeof raw[key] === "boolean") {
+        options[key] = raw[key];
+      }
+    }
+    if (Array.isArray(raw["fields"])) {
+      const fields = raw["fields"].filter(
+        (f): f is string => typeof f === "string" && f.trim().length > 0,
+      );
+      if (fields.length > 0) {
+        options["fields"] = fields.map((f) => f.trim().toLowerCase());
+      }
+    }
+
+    return { ok: true, secrets, options };
   }
 
   // customapi

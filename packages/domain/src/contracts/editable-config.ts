@@ -74,6 +74,16 @@ export const EditableServiceWidgetViewSchema = z.object({
     )
     .optional(),
   mappings: z.array(EditableMappingSchema).optional(),
+  /** Emby：媒体库数量块 */
+  enableBlocks: z.boolean().optional(),
+  /** Emby：正在播放 */
+  enableNowPlaying: z.boolean().optional(),
+  /** Emby：会话显示用户名 */
+  enableUser: z.boolean().optional(),
+  /** Emby：会话显示季集号 */
+  showEpisodeNumber: z.boolean().optional(),
+  /** Emby：限制媒体数量字段（movies/series/episodes/songs） */
+  fields: z.array(z.string()).optional(),
 });
 
 export type EditableServiceWidgetView = z.infer<
@@ -99,6 +109,11 @@ export const EditableServiceWidgetWriteSchema = z.object({
     )
     .optional(),
   mappings: z.array(EditableMappingSchema).optional(),
+  enableBlocks: z.boolean().optional(),
+  enableNowPlaying: z.boolean().optional(),
+  enableUser: z.boolean().optional(),
+  showEpisodeNumber: z.boolean().optional(),
+  fields: z.array(z.string()).optional(),
 });
 
 export type EditableServiceWidgetWrite = z.infer<

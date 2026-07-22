@@ -26,8 +26,15 @@ import {
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
+/** qB / Transmission 等下载客户端：定时静默刷新 */
+export const TORRENT_WIDGET_POLL_INTERVAL_MS = 15_000;
+
+const TORRENT_WIDGET_TYPES = new Set(["qbittorrent", "transmission"]);
+
 export type WidgetSlotProps = {
   widgetId?: string | undefined;
+  /** 组件类型，用于决定是否轮询（qbittorrent / transmission） */
+  widgetType?: string | undefined;
   unsupported?: boolean | undefined;
   configError?: string | undefined;
   className?: string;
@@ -77,9 +84,14 @@ function MetricsList({ metrics }: { metrics: readonly Metric[] }): JSX.Element {
   if (metrics.length === 0) {
     return <EmptyStatus message={messages.empty.metrics} className="py-2" />;
   }
+  // 4 项（速率+数量）时两列网格更紧凑
+  const multiCol = metrics.length >= 4;
   return (
     <ul
-      className="flex list-none flex-col gap-1 rounded-md bg-foreground/[0.035] px-2 py-1.5 dark:bg-foreground/[0.05]"
+      className={cn(
+        "list-none gap-1 rounded-md bg-foreground/[0.035] px-2 py-1.5 dark:bg-foreground/[0.05]",
+        multiCol ? "grid grid-cols-2" : "flex flex-col",
+      )}
       data-slot="widget-metrics"
     >
       {metrics.map((metric) => (
@@ -87,14 +99,14 @@ function MetricsList({ metrics }: { metrics: readonly Metric[] }): JSX.Element {
           key={metric.id}
           data-metric-id={metric.id}
           data-metric-status={metric.status ?? "ok"}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2"
         >
           <span className="truncate text-[11px] font-medium leading-none text-muted-foreground">
             {metric.label}
           </span>
           <span
             className={cn(
-              "min-w-[3.5rem] text-right text-[11px] font-semibold tabular-nums leading-none",
+              "min-w-[2.75rem] text-right text-[11px] font-semibold tabular-nums leading-none",
               metricStatusClass(metric.status),
             )}
           >
@@ -131,6 +143,12 @@ function SessionsList({
           if (session.user) {
             parts.push(session.user);
           }
+          if (
+            typeof session.progress === "number" &&
+            Number.isFinite(session.progress)
+          ) {
+            parts.push(`${session.progress}%`);
+          }
           return (
             <li
               key={session.id}
@@ -149,6 +167,7 @@ function SessionsList({
 
 export function WidgetSlot({
   widgetId,
+  widgetType,
   unsupported,
   configError,
   className,
@@ -156,6 +175,7 @@ export function WidgetSlot({
   const [state, setState] = useState<SlotState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const shouldFetch =
     !unsupported &&
@@ -163,13 +183,20 @@ export function WidgetSlot({
     typeof widgetId === "string" &&
     widgetId.trim().length > 0;
 
+  const shouldPoll =
+    typeof widgetType === "string" &&
+    TORRENT_WIDGET_TYPES.has(widgetType.trim().toLowerCase());
+
   useEffect(() => {
     if (!shouldFetch || widgetId === undefined) {
       return;
     }
     const controller = new AbortController();
     abortRef.current = controller;
-    setState({ status: "loading" });
+    // 首载显示 loading；轮询刷新静默更新
+    if (!hasLoadedRef.current) {
+      setState({ status: "loading" });
+    }
 
     void (async () => {
       try {
@@ -180,9 +207,13 @@ export function WidgetSlot({
           return;
         }
         if (!result.ok) {
-          setState({ status: "error", message: result.error });
+          // 轮询失败时保留上次成功数据，仅首载/手动重试展示错误
+          if (!hasLoadedRef.current) {
+            setState({ status: "error", message: result.error });
+          }
           return;
         }
+        hasLoadedRef.current = true;
         setState({ status: "success", data: result });
       } catch (error) {
         if (controller.signal.aborted) {
@@ -194,7 +225,9 @@ export function WidgetSlot({
         ) {
           return;
         }
-        setState({ status: "error", message: resolveErrorMessage(error) });
+        if (!hasLoadedRef.current) {
+          setState({ status: "error", message: resolveErrorMessage(error) });
+        }
       }
     })();
 
@@ -204,8 +237,21 @@ export function WidgetSlot({
     };
   }, [shouldFetch, widgetId, reloadToken]);
 
+  useEffect(() => {
+    if (!shouldFetch || !shouldPoll) {
+      return;
+    }
+    const timerId = window.setInterval(() => {
+      setReloadToken((n) => n + 1);
+    }, TORRENT_WIDGET_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [shouldFetch, shouldPoll]);
+
   const handleRetry = useCallback(() => {
     abortRef.current?.abort();
+    hasLoadedRef.current = false;
     setReloadToken((n) => n + 1);
   }, []);
 

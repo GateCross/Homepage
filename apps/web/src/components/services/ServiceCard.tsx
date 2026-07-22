@@ -98,6 +98,9 @@ export function ServiceCard({
               {...(service.widget.widgetId !== undefined
                 ? { widgetId: service.widget.widgetId }
                 : {})}
+              {...(service.widget.type !== undefined
+                ? { widgetType: service.widget.type }
+                : {})}
               {...(service.widget.unsupported !== undefined
                 ? { unsupported: service.widget.unsupported }
                 : {})}

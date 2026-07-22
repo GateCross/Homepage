@@ -331,6 +331,36 @@ function mergeWidget(
     });
   }
 
+  // Emby 展示选项：以编辑器为准写回；未出现则删除磁盘旧值
+  if (widget.enableBlocks !== undefined) {
+    out["enableBlocks"] = widget.enableBlocks;
+  } else {
+    delete out["enableBlocks"];
+  }
+  if (widget.enableNowPlaying !== undefined) {
+    out["enableNowPlaying"] = widget.enableNowPlaying;
+  } else {
+    delete out["enableNowPlaying"];
+  }
+  if (widget.enableUser !== undefined) {
+    out["enableUser"] = widget.enableUser;
+  } else {
+    delete out["enableUser"];
+  }
+  if (widget.showEpisodeNumber !== undefined) {
+    out["showEpisodeNumber"] = widget.showEpisodeNumber;
+  } else {
+    delete out["showEpisodeNumber"];
+  }
+  if (widget.fields !== undefined && widget.fields.length > 0) {
+    out["fields"] = widget.fields.map((f) => f.trim().toLowerCase()).filter((f) => f.length > 0);
+    if ((out["fields"] as string[]).length === 0) {
+      delete out["fields"];
+    }
+  } else {
+    delete out["fields"];
+  }
+
   // 使用单数 widget 形态写出（与示例配置一致）；删除 widgets 数组以免歧义
   target["widget"] = out;
   delete target["widgets"];

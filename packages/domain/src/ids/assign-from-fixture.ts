@@ -16,6 +16,7 @@ import { normalizeAbsoluteHttpUrl, normalizeTypeToken } from "./normalize.js";
 
 const SUPPORTED_SERVICE_WIDGET_TYPES = new Set([
   "qbittorrent",
+  "transmission",
   "emby",
   "customapi",
 ]);
