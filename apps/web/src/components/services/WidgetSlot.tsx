@@ -78,18 +78,23 @@ function MetricsList({ metrics }: { metrics: readonly Metric[] }): JSX.Element {
     return <EmptyStatus message={messages.empty.metrics} className="py-2" />;
   }
   return (
-    <ul className="flex list-none flex-col gap-1 p-0" data-slot="widget-metrics">
+    <ul
+      className="flex list-none flex-col gap-1 rounded-md bg-foreground/[0.035] px-2 py-1.5 dark:bg-foreground/[0.05]"
+      data-slot="widget-metrics"
+    >
       {metrics.map((metric) => (
         <li
           key={metric.id}
           data-metric-id={metric.id}
           data-metric-status={metric.status ?? "ok"}
-          className="flex items-baseline justify-between gap-2 text-xs"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3"
         >
-          <span className="text-muted-foreground">{metric.label}</span>
+          <span className="truncate text-[11px] font-medium leading-none text-muted-foreground">
+            {metric.label}
+          </span>
           <span
             className={cn(
-              "tabular-nums font-medium",
+              "min-w-[3.5rem] text-right text-[11px] font-semibold tabular-nums leading-none",
               metricStatusClass(metric.status),
             )}
           >
@@ -107,18 +112,16 @@ function SessionsList({
   sessions,
 }: {
   sessions: readonly EmbySessionSummary[];
-}): JSX.Element {
+}): JSX.Element | null {
   if (sessions.length === 0) {
-    return (
-      <EmptyStatus message={messages.empty.embySessions} className="py-2" />
-    );
+    return null;
   }
   const visible = sessions.slice(0, 5);
   return (
-    <div className="mt-2 space-y-1.5" data-slot="widget-sessions">
-      <p className="text-xs text-muted-foreground">
-        正在播放 {sessions.length} 项
-      </p>
+    <div
+      className="space-y-1 rounded-md bg-foreground/[0.035] px-2 py-1.5 dark:bg-foreground/[0.05]"
+      data-slot="widget-sessions"
+    >
       <ul className="flex list-none flex-col gap-1 p-0">
         {visible.map((session) => {
           const parts = [session.title];
@@ -132,7 +135,7 @@ function SessionsList({
             <li
               key={session.id}
               data-session-id={session.id}
-              className="truncate text-xs text-foreground"
+              className="truncate text-[11px] leading-snug text-foreground/90"
               title={parts.join(" · ")}
             >
               {parts.join(" · ")}
@@ -248,7 +251,7 @@ export function WidgetSlot({
     <div
       data-slot="widget-slot"
       data-state="success"
-      className={cn("space-y-1", className)}
+      className={cn("flex flex-col gap-1", className)}
     >
       <MetricsList metrics={metrics} />
       {sessions !== undefined ? <SessionsList sessions={sessions} /> : null}
