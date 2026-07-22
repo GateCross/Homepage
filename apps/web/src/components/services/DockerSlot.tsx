@@ -163,19 +163,13 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(digits)} ${units[unitIndex]}`;
 }
 
-function barClass(percent: number): string {
-  if (percent >= 90) return "bg-rose-500/85";
-  if (percent >= 75) return "bg-amber-500/85";
-  return "bg-emerald-500/85";
-}
-
 function valueClass(percent: number): string {
   if (percent >= 90) return "text-rose-600 dark:text-rose-400";
   if (percent >= 75) return "text-amber-700 dark:text-amber-400";
-  return "text-foreground/80";
+  return "text-foreground";
 }
 
-function ResourceRow({
+function ResourceBlock({
   label,
   percent,
   detail,
@@ -190,44 +184,26 @@ function ResourceRow({
 
   return (
     <div
-      data-slot="docker-metric-row"
-      className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2"
+      data-slot="docker-metric-block"
+      className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-md bg-foreground/[0.035] px-1 py-1.5 text-center dark:bg-foreground/[0.05]"
       title={title}
     >
-      <span className="text-[11px] font-medium leading-none text-muted-foreground">
-        {label}
-      </span>
-      <div className="min-w-0">
-        <div
-          className="h-1.5 overflow-hidden rounded-full bg-foreground/10"
-          role="progressbar"
-          aria-valuenow={Math.round(percent)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={title}
-        >
-          <div
-            className={cn(
-              "h-full rounded-full transition-[width] duration-500 ease-out",
-              barClass(percent),
-            )}
-            style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-          />
-        </div>
-        {detail ? (
-          <div className="mt-0.5 truncate text-[10px] leading-none text-muted-foreground/75">
-            {detail}
-          </div>
-        ) : null}
-      </div>
       <span
         className={cn(
-          "min-w-[2.5rem] text-right text-[11px] font-semibold tabular-nums leading-none",
+          "max-w-full truncate text-xs font-semibold tabular-nums leading-tight sm:text-sm",
           valueClass(percent),
         )}
       >
         {formatPercent(percent)}
       </span>
+      <span className="mt-0.5 max-w-full truncate text-[10px] font-medium leading-none text-muted-foreground">
+        {label}
+      </span>
+      {detail ? (
+        <span className="mt-0.5 max-w-full truncate text-[9px] tabular-nums leading-none text-muted-foreground/70">
+          {detail}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -256,7 +232,7 @@ function RunningMetrics({
   return (
     <div
       data-slot="docker-metrics"
-      className="flex w-full min-w-0 flex-col gap-1.5 rounded-md bg-foreground/[0.035] px-2 py-1.5 dark:bg-foreground/[0.05]"
+      className="flex w-full min-w-0 gap-1"
       aria-label={[
         hasCpu ? `CPU ${formatPercent(data.cpuPercent!)}` : null,
         hasMem
@@ -266,9 +242,11 @@ function RunningMetrics({
         .filter(Boolean)
         .join("，")}
     >
-      {hasCpu ? <ResourceRow label="CPU" percent={data.cpuPercent!} /> : null}
+      {hasCpu ? (
+        <ResourceBlock label="CPU" percent={data.cpuPercent!} />
+      ) : null}
       {hasMem ? (
-        <ResourceRow
+        <ResourceBlock
           label="内存"
           percent={data.memoryPercent!}
           detail={memDetail}

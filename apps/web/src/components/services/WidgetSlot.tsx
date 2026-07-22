@@ -80,42 +80,53 @@ function metricStatusClass(status: Metric["status"]): string {
   }
 }
 
+function metricsGridClass(count: number): string {
+  // 1–3 项单行；4+ 用 2×2，避免速率单位被挤省略（对齐官方 Block 并排块）
+  if (count <= 1) return "grid-cols-1";
+  if (count === 2) return "grid-cols-2";
+  if (count === 3) return "grid-cols-3";
+  return "grid-cols-2";
+}
+
 function MetricsList({ metrics }: { metrics: readonly Metric[] }): JSX.Element {
   if (metrics.length === 0) {
     return <EmptyStatus message={messages.empty.metrics} className="py-2" />;
   }
-  // 4 项（速率+数量）时两列网格更紧凑
-  const multiCol = metrics.length >= 4;
   return (
     <ul
       className={cn(
-        "list-none gap-1 rounded-md bg-foreground/[0.035] px-2 py-1.5 dark:bg-foreground/[0.05]",
-        multiCol ? "grid grid-cols-2" : "flex flex-col",
+        "grid list-none gap-1",
+        metricsGridClass(metrics.length),
       )}
       data-slot="widget-metrics"
     >
-      {metrics.map((metric) => (
-        <li
-          key={metric.id}
-          data-metric-id={metric.id}
-          data-metric-status={metric.status ?? "ok"}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2"
-        >
-          <span className="truncate text-[11px] font-medium leading-none text-muted-foreground">
-            {metric.label}
-          </span>
-          <span
-            className={cn(
-              "min-w-[2.75rem] text-right text-[11px] font-semibold tabular-nums leading-none",
-              metricStatusClass(metric.status),
-            )}
+      {metrics.map((metric) => {
+        const display =
+          metric.status === "unavailable"
+            ? `${formatMetricValue(metric)}（不可用）`
+            : formatMetricValue(metric);
+        return (
+          <li
+            key={metric.id}
+            data-metric-id={metric.id}
+            data-metric-status={metric.status ?? "ok"}
+            className="flex min-w-0 flex-col items-center justify-center rounded-md bg-foreground/[0.035] px-1 py-1.5 text-center dark:bg-foreground/[0.05]"
           >
-            {metric.status === "unavailable"
-              ? `${formatMetricValue(metric)}（不可用）`
-              : formatMetricValue(metric)}
-          </span>
-        </li>
-      ))}
+            <span
+              className={cn(
+                "max-w-full truncate text-xs font-semibold tabular-nums leading-tight sm:text-sm",
+                metricStatusClass(metric.status),
+              )}
+              title={display}
+            >
+              {display}
+            </span>
+            <span className="mt-0.5 max-w-full truncate text-[10px] font-medium leading-none text-muted-foreground">
+              {metric.label}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
