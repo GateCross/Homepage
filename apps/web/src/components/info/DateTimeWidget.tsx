@@ -407,12 +407,12 @@ export function DateTimeWidget({
       </div>
 
       <div className="relative min-w-0 space-y-0.5">
-        <p className="text-sm font-medium leading-snug text-foreground/90">
+        <p className="text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg">
           {dateLine}
         </p>
         {lunar !== null ? (
           <>
-            <p className="text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg">
+            <p className="text-sm font-medium leading-tight text-foreground/85">
               农历{lunar.text}
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -426,7 +426,7 @@ export function DateTimeWidget({
             </p>
           </>
         ) : solarTerm !== null ? (
-          <p className="text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg">
+          <p className="text-sm font-medium leading-tight text-foreground/85">
             {solarTerm.name}
           </p>
         ) : null}
@@ -458,18 +458,14 @@ export function DateTimeWidget({
       {termCountdown !== null || holidayPanel !== null ? (
         <div className="relative mt-auto grid grid-cols-2 gap-1.5">
           {termCountdown !== null ? (
-            <div className="relative overflow-hidden rounded-lg border border-amber-500/20 bg-gradient-to-br from-amber-500/15 via-background/35 to-background/20 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-amber-300/20 dark:from-amber-300/15">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-3 -top-3 size-10 rounded-full bg-amber-400/15 blur-2xl dark:bg-amber-200/15"
-              />
-              <p className="relative text-[10px] font-medium tracking-[0.12em] text-amber-800/75 dark:text-amber-100/75">
+            <div className="rounded-lg border border-border/45 bg-background/40 px-2 py-1.5">
+              <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
                 下一节气
               </p>
-              <p className="relative mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
+              <p className="mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
                 {termCountdown.title}
               </p>
-              <p className="relative mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+              <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
                 {termCountdown.detail}
               </p>
             </div>
@@ -477,18 +473,14 @@ export function DateTimeWidget({
             <div className="rounded-lg border border-border/35 bg-background/20 px-2 py-1.5" />
           )}
           {holidayPanel !== null ? (
-            <div className="relative overflow-hidden rounded-lg border border-sky-500/25 bg-gradient-to-br from-sky-500/18 via-background/35 to-background/20 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:border-sky-300/25 dark:from-sky-300/15">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-3 -top-3 size-10 rounded-full bg-sky-400/20 blur-2xl dark:bg-sky-200/15"
-              />
-              <p className="relative text-[10px] font-medium tracking-[0.12em] text-sky-800/80 dark:text-sky-100/80">
+            <div className="rounded-lg border border-border/45 bg-background/40 px-2 py-1.5">
+              <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
                 下一节日
               </p>
-              <p className="relative mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
+              <p className="mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
                 {holidayPanel.title}
               </p>
-              <p className="relative mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+              <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
                 {holidayPanel.detail}
               </p>
             </div>

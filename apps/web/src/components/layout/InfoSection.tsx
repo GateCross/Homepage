@@ -61,7 +61,7 @@ export function InfoSection({
       data-slot="info-section"
       className={cn("w-full", className)}
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         {widgets.map((widget) => (
           <div
             key={widget.infoId}
