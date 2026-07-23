@@ -12,8 +12,15 @@ export const DEFAULT_ADAPTER_TIMEOUT_MS = 10_000;
 /** 适配器 HTTPS 默认跳过证书校验（内网自签，与 Probe 对齐） */
 export const DEFAULT_ADAPTER_INSECURE_TLS = true;
 
-/** 适配器响应体上限，防止异常大包拖垮进程 */
-export const DEFAULT_ADAPTER_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
+/**
+ * 适配器响应体默认上限。
+ * qBittorrent / Transmission 等会返回完整种子列表，2MB 过紧；
+ * 仍保留上限以防异常大包拖垮进程。
+ */
+export const DEFAULT_ADAPTER_RESPONSE_MAX_BYTES = 16 * 1024 * 1024;
+
+/** 下载客户端种子列表等大响应专用上限 */
+export const ADAPTER_LARGE_RESPONSE_MAX_BYTES = 32 * 1024 * 1024;
 
 export class AdapterLocalError extends Error {
   readonly localMessage: string;
@@ -75,6 +82,9 @@ export type AdapterRequestOptions = {
    * 默认 true（局域网自签证书）；注入 fetchImpl 时由注入方处理。
    */
   insecureTls?: boolean;
+
+  /** 响应体上限（字节）；默认 DEFAULT_ADAPTER_RESPONSE_MAX_BYTES */
+  maxBytes?: number;
 };
 
 /** 与 fetch redirect:"follow" 对齐的最大跳转次数 */
@@ -354,7 +364,7 @@ export async function adapterFetch(
         timeoutMs,
         deadlineMs: Date.now() + timeoutMs,
         insecureTls,
-        maxBytes: DEFAULT_ADAPTER_RESPONSE_MAX_BYTES,
+        maxBytes: options.maxBytes ?? DEFAULT_ADAPTER_RESPONSE_MAX_BYTES,
         ...(options.headers !== undefined ? { headers: options.headers } : {}),
         ...(options.body !== undefined ? { body: options.body } : {}),
       });

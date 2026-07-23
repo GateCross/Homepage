@@ -4,6 +4,7 @@ import type { Metric, ServiceWidgetResult } from "@homepage/domain";
 import { scaleByteRate } from "./format.js";
 import {
   AdapterLocalError,
+  ADAPTER_LARGE_RESPONSE_MAX_BYTES,
   adapterFetch,
   joinBaseUrl,
   readJsonBody,
@@ -101,6 +102,8 @@ export async function transmissionRpc(
     method: "POST",
     headers,
     body: JSON.stringify({ method, arguments: args }),
+    // torrent-get 在种子多时响应较大
+    maxBytes: ADAPTER_LARGE_RESPONSE_MAX_BYTES,
     timeoutMessage: RPC_TIMEOUT,
     networkMessage: RPC_NETWORK,
   };

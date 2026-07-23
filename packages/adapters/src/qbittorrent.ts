@@ -4,6 +4,7 @@ import type { Metric, ServiceWidgetResult } from "@homepage/domain";
 import { scaleByteRate } from "./format.js";
 import {
   AdapterLocalError,
+  ADAPTER_LARGE_RESPONSE_MAX_BYTES,
   adapterFetch,
   getSetCookieLines,
   joinBaseUrl,
@@ -172,17 +173,31 @@ export async function fetchTransferInfoRaw(
   return adapterFetch(url, requestOptions);
 }
 
+/**
+ * 拉取种子列表。
+ * filter 使用 WebAPI 状态过滤（downloading / seeding 等）；
+ * 匹配结果仍是完整对象数组，调用方只应取 length 做计数。
+ */
 export async function fetchTorrentsInfoRaw(
   baseUrl: string,
   sid: string,
   deps: QbittorrentFetchDeps = {},
+  filter?: string,
 ): Promise<Response> {
-  const url = joinBaseUrl(baseUrl, "/api/v2/torrents/info");
+  const root = joinBaseUrl(baseUrl, "/api/v2/torrents/info");
+  let url = root;
+  if (typeof filter === "string" && filter.trim().length > 0) {
+    const parsed = new URL(root);
+    parsed.searchParams.set("filter", filter.trim());
+    url = parsed.toString();
+  }
   const requestOptions: Parameters<typeof adapterFetch>[1] = {
     method: "GET",
     headers: {
       Cookie: `SID=${sid}`,
     },
+    // filter=seeding 在大库仍可能数 MB；仅作计数兜底上限
+    maxBytes: ADAPTER_LARGE_RESPONSE_MAX_BYTES,
     timeoutMessage: TORRENTS_TIMEOUT,
     networkMessage: TORRENTS_NETWORK,
   };
@@ -193,6 +208,19 @@ export async function fetchTorrentsInfoRaw(
     requestOptions.timeoutMs = deps.timeoutMs;
   }
   return adapterFetch(url, requestOptions);
+}
+
+/** 从 torrents/info JSON 数组取长度；非数组则失败 */
+export function countTorrentsFromInfoJson(data: unknown): number {
+  if (!Array.isArray(data)) {
+    throw new AdapterLocalError(TORRENTS_BAD_JSON);
+  }
+  return data.length;
+}
+
+async function readTorrentCount(response: Response): Promise<number> {
+  const json = await readJsonBody(response, TORRENTS_BAD_JSON);
+  return countTorrentsFromInfoJson(json);
 }
 
 function coerceNonNegNumber(value: unknown): number | null {
@@ -266,11 +294,32 @@ export function countTorrentStates(data: unknown): {
   return { downloading, seeding };
 }
 
+function countMetric(
+  id: string,
+  label: string,
+  count: number | null,
+): Metric {
+  if (count === null) {
+    return {
+      id,
+      label,
+      value: "—",
+      status: "unavailable",
+    };
+  }
+  return {
+    id,
+    label,
+    value: Math.trunc(count),
+    status: "ok",
+  };
+}
+
 export function buildQbittorrentMetrics(
   downloadBps: number,
   uploadBps: number,
-  downloadingCount: number,
-  seedingCount: number,
+  downloadingCount: number | null,
+  seedingCount: number | null,
 ): Metric[] {
   const dlScaled = scaleByteRate(downloadBps);
   const upScaled = scaleByteRate(uploadBps);
@@ -289,18 +338,12 @@ export function buildQbittorrentMetrics(
       unit: upScaled.unit,
       status: "ok",
     },
-    {
-      id: QBITTORRENT_DOWNLOADING_COUNT_METRIC_ID,
-      label: "下载中",
-      value: Math.trunc(downloadingCount),
-      status: "ok",
-    },
-    {
-      id: QBITTORRENT_SEEDING_COUNT_METRIC_ID,
-      label: "做种中",
-      value: Math.trunc(seedingCount),
-      status: "ok",
-    },
+    countMetric(
+      QBITTORRENT_DOWNLOADING_COUNT_METRIC_ID,
+      "下载中",
+      downloadingCount,
+    ),
+    countMetric(QBITTORRENT_SEEDING_COUNT_METRIC_ID, "做种中", seedingCount),
   ];
 }
 
@@ -342,6 +385,36 @@ async function withQbittorrentSession<T>(
   }
 }
 
+/**
+ * 拉取 filter 列表并返回 length；网络/体积/JSON 错误返回 null。
+ * 401/403 单独标出以便会话层重登。
+ */
+async function tryCountByFilter(
+  baseUrl: string,
+  sid: string,
+  deps: QbittorrentFetchDeps,
+  filter: string,
+): Promise<{ authStatus?: number; count: number | null }> {
+  try {
+    const res = await fetchTorrentsInfoRaw(baseUrl, sid, deps, filter);
+    if (isAuthFailureStatus(res.status)) {
+      return { authStatus: res.status, count: null };
+    }
+    if (!res.ok) {
+      return { count: null };
+    }
+    return { count: await readTorrentCount(res) };
+  } catch {
+    // 体积超限、超时等：数量降级，不影响速率
+    return { count: null };
+  }
+}
+
+/**
+ * 速率：transfer/info（轻量，必出）。
+ * 数量：torrents/info?filter=downloading|seeding 的数组 length。
+ * 数量请求失败（体积超限/超时/非 2xx）时降级为 unavailable，不拖垮整卡。
+ */
 export async function fetchQbittorrentTransferMetrics(
   baseUrl: string,
   auth: QbittorrentAuth,
@@ -352,41 +425,37 @@ export async function fetchQbittorrentTransferMetrics(
     auth,
     deps,
     async (sid) => {
-      const [transferRes, torrentsRes] = await Promise.all([
-        fetchTransferInfoRaw(baseUrl, sid, deps),
-        fetchTorrentsInfoRaw(baseUrl, sid, deps),
-      ]);
+      const [transferRes, downloadingResult, seedingResult] =
+        await Promise.all([
+          fetchTransferInfoRaw(baseUrl, sid, deps),
+          tryCountByFilter(baseUrl, sid, deps, "downloading"),
+          tryCountByFilter(baseUrl, sid, deps, "seeding"),
+        ]);
 
-      // 任一 401/403 都触发重登
-      if (
-        isAuthFailureStatus(transferRes.status) ||
-        isAuthFailureStatus(torrentsRes.status)
-      ) {
-        return {
-          status: isAuthFailureStatus(transferRes.status)
-            ? transferRes.status
-            : torrentsRes.status,
-        };
+      if (isAuthFailureStatus(transferRes.status)) {
+        return { status: transferRes.status };
+      }
+      if (downloadingResult.authStatus !== undefined) {
+        return { status: downloadingResult.authStatus };
+      }
+      if (seedingResult.authStatus !== undefined) {
+        return { status: seedingResult.authStatus };
       }
 
       if (!transferRes.ok) {
         return { status: transferRes.status };
       }
-      if (!torrentsRes.ok) {
-        throw new AdapterLocalError(TORRENTS_FAIL);
-      }
 
       const transferJson = await readJsonBody(transferRes, TRANSFER_BAD_JSON);
-      const torrentsJson = await readJsonBody(torrentsRes, TORRENTS_BAD_JSON);
       const rates = transferInfoToRates(transferJson);
-      const counts = countTorrentStates(torrentsJson);
+
       return {
         status: 200,
         value: buildQbittorrentMetrics(
           rates.downloadBps,
           rates.uploadBps,
-          counts.downloading,
-          counts.seeding,
+          downloadingResult.count,
+          seedingResult.count,
         ),
       };
     },
