@@ -900,41 +900,42 @@ export function createDockerClient(
       return {};
     }
 
-    if (previousCpu !== undefined) {
-      const { resources, cpuSample } = mapStatsToResourcesDetailed(
-        firstPayload,
-        { previousCpu },
-      );
-      if (cpuSample !== null) {
-        setPreviousCpuSample(endpoint, containerNameOrId, cpuSample);
-      }
-      return resources;
+    const first = mapStatsToResourcesDetailed(firstPayload, {
+      ...(previousCpu !== undefined ? { previousCpu } : {}),
+    });
+    if (first.cpuSample !== null) {
+      setPreviousCpuSample(endpoint, containerNameOrId, first.cpuSample);
     }
 
-    // 冷启动：无上一拍时补采一拍，避免首包缺 cpu%（仍远快于 stream=0）
-    const firstSample = extractCpuCounterSample(firstPayload);
-    if (firstSample !== null) {
-      setPreviousCpuSample(endpoint, containerNameOrId, firstSample);
+    // 已有 cpu%，或解析不到计数 → 直接返回（内存与 CPU 同包）
+    if (
+      first.resources.cpuPercent !== undefined ||
+      first.cpuSample === null
+    ) {
+      return first.resources;
     }
 
+    // 有计数但算不出 %（冷启动 / 上一拍失效）：短间隔补第二拍，
+    // 保证本响应尽量同时带上 CPU 与内存，避免前端先内存后 CPU。
     await new Promise<void>((resolve) => {
       setTimeout(resolve, DOCKER_CPU_SEED_GAP_MS);
     });
 
     const secondPayload = await requestStatsPayload(containerNameOrId);
     if (secondPayload === null) {
-      // 第二拍失败：至少返回内存等即时字段
-      return mapStatsToResourcesDetailed(firstPayload, {}).resources;
+      return first.resources;
     }
 
-    const { resources, cpuSample } = mapStatsToResourcesDetailed(
-      secondPayload,
-      { previousCpu: firstSample },
-    );
-    if (cpuSample !== null) {
-      setPreviousCpuSample(endpoint, containerNameOrId, cpuSample);
+    const second = mapStatsToResourcesDetailed(secondPayload, {
+      previousCpu: first.cpuSample,
+    });
+    if (second.cpuSample !== null) {
+      setPreviousCpuSample(endpoint, containerNameOrId, second.cpuSample);
     }
-    return resources;
+    return {
+      ...first.resources,
+      ...second.resources,
+    };
   }
 
   return {
