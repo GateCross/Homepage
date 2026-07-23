@@ -9,14 +9,35 @@ import {
 } from "@homepage/domain";
 
 export const DOCKER_TIMEOUT_MS = 10_000;
-/** stats?stream=0 需等 Docker 采样一个间隔，超时放宽 */
-export const DOCKER_STATS_TIMEOUT_MS = 15_000;
+/**
+ * one-shot stats 为即时快照，通常远低于 inspect 超时；
+ * 仍保留上限，避免远端 Docker 卡住拖死批量。
+ */
+export const DOCKER_STATS_TIMEOUT_MS = 10_000;
+
+/** 进程内上一拍 CPU 计数保留多久；超过则丢弃（冷启动后首包可能无 cpu%） */
+export const DOCKER_CPU_SAMPLE_MAX_AGE_MS = 60_000;
+
+/**
+ * 无上一拍时，两次 one-shot 之间的间隔，用于首包也能算出 cpu%。
+ * 远小于 Docker stream=0 的服务端采样等待（约 1s）。
+ */
+export const DOCKER_CPU_SEED_GAP_MS = 200;
 
 const ALLOWED_PATH_PREFIX = "/containers/";
 const ALLOWED_INSPECT_SUFFIX = "/json";
-const ALLOWED_STATS_SUFFIX = "/stats?stream=0";
+/** one-shot：Engine 立即返回当前计数，不在服务端等采样间隔（约 1s） */
+const ALLOWED_STATS_SUFFIX = "/stats?stream=0&one-shot=1";
 const LIST_CONTAINERS_PATH = "/containers/json";
 const LIST_CONTAINERS_PATH_ALL = "/containers/json?all=true";
+
+/** 用于跨轮询计算 CPU% 的计数快照（非 API 契约） */
+export type DockerCpuCounterSample = {
+  totalUsage: number;
+  systemUsage: number;
+  onlineCpus: number;
+  atMs: number;
+};
 
 export type DockerClientRequest = {
   method: "GET";
@@ -86,24 +107,57 @@ function isAllowedListPath(path: string): boolean {
   return path === LIST_CONTAINERS_PATH || path === LIST_CONTAINERS_PATH_ALL;
 }
 
+function isAllowedStatsPath(path: string): boolean {
+  if (!path.startsWith(ALLOWED_PATH_PREFIX)) {
+    return false;
+  }
+  const q = path.indexOf("?");
+  const pathOnly = q === -1 ? path : path.slice(0, q);
+  // pathOnly = /containers/<id>/stats
+  if (!pathOnly.endsWith("/stats")) {
+    return false;
+  }
+  const middle = pathOnly.slice(
+    ALLOWED_PATH_PREFIX.length,
+    pathOnly.length - "/stats".length,
+  );
+  // middle 为容器 id（无斜杠）；禁止路径穿越
+  if (middle.length === 0 || middle.includes("/")) {
+    return false;
+  }
+  if (q === -1) {
+    // 无 query 时 Docker 会 stream；本客户端禁止
+    return false;
+  }
+  const params = new URLSearchParams(path.slice(q + 1));
+  // 仅允许 stream / one-shot，且必须 stream=0（非流式）
+  for (const key of params.keys()) {
+    if (key !== "stream" && key !== "one-shot") {
+      return false;
+    }
+  }
+  if (params.get("stream") !== "0") {
+    return false;
+  }
+  const oneShot = params.get("one-shot");
+  if (oneShot !== null && oneShot !== "1" && oneShot !== "true") {
+    return false;
+  }
+  return true;
+}
+
 function isAllowedContainerReadPath(path: string): boolean {
   if (!path.startsWith(ALLOWED_PATH_PREFIX)) {
     return false;
   }
-  let suffix: string | null = null;
   if (path.endsWith(ALLOWED_INSPECT_SUFFIX)) {
-    suffix = ALLOWED_INSPECT_SUFFIX;
-  } else if (path.endsWith(ALLOWED_STATS_SUFFIX)) {
-    suffix = ALLOWED_STATS_SUFFIX;
+    const middle = path.slice(
+      ALLOWED_PATH_PREFIX.length,
+      path.length - ALLOWED_INSPECT_SUFFIX.length,
+    );
+    return middle.length > 0 && !middle.includes("/");
   }
-  if (suffix === null) {
-    return false;
-  }
-  const middle = path.slice(
-    ALLOWED_PATH_PREFIX.length,
-    path.length - suffix.length,
-  );
-  return middle.length > 0 && !middle.includes("/");
+  return isAllowedStatsPath(path);
 }
 
 export function assertReadonlyDockerRequest(req: DockerClientRequest): void {
@@ -247,25 +301,7 @@ function readNestedNumber(
   return asFiniteNumber(cursor);
 }
 
-/**
- * 将 Docker /containers/<id>/stats?stream=0 映射为资源占用。
- * CPU 计算与 docker CLI 一致：
- *   cpuDelta / systemDelta * onlineCpus * 100
- * 内存：usage - cache（优先 inactive_file，兼容旧 cache 字段）/ limit
- */
-export function mapStatsToResources(payload: unknown): DockerResourceStats {
-  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
-    return {};
-  }
-  const root = payload as Record<string, unknown>;
-  const out: DockerResourceStats = {};
-
-  const cpuDelta =
-    (readNestedNumber(root, ["cpu_stats", "cpu_usage", "total_usage"]) ?? 0) -
-    (readNestedNumber(root, ["precpu_stats", "cpu_usage", "total_usage"]) ?? 0);
-  const systemDelta =
-    (readNestedNumber(root, ["cpu_stats", "system_cpu_usage"]) ?? 0) -
-    (readNestedNumber(root, ["precpu_stats", "system_cpu_usage"]) ?? 0);
+function resolveOnlineCpus(root: Record<string, unknown>): number {
   const onlineCpusRaw =
     readNestedNumber(root, ["cpu_stats", "online_cpus"]) ??
     (() => {
@@ -275,19 +311,139 @@ export function mapStatsToResources(payload: unknown): DockerResourceStats {
       const arr = perCpu?.["percpu_usage"];
       return Array.isArray(arr) && arr.length > 0 ? arr.length : 1;
     })();
-  const onlineCpus =
-    typeof onlineCpusRaw === "number" && onlineCpusRaw > 0
-      ? onlineCpusRaw
-      : 1;
+  return typeof onlineCpusRaw === "number" && onlineCpusRaw > 0
+    ? onlineCpusRaw
+    : 1;
+}
 
-  // 空闲容器 cpuDelta 常为 0，仍应返回 0% 以便前端稳定展示两行指标。
-  // systemDelta 不可用时（偶发空 precpu）若已有 cpu 采样，也回落为 0。
-  if (systemDelta > 0 && cpuDelta >= 0) {
-    out.cpuPercent = clampPercent((cpuDelta / systemDelta) * onlineCpus * 100);
-  } else if (
-    readNestedNumber(root, ["cpu_stats", "cpu_usage", "total_usage"]) !== null
-  ) {
-    out.cpuPercent = 0;
+/**
+ * 从 stats JSON 提取当前 CPU 计数（one-shot 与 stream=0 共用）。
+ * one-shot 时 precpu 常为空，需与进程内上一拍做差分。
+ */
+export function extractCpuCounterSample(
+  payload: unknown,
+  atMs: number = Date.now(),
+): DockerCpuCounterSample | null {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  const root = payload as Record<string, unknown>;
+  const totalUsage = readNestedNumber(root, [
+    "cpu_stats",
+    "cpu_usage",
+    "total_usage",
+  ]);
+  const systemUsage = readNestedNumber(root, ["cpu_stats", "system_cpu_usage"]);
+  if (totalUsage === null || systemUsage === null) {
+    return null;
+  }
+  return {
+    totalUsage,
+    systemUsage,
+    onlineCpus: resolveOnlineCpus(root),
+    atMs,
+  };
+}
+
+/**
+ * 用两拍 CPU 计数计算占用率（与 docker CLI 一致）。
+ * 若 prev 缺失/过期/回绕，返回 undefined（不伪造 0，避免冷启动误导）。
+ */
+export function cpuPercentFromSamples(
+  prev: DockerCpuCounterSample | null | undefined,
+  current: DockerCpuCounterSample,
+  maxAgeMs: number = DOCKER_CPU_SAMPLE_MAX_AGE_MS,
+): number | undefined {
+  if (prev === undefined || prev === null) {
+    return undefined;
+  }
+  if (current.atMs - prev.atMs > maxAgeMs || current.atMs < prev.atMs) {
+    return undefined;
+  }
+  const cpuDelta = current.totalUsage - prev.totalUsage;
+  const systemDelta = current.systemUsage - prev.systemUsage;
+  if (systemDelta <= 0 || cpuDelta < 0) {
+    return undefined;
+  }
+  const onlineCpus =
+    current.onlineCpus > 0 ? current.onlineCpus : prev.onlineCpus || 1;
+  return clampPercent((cpuDelta / systemDelta) * onlineCpus * 100);
+}
+
+export type MapStatsToResourcesOptions = {
+  /**
+   * 上一拍 CPU 计数。one-shot 时 precpu 常空，用此计算 cpu%。
+   * 缺省时回退 payload.precpu_stats（stream=0 双采样）。
+   */
+  previousCpu?: DockerCpuCounterSample | null;
+  /** 写入 current 采样的时间戳；默认 Date.now() */
+  nowMs?: number;
+  /** previousCpu 最大有效年龄 */
+  maxCpuSampleAgeMs?: number;
+};
+
+export type MapStatsToResourcesResult = {
+  resources: DockerResourceStats;
+  /** 本拍 CPU 计数，供下次差分；无法解析时为 null */
+  cpuSample: DockerCpuCounterSample | null;
+};
+
+/**
+ * 将 Docker stats 响应映射为资源占用。
+ * 优先 one-shot + 进程内上一拍；无上一拍时尝试 precpu_stats（兼容 stream=0）。
+ * 内存：usage - cache（优先 inactive_file）/ limit，即时可用。
+ */
+export function mapStatsToResources(
+  payload: unknown,
+  options: MapStatsToResourcesOptions = {},
+): DockerResourceStats {
+  return mapStatsToResourcesDetailed(payload, options).resources;
+}
+
+/** 同 mapStatsToResources，额外返回本拍 CPU 计数供缓存 */
+export function mapStatsToResourcesDetailed(
+  payload: unknown,
+  options: MapStatsToResourcesOptions = {},
+): MapStatsToResourcesResult {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    return { resources: {}, cpuSample: null };
+  }
+  const root = payload as Record<string, unknown>;
+  const out: DockerResourceStats = {};
+  const nowMs = options.nowMs ?? Date.now();
+  const maxAge = options.maxCpuSampleAgeMs ?? DOCKER_CPU_SAMPLE_MAX_AGE_MS;
+  const cpuSample = extractCpuCounterSample(payload, nowMs);
+
+  // 1) 进程内上一拍差分（one-shot 主路径）
+  let cpuPercent =
+    cpuSample !== null
+      ? cpuPercentFromSamples(options.previousCpu, cpuSample, maxAge)
+      : undefined;
+
+  // 2) 回退 payload.precpu_stats（stream=0 双采样仍可用）
+  if (cpuPercent === undefined) {
+    const cpuDelta =
+      (readNestedNumber(root, ["cpu_stats", "cpu_usage", "total_usage"]) ?? 0) -
+      (readNestedNumber(root, ["precpu_stats", "cpu_usage", "total_usage"]) ?? 0);
+    const systemDelta =
+      (readNestedNumber(root, ["cpu_stats", "system_cpu_usage"]) ?? 0) -
+      (readNestedNumber(root, ["precpu_stats", "system_cpu_usage"]) ?? 0);
+    const onlineCpus = resolveOnlineCpus(root);
+    if (systemDelta > 0 && cpuDelta >= 0) {
+      // precpu 存在且有有效 delta 才采用；全 0 的 precpu 在 one-shot 下常见，
+      // 若 previousCpu 也没有，宁可不报 cpu% 也不报假 0（首包内存仍可出）。
+      const hasPrecpu =
+        readNestedNumber(root, ["precpu_stats", "cpu_usage", "total_usage"]) !==
+          null &&
+        readNestedNumber(root, ["precpu_stats", "system_cpu_usage"]) !== null;
+      if (hasPrecpu) {
+        cpuPercent = clampPercent((cpuDelta / systemDelta) * onlineCpus * 100);
+      }
+    }
+  }
+
+  if (cpuPercent !== undefined) {
+    out.cpuPercent = cpuPercent;
   }
 
   const usage = readNestedNumber(root, ["memory_stats", "usage"]);
@@ -314,7 +470,47 @@ export function mapStatsToResources(payload: unknown): DockerResourceStats {
     out.memoryUsageBytes = used;
   }
 
-  return out;
+  return { resources: out, cpuSample };
+}
+
+/** 进程内上一拍 CPU 计数：key = endpointKey\0container */
+const previousCpuSamples = new Map<string, DockerCpuCounterSample>();
+
+export function dockerEndpointCacheKey(endpoint: DockerEndpoint): string {
+  if (endpoint.kind === "unix") {
+    return `unix:${endpoint.socketPath}`;
+  }
+  return `tcp:${endpoint.host}:${endpoint.port}`;
+}
+
+export function cpuSampleCacheKey(
+  endpoint: DockerEndpoint,
+  containerNameOrId: string,
+): string {
+  return `${dockerEndpointCacheKey(endpoint)}\0${containerNameOrId}`;
+}
+
+export function getPreviousCpuSample(
+  endpoint: DockerEndpoint,
+  containerNameOrId: string,
+): DockerCpuCounterSample | undefined {
+  return previousCpuSamples.get(cpuSampleCacheKey(endpoint, containerNameOrId));
+}
+
+export function setPreviousCpuSample(
+  endpoint: DockerEndpoint,
+  containerNameOrId: string,
+  sample: DockerCpuCounterSample,
+): void {
+  previousCpuSamples.set(
+    cpuSampleCacheKey(endpoint, containerNameOrId),
+    sample,
+  );
+}
+
+/** 测试用：清空进程内 CPU 上一拍 */
+export function clearPreviousCpuSamples(): void {
+  previousCpuSamples.clear();
 }
 
 export function mergeRunningWithStats(
@@ -637,7 +833,7 @@ export function createDockerClient(
   const transport =
     options.transport ?? createDockerTransport(endpoint, timeoutMs);
 
-  // stats 采样可能稍慢，单独放宽超时；与 inspect 共用 keep-alive agent
+  // one-shot stats 即时返回；超时与 inspect 同级即可
   const statsTransport =
     options.transport ??
     createDockerTransport(
@@ -645,25 +841,70 @@ export function createDockerClient(
       Math.max(timeoutMs, DOCKER_STATS_TIMEOUT_MS),
     );
 
-  async function fetchStats(
+  async function requestStatsPayload(
     containerNameOrId: string,
-  ): Promise<DockerResourceStats> {
+  ): Promise<unknown | null> {
     const path = buildStatsPath(containerNameOrId);
     let response: DockerClientResponse;
     try {
       response = await statsTransport.request({ method: "GET", path });
     } catch {
-      return {};
+      return null;
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      return {};
+      return null;
     }
     try {
-      const payload = JSON.parse(response.body) as unknown;
-      return mapStatsToResources(payload);
+      return JSON.parse(response.body) as unknown;
     } catch {
+      return null;
+    }
+  }
+
+  async function fetchStats(
+    containerNameOrId: string,
+  ): Promise<DockerResourceStats> {
+    const previousCpu = getPreviousCpuSample(endpoint, containerNameOrId);
+    const firstPayload = await requestStatsPayload(containerNameOrId);
+    if (firstPayload === null) {
       return {};
     }
+
+    if (previousCpu !== undefined) {
+      const { resources, cpuSample } = mapStatsToResourcesDetailed(
+        firstPayload,
+        { previousCpu },
+      );
+      if (cpuSample !== null) {
+        setPreviousCpuSample(endpoint, containerNameOrId, cpuSample);
+      }
+      return resources;
+    }
+
+    // 冷启动：无上一拍时补采一拍，避免首包缺 cpu%（仍远快于 stream=0）
+    const firstSample = extractCpuCounterSample(firstPayload);
+    if (firstSample !== null) {
+      setPreviousCpuSample(endpoint, containerNameOrId, firstSample);
+    }
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, DOCKER_CPU_SEED_GAP_MS);
+    });
+
+    const secondPayload = await requestStatsPayload(containerNameOrId);
+    if (secondPayload === null) {
+      // 第二拍失败：至少返回内存等即时字段
+      return mapStatsToResourcesDetailed(firstPayload, {}).resources;
+    }
+
+    const { resources, cpuSample } = mapStatsToResourcesDetailed(
+      secondPayload,
+      { previousCpu: firstSample },
+    );
+    if (cpuSample !== null) {
+      setPreviousCpuSample(endpoint, containerNameOrId, cpuSample);
+    }
+    return resources;
   }
 
   return {

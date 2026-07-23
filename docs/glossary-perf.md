@@ -19,5 +19,9 @@
 
 ## Docker Stats Sampling Cost（Docker 统计采样成本）
 
-对 running 容器调用 `GET /containers/<id>/stats?stream=0` 时，Docker Engine 需采样一个间隔才能返回 CPU 等指标，墙钟常达 ~1–2s。  
-与「配置 YAML 解析」无关；批量与短 TTL 缓存可摊薄，但不能假设为零。
+对 running 容器调用 `GET /containers/<id>/stats?stream=0`（**不带** one-shot）时，Docker Engine 需在服务端等一个采样间隔才能返回 CPU 等指标，墙钟常达 ~1–2s。  
+本项目改为 `?stream=0&one-shot=1` 即时快照，并在进程内保留上一拍 CPU 计数做差分：  
+- **有上一拍**：单次 one-shot，毫秒级；  
+- **冷启动无上一拍**：服务端连采两拍（间隔约 200ms）算出首包 `cpuPercent`，仍远快于 Engine 侧 ~1s 采样等待。  
+批量接口另有短 TTL + stale-while-revalidate，避免 15s 轮询反复冷启动。  
+与「配置 YAML 解析」无关。
