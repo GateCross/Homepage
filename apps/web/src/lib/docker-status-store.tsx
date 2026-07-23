@@ -19,7 +19,7 @@ import {
 } from "@/lib/format-error";
 import { messages } from "@/lib/messages";
 
-/** 批量 Docker 状态轮询间隔（仅 1 条 HTTP，与旧单卡间隔同量级） */
+/** 批量 Docker 状态轮询间隔（两阶段：轻量状态 + 含 stats 指标） */
 export const DOCKER_BATCH_POLL_INTERVAL_MS = 15_000;
 
 export function dockerTargetKey(server: string, container: string): string {
@@ -56,6 +56,83 @@ function resolveErrorMessage(error: unknown): string {
   return formatUnknownError(error, messages.error.docker);
 }
 
+function hasResourceMetrics(data: DockerStatusResponse): boolean {
+  if (data.status !== "running") return false;
+  return data.cpuPercent !== undefined || data.memoryPercent !== undefined;
+}
+
+/**
+ * 合并 lite（状态）与 full（含 stats）：
+ * - 新结果优先覆盖状态字段
+ * - full 失败时不抹掉已有徽章
+ * - lite 覆盖 full 时保留已有 metrics（避免轮询轻量阶段闪一下指标）
+ */
+function mergeDockerMaps(
+  prev: DockerStatusMap,
+  incoming: DockerStatusMap,
+  mode: "lite" | "full",
+): DockerStatusMap {
+  const next = new Map(prev);
+  next.delete(GLOBAL_ERROR_KEY);
+
+  for (const [key, entry] of incoming) {
+    if (entry.status !== "success") {
+      next.set(key, entry);
+      continue;
+    }
+
+    const prevEntry = prev.get(key);
+    if (
+      mode === "lite" &&
+      prevEntry?.status === "success" &&
+      prevEntry.data.status === "running" &&
+      entry.data.status === "running" &&
+      hasResourceMetrics(prevEntry.data) &&
+      !hasResourceMetrics(entry.data)
+    ) {
+      next.set(key, {
+        status: "success",
+        data: {
+          ...entry.data,
+          ...(prevEntry.data.cpuPercent !== undefined
+            ? { cpuPercent: prevEntry.data.cpuPercent }
+            : {}),
+          ...(prevEntry.data.memoryPercent !== undefined
+            ? { memoryPercent: prevEntry.data.memoryPercent }
+            : {}),
+          ...(prevEntry.data.memoryUsageBytes !== undefined
+            ? { memoryUsageBytes: prevEntry.data.memoryUsageBytes }
+            : {}),
+          ...(prevEntry.data.memoryLimitBytes !== undefined
+            ? { memoryLimitBytes: prevEntry.data.memoryLimitBytes }
+            : {}),
+        },
+      });
+      continue;
+    }
+
+    next.set(key, entry);
+  }
+  return next;
+}
+
+function mapFromBatch(
+  results: ReadonlyArray<{
+    server: string;
+    container: string;
+    result: DockerStatusResponse;
+  }>,
+): DockerStatusMap {
+  const next: DockerStatusMap = new Map();
+  for (const item of results) {
+    next.set(dockerTargetKey(item.server, item.container), {
+      status: "success",
+      data: item.result,
+    });
+  }
+  return next;
+}
+
 export type DockerStatusProviderProps = {
   children: ReactNode;
   enabled?: boolean;
@@ -73,6 +150,7 @@ export function DockerStatusProvider({
   const hasSuccessRef = useRef(false);
   const pausedRef = useRef(false);
   const enabledRef = useRef(enabled);
+  const generationRef = useRef(0);
   const visibleRef = useRef(
     typeof document === "undefined"
       ? true
@@ -86,25 +164,56 @@ export function DockerStatusProvider({
     setPausedState(next);
   }, []);
 
+  /**
+   * 两阶段加载：
+   * 1) lite（?stats=0）→ 尽快出徽章
+   * 2) full（含 stats）→ 补 CPU/内存；失败且 silent 时保留 lite 状态
+   */
   const load = useCallback(
     async (signal: AbortSignal, options?: { silent?: boolean }) => {
       if (!enabledRef.current) return;
       const silent = options?.silent === true;
+      const generation = ++generationRef.current;
+
+      const stillCurrent = (): boolean =>
+        !signal.aborted && generation === generationRef.current;
 
       try {
-        const body = await fetchDockerBatch({ signal });
-        if (signal.aborted) return;
-        const next: DockerStatusMap = new Map();
-        for (const item of body.results) {
-          next.set(dockerTargetKey(item.server, item.container), {
-            status: "success",
-            data: item.result,
-          });
-        }
+        // —— 阶段 1：轻量状态 ——
+        const liteBody = await fetchDockerBatch({
+          signal,
+          includeStats: false,
+        });
+        if (!stillCurrent()) return;
+
+        const liteMap = mapFromBatch(liteBody.results);
         hasSuccessRef.current = true;
-        setMap(next);
+        setMap((prev) => mergeDockerMaps(prev, liteMap, "lite"));
+
+        // —— 阶段 2：含 stats ——
+        try {
+          const fullBody = await fetchDockerBatch({
+            signal,
+            includeStats: true,
+          });
+          if (!stillCurrent()) return;
+          const fullMap = mapFromBatch(fullBody.results);
+          setMap((prev) => mergeDockerMaps(prev, fullMap, "full"));
+        } catch (statsError) {
+          if (!stillCurrent()) return;
+          if (
+            (statsError instanceof DOMException &&
+              statsError.name === "AbortError") ||
+            (statsError instanceof Error && statsError.name === "AbortError")
+          ) {
+            return;
+          }
+          // lite 已成功：指标失败不拖垮徽章
+          if (hasSuccessRef.current) return;
+          throw statsError;
+        }
       } catch (error) {
-        if (signal.aborted) return;
+        if (!stillCurrent()) return;
         if (
           (error instanceof DOMException && error.name === "AbortError") ||
           (error instanceof Error && error.name === "AbortError")
@@ -136,6 +245,7 @@ export function DockerStatusProvider({
   useEffect(() => {
     if (!enabled) {
       abortRef.current?.abort();
+      generationRef.current += 1;
       hasSuccessRef.current = false;
       setMap(new Map());
       return;

@@ -20,4 +20,5 @@ export {
   saveConfig,
   uploadAsset,
   type ApiRequestOptions,
+  type FetchDockerBatchOptions,
 } from "./client";

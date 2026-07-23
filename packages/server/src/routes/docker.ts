@@ -62,6 +62,7 @@ export function createDockerRoutes(deps: DockerRouteDeps = {}): Hono {
   const statusCache = deps.statusCache;
 
   // 批量状态：须在 /docker/:server/... 之前注册
+  // ?stats=0|false → 仅 inspect（首屏徽章）；默认含 stats
   app.get("/docker/status", async (c) => {
     let allowListForError: Awaited<
       ReturnType<typeof load>
@@ -75,8 +76,15 @@ export function createDockerRoutes(deps: DockerRouteDeps = {}): Hono {
       const { allowList } = await load(options);
       allowListForError = allowList;
 
+      const statsParam = c.req.query("stats");
+      const includeStats =
+        statsParam === undefined ||
+        statsParam === "" ||
+        !["0", "false", "no"].includes(statsParam.toLowerCase());
+
       const body = await queryBatch(allowList, {
         ...(statusCache !== undefined ? { cache: statusCache } : {}),
+        includeStats,
       });
       const parsed = ApiSuccessSchemas.dockerBatch.parse(body);
       const secrets = gatherSecrets(allowList);

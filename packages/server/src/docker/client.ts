@@ -488,10 +488,33 @@ export function mapListPayloadToSummaries(
   return out;
 }
 
+/** 按端点复用 keep-alive，避免每次 inspect/stats 都新建 socket */
+const dockerUnixAgents = new Map<string, http.Agent>();
+const dockerTcpAgents = new Map<string, http.Agent>();
+
+function agentForEndpoint(endpoint: DockerEndpoint): http.Agent {
+  if (endpoint.kind === "unix") {
+    let agent = dockerUnixAgents.get(endpoint.socketPath);
+    if (agent === undefined) {
+      agent = new http.Agent({ keepAlive: true, maxSockets: 16 });
+      dockerUnixAgents.set(endpoint.socketPath, agent);
+    }
+    return agent;
+  }
+  const key = `${endpoint.host}:${endpoint.port}`;
+  let agent = dockerTcpAgents.get(key);
+  if (agent === undefined) {
+    agent = new http.Agent({ keepAlive: true, maxSockets: 16 });
+    dockerTcpAgents.set(key, agent);
+  }
+  return agent;
+}
+
 export function createDockerTransport(
   endpoint: DockerEndpoint,
   timeoutMs: number = DOCKER_TIMEOUT_MS,
 ): DockerTransport {
+  const agent = agentForEndpoint(endpoint);
   return {
     async request(req: DockerClientRequest): Promise<DockerClientResponse> {
       assertReadonlyDockerRequest(req);
@@ -499,7 +522,6 @@ export function createDockerTransport(
         const headers = {
           host: "localhost",
           accept: "application/json",
-          connection: "close",
         };
 
         let settled = false;
@@ -542,20 +564,24 @@ export function createDockerTransport(
               method: req.method,
               headers,
               timeout: timeoutMs,
+              agent,
             },
             onResponse,
           );
         } else {
-          const agentOptions = {
-            host: endpoint.host,
-            port: endpoint.port,
-            path: req.path,
-            method: req.method,
-            headers,
-            timeout: timeoutMs,
-          };
           // 第一阶段仅 plain TCP（tcp://）；不强制 TLS
-          request = http.request(agentOptions, onResponse);
+          request = http.request(
+            {
+              host: endpoint.host,
+              port: endpoint.port,
+              path: req.path,
+              method: req.method,
+              headers,
+              timeout: timeoutMs,
+              agent,
+            },
+            onResponse,
+          );
         }
 
         request.setTimeout(timeoutMs, () => {
@@ -597,9 +623,15 @@ export function createDockerClient(
   options: {
     timeoutMs?: number;
     transport?: DockerTransport;
+    /**
+     * 为 false 时 running 容器只 inspect、不拉 stats（首屏状态徽章用）。
+     * 默认 true，保持单容器 API 与旧批量行为。
+     */
+    includeStats?: boolean;
   } = {},
 ): DockerClient {
   const timeoutMs = options.timeoutMs ?? DOCKER_TIMEOUT_MS;
+  const includeStats = options.includeStats !== false;
   const transport =
     options.transport ?? createDockerTransport(endpoint, timeoutMs);
 
@@ -673,7 +705,7 @@ export function createDockerClient(
         return { status: "unavailable", reason: "Docker 返回了异常结构" };
       }
 
-      if (status.status === "running") {
+      if (status.status === "running" && includeStats) {
         const stats = await fetchStats(containerNameOrId);
         return mergeRunningWithStats(status, stats);
       }

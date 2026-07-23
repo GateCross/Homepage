@@ -144,7 +144,10 @@ export const DockerBatchItemSchema = z.object({
 
 export type DockerBatchItem = z.infer<typeof DockerBatchItemSchema>;
 
-/** GET /api/docker/status 成功体：一次返回配置内全部已登记容器状态（含资源） */
+/**
+ * GET /api/docker/status 成功体：一次返回配置内全部已登记容器状态。
+ * 默认含资源；`?stats=0` 时仅运行态/健康（running 可无 cpu/memory 字段）。
+ */
 export const DockerBatchStatusResponseSchema = z.object({
   ok: z.literal(true),
   results: z.array(DockerBatchItemSchema),

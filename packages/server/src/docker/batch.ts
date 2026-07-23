@@ -53,6 +53,11 @@ export type QueryDockerBatchOptions = QueryDockerStatusOptions & {
   cache?: DockerStatusCache;
   /** 为 true 时跳过缓存读写（一般不必） */
   bypassCache?: boolean;
+  /**
+   * 默认 true。false 时仅 inspect（状态徽章），不拉 stats。
+   * 轻量结果与完整结果分桶缓存，避免互相污染。
+   */
+  includeStats?: boolean;
 };
 
 async function mapPool<T, R>(
@@ -80,7 +85,7 @@ async function mapPool<T, R>(
 
 /**
  * 查询 AllowList 内全部已登记容器状态。
- * - 短 TTL 缓存命中则不打 Docker
+ * - 短 TTL 缓存命中则不打 Docker（按 includeStats 分桶）
  * - 未命中按 concurrency 并行 queryDockerStatus
  * - 单容器失败映射为 unavailable，不拖垮整批
  */
@@ -92,6 +97,8 @@ export async function queryDockerBatchStatus(
   const cache = options.cache ?? defaultDockerStatusCache;
   const concurrency = options.concurrency ?? DOCKER_BATCH_CONCURRENCY;
   const bypass = options.bypassCache === true;
+  const includeStats = options.includeStats !== false;
+  const cacheBucket = includeStats ? "full" : "lite";
 
   const queryOptions: QueryDockerStatusOptions = {
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
@@ -99,11 +106,12 @@ export async function queryDockerBatchStatus(
       ? { createClient: options.createClient }
       : {}),
     ...(options.transport !== undefined ? { transport: options.transport } : {}),
+    includeStats,
   };
 
   const results = await mapPool(targets, concurrency, async (target) => {
     if (!bypass) {
-      const cached = cache.get(target.server, target.container);
+      const cached = cache.get(target.server, target.container, cacheBucket);
       if (cached !== undefined) {
         const item: DockerBatchItem = {
           server: target.server,
@@ -126,7 +134,11 @@ export async function queryDockerBatchStatus(
     }
 
     if (!bypass) {
-      cache.set(target.server, target.container, result);
+      cache.set(target.server, target.container, result, cacheBucket);
+      // full 结果可兼作 lite 命中（状态字段已完整）
+      if (includeStats) {
+        cache.set(target.server, target.container, result, "lite");
+      }
     }
 
     return {
@@ -151,8 +163,10 @@ export async function queryDockerStatusCached(
 ): Promise<DockerStatusResponse> {
   const cache = options.cache ?? defaultDockerStatusCache;
   const bypass = options.bypassCache === true;
+  const includeStats = options.includeStats !== false;
+  const cacheBucket = includeStats ? "full" : "lite";
   if (!bypass) {
-    const cached = cache.get(server, container);
+    const cached = cache.get(server, container, cacheBucket);
     if (cached !== undefined) return cached;
   }
 
@@ -162,11 +176,15 @@ export async function queryDockerStatusCached(
       ? { createClient: options.createClient }
       : {}),
     ...(options.transport !== undefined ? { transport: options.transport } : {}),
+    includeStats,
   };
 
   const result = await queryDockerStatus(endpoint, container, queryOptions);
   if (!bypass) {
-    cache.set(server, container, result);
+    cache.set(server, container, result, cacheBucket);
+    if (includeStats) {
+      cache.set(server, container, result, "lite");
+    }
   }
   return result;
 }

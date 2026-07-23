@@ -273,10 +273,22 @@ export async function fetchDocker(
   return getAndParseSuccess("docker", path, options);
 }
 
+export type FetchDockerBatchOptions = ApiRequestOptions & {
+  /**
+   * 默认 true。false 时请求 `?stats=0`，仅返回运行态/健康（首屏徽章）。
+   * true 时含 CPU/内存（指标条）。
+   */
+  includeStats?: boolean;
+};
+
 export async function fetchDockerBatch(
-  options?: ApiRequestOptions,
+  options?: FetchDockerBatchOptions,
 ): Promise<DockerBatchSuccessResponse> {
-  return getAndParseSuccess("dockerBatch", ApiRoutes.dockerStatus, options);
+  const includeStats = options?.includeStats !== false;
+  const path = includeStats
+    ? ApiRoutes.dockerStatus
+    : `${ApiRoutes.dockerStatus}?stats=0`;
+  return getAndParseSuccess("dockerBatch", path, options);
 }
 
 export async function fetchDockerContainers(

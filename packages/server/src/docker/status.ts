@@ -38,6 +38,8 @@ export type QueryDockerStatusOptions = {
     endpoint: DockerEndpoint,
   ) => DockerClient;
   transport?: DockerTransport;
+  /** 默认 true；false 时跳过 stats，仅返回运行态/健康 */
+  includeStats?: boolean;
 };
 
 export function normalizeDockerPathParam(raw: string): string {
@@ -98,6 +100,9 @@ export async function queryDockerStatus(
         : {}),
       ...(options.transport !== undefined
         ? { transport: options.transport }
+        : {}),
+      ...(options.includeStats !== undefined
+        ? { includeStats: options.includeStats }
         : {}),
     });
 
