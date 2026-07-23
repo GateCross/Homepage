@@ -208,6 +208,38 @@ function ResourceBlock({
   );
 }
 
+/**
+ * CPU 需两拍差分，冷启动常先到内存后到 CPU。
+ * 任一指标未齐时显示占位，避免「先内存后 CPU」闪烁。
+ */
+function MetricsLoading(): JSX.Element {
+  return (
+    <div
+      data-slot="docker-metrics"
+      data-state="loading"
+      className="flex w-full min-w-0 gap-1"
+      role="status"
+      aria-label={messages.loading.resources}
+    >
+      {(["CPU", "内存"] as const).map((label) => (
+        <div
+          key={label}
+          data-slot="docker-metric-block"
+          className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-md bg-foreground/[0.035] px-1 py-1.5 text-center dark:bg-foreground/[0.05]"
+        >
+          <span
+            className="inline-block h-3.5 w-8 animate-pulse rounded bg-foreground/10 sm:h-4"
+            aria-hidden="true"
+          />
+          <span className="mt-0.5 max-w-full truncate text-[10px] font-medium leading-none text-muted-foreground">
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RunningMetrics({
   data,
 }: {
@@ -215,8 +247,15 @@ function RunningMetrics({
 }): JSX.Element | null {
   const hasCpu = data.cpuPercent !== undefined;
   const hasMem = data.memoryPercent !== undefined;
+
+  // 尚无任何指标：可能仍在 lite 阶段，不占位
   if (!hasCpu && !hasMem) {
     return null;
+  }
+
+  // 仅有一侧（常见：先有内存无 CPU）→ 等齐再显示
+  if (!hasCpu || !hasMem) {
+    return <MetricsLoading />;
   }
 
   let memDetail: string | undefined;
@@ -234,24 +273,16 @@ function RunningMetrics({
       data-slot="docker-metrics"
       className="flex w-full min-w-0 gap-1"
       aria-label={[
-        hasCpu ? `CPU ${formatPercent(data.cpuPercent!)}` : null,
-        hasMem
-          ? `内存 ${formatPercent(data.memoryPercent!)}${memDetail ? ` ${memDetail}` : ""}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join("，")}
+        `CPU ${formatPercent(data.cpuPercent!)}`,
+        `内存 ${formatPercent(data.memoryPercent!)}${memDetail ? ` ${memDetail}` : ""}`,
+      ].join("，")}
     >
-      {hasCpu ? (
-        <ResourceBlock label="CPU" percent={data.cpuPercent!} />
-      ) : null}
-      {hasMem ? (
-        <ResourceBlock
-          label="内存"
-          percent={data.memoryPercent!}
-          detail={memDetail}
-        />
-      ) : null}
+      <ResourceBlock label="CPU" percent={data.cpuPercent!} />
+      <ResourceBlock
+        label="内存"
+        percent={data.memoryPercent!}
+        detail={memDetail}
+      />
     </div>
   );
 }
