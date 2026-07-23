@@ -11,8 +11,11 @@ import {
   readGroupCollapsed,
   writeGroupCollapsed,
 } from "@/lib/group-collapse";
+import { GroupActiveProvider, useGroupActive } from "@/lib/group-active";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+
+export { useGroupActive };
 
 export type CollapsibleGroupProps = {
   /** 持久化作用域，如 "services" / "bookmarks" */
@@ -109,14 +112,17 @@ export function CollapsibleGroup({
         </button>
       </h2>
 
-      <div
-        id={panelId}
-        role="region"
-        aria-label={name}
-        hidden={collapsed}
-      >
-        {collapsed ? null : children}
-      </div>
+      {/* 折叠时仅 hidden 并标记 inactive，保留状态但暂停子树轮询 */}
+      <GroupActiveProvider active={!collapsed}>
+        <div
+          id={panelId}
+          role="region"
+          aria-label={name}
+          hidden={collapsed}
+        >
+          {children}
+        </div>
+      </GroupActiveProvider>
     </div>
   );
 }

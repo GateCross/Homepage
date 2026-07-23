@@ -24,9 +24,14 @@ export function parseDockerEndpointUrl(raw: unknown): DockerEndpoint | null {
     return { kind: "unix", socketPath };
   }
 
-  // tcp://host:port（host 不含斜杠与空白；port 为 1–65535）
+  // tcp://host:port — plain TCP（host 不含斜杠与空白；port 为 1–65535）
   if (lower.startsWith("tcp://")) {
-    return parseTcpEndpoint(trimmed.slice("tcp://".length));
+    return parseTcpEndpoint(trimmed.slice("tcp://".length), false);
+  }
+
+  // https://host:port — Docker TLS（自签证书时客户端跳过校验，局域网信任模型）
+  if (lower.startsWith("https://")) {
+    return parseTcpEndpoint(trimmed.slice("https://".length), true);
   }
 
   return null;
@@ -49,34 +54,40 @@ function isValidUnixSocketPath(socketPath: string): boolean {
   return true;
 }
 
-function parseTcpEndpoint(authority: string): DockerEndpoint | null {
+function parseTcpEndpoint(
+  authority: string,
+  tls: boolean,
+): DockerEndpoint | null {
   const trimmed = authority.trim();
   if (trimmed.length === 0) {
     return null;
   }
 
+  // 去掉可能的 path/query（https://host:2376/ 之类）
+  const authorityOnly = trimmed.split(/[/?#]/, 1)[0] ?? trimmed;
+
   let host: string;
   let portText: string;
 
-  if (trimmed.startsWith("[")) {
+  if (authorityOnly.startsWith("[")) {
     // IPv6：[::1]:2375
-    const close = trimmed.indexOf("]");
+    const close = authorityOnly.indexOf("]");
     if (close <= 1) {
       return null;
     }
-    host = trimmed.slice(1, close);
-    const rest = trimmed.slice(close + 1);
+    host = authorityOnly.slice(1, close);
+    const rest = authorityOnly.slice(close + 1);
     if (!rest.startsWith(":")) {
       return null;
     }
     portText = rest.slice(1);
   } else {
-    const colon = trimmed.lastIndexOf(":");
-    if (colon <= 0 || colon === trimmed.length - 1) {
+    const colon = authorityOnly.lastIndexOf(":");
+    if (colon <= 0 || colon === authorityOnly.length - 1) {
       return null;
     }
-    host = trimmed.slice(0, colon);
-    portText = trimmed.slice(colon + 1);
+    host = authorityOnly.slice(0, colon);
+    portText = authorityOnly.slice(colon + 1);
     // 禁止在 host 中夹带路径或空白
     if (host.includes("/") || /\s/.test(host)) {
       return null;
@@ -95,7 +106,9 @@ function parseTcpEndpoint(authority: string): DockerEndpoint | null {
     return null;
   }
 
-  return { kind: "tcp", host, port };
+  return tls
+    ? { kind: "tcp", host, port, tls: true }
+    : { kind: "tcp", host, port };
 }
 
 export function normalizeDockerEndpointName(raw: unknown): string | null {

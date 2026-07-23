@@ -19,7 +19,9 @@ export const XIAOMI_WEATHER_BASE_URL =
 export const XIAOMI_WEATHER_APP_KEY = "weather20151024" as const;
 export const XIAOMI_WEATHER_SIGN = "zUFJoAR2ZVrDy1vF3D07" as const;
 
-export const OPEN_METEO_TIMEOUT_MS = 10_000;
+export const XIAOMI_WEATHER_TIMEOUT_MS = 10_000;
+/** @deprecated 使用 XIAOMI_WEATHER_TIMEOUT_MS；配置 type 仍为 openmeteo */
+export const OPEN_METEO_TIMEOUT_MS = XIAOMI_WEATHER_TIMEOUT_MS;
 
 /** 请求的预报天数（小米侧通常最多返回约 15 天） */
 export const XIAOMI_FORECAST_DAYS = 7;
@@ -637,7 +639,7 @@ export async function fetchOpenMeteoInfo(
   try {
     response = await timedFetch(url, {
       method: "GET",
-      timeoutMs: deps.timeoutMs ?? OPEN_METEO_TIMEOUT_MS,
+      timeoutMs: deps.timeoutMs ?? XIAOMI_WEATHER_TIMEOUT_MS,
       ...(deps.fetchImpl !== undefined ? { fetchImpl: deps.fetchImpl } : {}),
       headers: { accept: "application/json" },
     });

@@ -305,8 +305,8 @@ export function DockerEndpointsEditor({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        仅支持新增、删除与修改；不提供调序。连接串请使用 unix:// 或
-        tcp://host:port，勿内嵌用户名密码。
+        仅支持新增、删除与修改；不提供调序。连接串请使用 unix://、tcp://host:port
+        或 https://host:port（TLS，自签可连），勿内嵌用户名密码。
       </p>
 
       {value.length === 0 ? (

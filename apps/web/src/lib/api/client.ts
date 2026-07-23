@@ -308,6 +308,8 @@ export async function fetchWidget(
   const path = `${ApiRoutes.widgets}/${encodeURIComponent(id)}`;
   const fetchImpl = resolveFetch(options);
   const url = buildUrl(path, options?.baseUrl);
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
 
   let response: Response;
   try {
@@ -317,11 +319,18 @@ export async function fetchWidget(
         Accept: "application/json",
         ...(options?.headers ?? {}),
       },
-      ...(options?.signal !== undefined ? { signal: options.signal } : {}),
+      signal,
     });
   } catch (cause) {
+    cleanup();
     if (isAbortError(cause)) {
-      throw cause;
+      if (options?.signal?.aborted) {
+        throw cause;
+      }
+      throw new ApiClientError("请求超时，请稍后重试", {
+        kind: "network",
+        cause,
+      });
     }
     throw new ApiClientError(API_CLIENT_MESSAGES.network, {
       kind: "network",
@@ -329,28 +338,32 @@ export async function fetchWidget(
     });
   }
 
-  const body = await readJsonBody(response);
-
-  if (!response.ok) {
-    throwFromErrorBody(body, response.status);
-  }
-
   try {
-    return parseApiSuccess("widgetResult", body);
-  } catch (cause) {
-    const envelope = parseErrorEnvelope(body);
-    if (envelope !== null) {
-      throw new ApiClientError(envelope.error.message, {
-        kind: "http_error",
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      throwFromErrorBody(body, response.status);
+    }
+
+    try {
+      return parseApiSuccess("widgetResult", body);
+    } catch (cause) {
+      const envelope = parseErrorEnvelope(body);
+      if (envelope !== null) {
+        throw new ApiClientError(envelope.error.message, {
+          kind: "http_error",
+          status: response.status,
+          publicError: envelope.error,
+        });
+      }
+      throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
+        kind: "invalid_response",
         status: response.status,
-        publicError: envelope.error,
+        cause,
       });
     }
-    throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
-      kind: "invalid_response",
-      status: response.status,
-      cause,
-    });
+  } finally {
+    cleanup();
   }
 }
 

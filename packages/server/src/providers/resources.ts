@@ -125,14 +125,63 @@ export function parseResourcesTargetOptions(
   return { diskPaths: disks.map((d) => d.path), disks, cpu, memory };
 }
 
-export function defaultCollectCpuPercent(): number {
-  const cpus = os.cpus();
-  const n = Math.max(1, cpus.length);
-  const load = os.loadavg()[0] ?? 0;
-  if (!Number.isFinite(load) || load < 0) {
-    return clampPercent(0);
+/** 进程内上一拍 CPU 时间片；差分得出真实使用率（非 loadavg 伪百分比） */
+type CpuTimesSnapshot = {
+  idle: number;
+  total: number;
+  at: number;
+};
+
+let previousCpuTimes: CpuTimesSnapshot | null = null;
+
+function readCpuTimes(): { idle: number; total: number } {
+  let idle = 0;
+  let total = 0;
+  for (const cpu of os.cpus()) {
+    const t = cpu.times;
+    idle += t.idle;
+    total += t.user + t.nice + t.sys + t.idle + t.irq;
   }
-  return clampPercent((load / n) * 100);
+  return { idle, total };
+}
+
+/** 冷启动两次采样间隔；用 setTimeout 让出事件循环，避免 busy-wait */
+export const CPU_SEED_GAP_MS = 80;
+
+/**
+ * 基于两次 `os.cpus()` 时间片差分计算 CPU%。
+ * 无上一拍时短间隔采第二拍（async），保证首包也有真实值。
+ */
+export async function defaultCollectCpuPercent(): Promise<number> {
+  const sample = (): number => {
+    const now = readCpuTimes();
+    const prev = previousCpuTimes;
+    previousCpuTimes = { ...now, at: Date.now() };
+    if (prev === null) {
+      return Number.NaN;
+    }
+    const idleDelta = now.idle - prev.idle;
+    const totalDelta = now.total - prev.total;
+    if (!Number.isFinite(totalDelta) || totalDelta <= 0) {
+      return clampPercent(0);
+    }
+    const usedRatio = 1 - idleDelta / totalDelta;
+    if (!Number.isFinite(usedRatio)) {
+      return clampPercent(0);
+    }
+    return clampPercent(usedRatio * 100);
+  };
+
+  const first = sample();
+  if (Number.isFinite(first)) {
+    return first;
+  }
+
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, CPU_SEED_GAP_MS);
+  });
+  const second = sample();
+  return Number.isFinite(second) ? second : clampPercent(0);
 }
 
 export function defaultCollectMemory(): MemorySample {

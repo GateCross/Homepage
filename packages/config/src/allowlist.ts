@@ -25,7 +25,13 @@ export type InfoTarget = {
 
 export type DockerEndpoint =
   | { kind: "unix"; socketPath: string }
-  | { kind: "tcp"; host: string; port: number };
+  | {
+      kind: "tcp";
+      host: string;
+      port: number;
+      /** true：HTTPS/TLS（如 https://host:2376）；false/缺省：plain TCP */
+      tls?: boolean | undefined;
+    };
 
 /** 当次配置加载产生的允许列表。 使用 Map/Set，便于 O(1) 鉴权；不跨请求缓存为唯一真相。 */
 export type AllowList = {

@@ -1,4 +1,4 @@
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 
 import {
   resolveBookmarkIconDisplay,
@@ -10,11 +10,12 @@ import {
 } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
+/** 经本站代理拉取 Iconify，避免前端纯 CDN 在离线/阻断时全挂 */
 function iconifyUrl(icon: Extract<ResolvedIcon, { kind: "mdi" | "si" }>): string {
   if (icon.kind === "mdi") {
-    return `https://api.iconify.design/mdi/${encodeURIComponent(icon.name)}.svg`;
+    return `/api/icons/iconify/mdi/${encodeURIComponent(icon.name)}.svg`;
   }
-  return `https://api.iconify.design/simple-icons/${encodeURIComponent(icon.name)}.svg`;
+  return `/api/icons/iconify/simple-icons/${encodeURIComponent(icon.name)}.svg`;
 }
 
 function resolvedIconSrc(icon: ResolvedIcon): string | null {
@@ -52,6 +53,7 @@ export function IconImage({
   }
   return (
     <img
+      key={src}
       src={src}
       alt={alt}
       loading="lazy"
@@ -115,6 +117,10 @@ export function ServiceIconView({
   preferPlaceholder = true,
 }: ServiceIconViewProps): JSX.Element | null {
   const [failed, setFailed] = useState(false);
+  // icon 变更时清除失败态，避免换图标后仍显示占位
+  useEffect(() => {
+    setFailed(false);
+  }, [icon]);
   const display: ServiceIconDisplay = resolveServiceIconDisplay(icon, {
     iconAvailable: !failed,
     preferPlaceholder,
@@ -178,6 +184,9 @@ export function BookmarkIconView({
   className,
 }: BookmarkIconViewProps): JSX.Element {
   const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [icon]);
   const display: BookmarkIconDisplay = resolveBookmarkIconDisplay({
     icon,
     abbr,

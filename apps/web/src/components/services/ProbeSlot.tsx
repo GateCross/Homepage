@@ -14,8 +14,12 @@ import {
   formatPublicError,
   formatUnknownError,
 } from "@/lib/format-error";
+import { useGroupActive } from "@/lib/group-active";
 import { messages, probeStatusText } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+
+/** HTTP 探测静默轮询间隔 */
+export const PROBE_POLL_INTERVAL_MS = 30_000;
 
 export type ProbeSlotProps = {
   probeId: string;
@@ -82,24 +86,36 @@ function StatusIcon({
 }
 
 export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
+  const groupActive = useGroupActive();
   const [state, setState] = useState<SlotState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const hasSuccessRef = useRef(false);
+  const pageVisibleRef = useRef(
+    typeof document === "undefined"
+      ? true
+      : document.visibilityState !== "hidden",
+  );
+  const groupActiveRef = useRef(groupActive);
+  const wasGroupActiveRef = useRef(groupActive);
+  groupActiveRef.current = groupActive;
 
-  useEffect(() => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setState({ status: "loading" });
+  const load = useCallback(
+    async (signal: AbortSignal, options?: { silent?: boolean }) => {
+      const silent = options?.silent === true;
+      if (!silent || !hasSuccessRef.current) {
+        setState({ status: "loading" });
+      }
 
-    void (async () => {
       try {
-        const data = await fetchProbe(probeId, { signal: controller.signal });
-        if (controller.signal.aborted) {
+        const data = await fetchProbe(probeId, { signal });
+        if (signal.aborted) {
           return;
         }
+        hasSuccessRef.current = true;
         setState({ status: "success", data });
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (signal.aborted) {
           return;
         }
         if (
@@ -108,18 +124,94 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
         ) {
           return;
         }
+        if (silent && hasSuccessRef.current) {
+          return;
+        }
+        hasSuccessRef.current = false;
         setState({ status: "error", message: resolveErrorMessage(error) });
       }
-    })();
+    },
+    [probeId],
+  );
 
+  useEffect(() => {
+    // probeId / 手动重试时清空成功态，避免沿用旧目标的 silent 短路
+    hasSuccessRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    void load(controller.signal);
+
+    let timerId: number | null = null;
+
+    const isActive = (): boolean =>
+      pageVisibleRef.current && groupActiveRef.current;
+
+    const clearTimer = (): void => {
+      if (timerId !== null) {
+        window.clearInterval(timerId);
+        timerId = null;
+      }
+    };
+
+    const tick = (): void => {
+      if (!isActive()) {
+        return;
+      }
+      abortRef.current?.abort();
+      const next = new AbortController();
+      abortRef.current = next;
+      void load(next.signal, { silent: true });
+    };
+
+    const startTimer = (): void => {
+      clearTimer();
+      timerId = window.setInterval(tick, PROBE_POLL_INTERVAL_MS);
+    };
+
+    const onVisibility = (): void => {
+      const visible = document.visibilityState !== "hidden";
+      pageVisibleRef.current = visible;
+      if (visible) {
+        if (groupActiveRef.current) {
+          tick();
+        }
+        startTimer();
+      } else {
+        clearTimer();
+      }
+    };
+
+    // 折叠时仍挂 timer，tick 内按 isActive 短路，避免展开后无轮询
+    if (pageVisibleRef.current) {
+      startTimer();
+    }
+
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      clearTimer();
+      document.removeEventListener("visibilitychange", onVisibility);
       controller.abort();
+      abortRef.current?.abort();
       abortRef.current = null;
     };
-  }, [probeId, reloadToken]);
+  }, [load, reloadToken]);
+
+  // 分组从折叠展开时补一次静默刷新（首载由主 effect 负责）
+  useEffect(() => {
+    const wasActive = wasGroupActiveRef.current;
+    wasGroupActiveRef.current = groupActive;
+    if (!groupActive || wasActive || !pageVisibleRef.current) {
+      return;
+    }
+    abortRef.current?.abort();
+    const next = new AbortController();
+    abortRef.current = next;
+    void load(next.signal, { silent: true });
+  }, [groupActive, load]);
 
   const handleRetry = useCallback(() => {
     abortRef.current?.abort();
+    hasSuccessRef.current = false;
     setReloadToken((n) => n + 1);
   }, []);
 
@@ -150,12 +242,12 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
         role="status"
         aria-label={state.message}
         className={cn(
-          "inline-flex flex-wrap items-center gap-1.5 text-xs text-destructive",
+          "inline-flex max-w-[10rem] flex-wrap items-center gap-1.5 text-xs text-destructive",
           className,
         )}
       >
         <StatusIcon state="error" />
-        <span>{state.message}</span>
+        <span className="truncate">{state.message}</span>
         <button
           type="button"
           className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

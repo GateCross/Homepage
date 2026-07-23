@@ -23,17 +23,33 @@ import {
   formatPublicError,
   formatUnknownError,
 } from "@/lib/format-error";
+import { useGroupActive } from "@/lib/group-active";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
-/** qB / Transmission 等下载客户端：定时静默刷新 */
+/** 下载客户端：较快静默刷新 */
 export const TORRENT_WIDGET_POLL_INTERVAL_MS = 15_000;
+/** Emby / Custom API 等：较慢静默刷新 */
+export const WIDGET_POLL_INTERVAL_MS = 30_000;
+/**
+ * 前端请求超时。
+ * 适配器单跳约 10s；qBittorrent 等会先鉴权再拉数，端到端需覆盖多段预算。
+ */
+export const WIDGET_FETCH_TIMEOUT_MS = 30_000;
+/** 成功数据超过此时长仍未刷新成功，展示「最后更新」 */
+export const WIDGET_STALE_MS = 90_000;
 
 const TORRENT_WIDGET_TYPES = new Set(["qbittorrent", "transmission"]);
+const POLLING_WIDGET_TYPES = new Set([
+  "qbittorrent",
+  "transmission",
+  "emby",
+  "customapi",
+]);
 
 export type WidgetSlotProps = {
   widgetId?: string | undefined;
-  /** 组件类型，用于决定是否轮询（qbittorrent / transmission） */
+  /** 组件类型，用于决定轮询间隔 */
   widgetType?: string | undefined;
   unsupported?: boolean | undefined;
   configError?: string | undefined;
@@ -43,7 +59,11 @@ export type WidgetSlotProps = {
 type SlotState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "success"; data: Extract<ServiceWidgetResult, { ok: true }> };
+  | {
+      status: "success";
+      data: Extract<ServiceWidgetResult, { ok: true }>;
+      fetchedAt: number;
+    };
 
 function resolveErrorMessage(error: unknown): string {
   if (isApiClientError(error)) {
@@ -176,6 +196,33 @@ function SessionsList({
   );
 }
 
+function formatStaleAge(fetchedAt: number, now: number): string {
+  const ageSec = Math.max(0, Math.floor((now - fetchedAt) / 1000));
+  if (ageSec < 60) {
+    return `最后更新 ${ageSec}s 前`;
+  }
+  const ageMin = Math.floor(ageSec / 60);
+  if (ageMin < 60) {
+    return `最后更新 ${ageMin} 分钟前`;
+  }
+  const ageHour = Math.floor(ageMin / 60);
+  return `最后更新 ${ageHour} 小时前`;
+}
+
+function pollIntervalForType(widgetType: string | undefined): number | null {
+  if (typeof widgetType !== "string") {
+    return null;
+  }
+  const type = widgetType.trim().toLowerCase();
+  if (!POLLING_WIDGET_TYPES.has(type)) {
+    return null;
+  }
+  if (TORRENT_WIDGET_TYPES.has(type)) {
+    return TORRENT_WIDGET_POLL_INTERVAL_MS;
+  }
+  return WIDGET_POLL_INTERVAL_MS;
+}
+
 export function WidgetSlot({
   widgetId,
   widgetType,
@@ -183,10 +230,20 @@ export function WidgetSlot({
   configError,
   className,
 }: WidgetSlotProps): JSX.Element | null {
+  const groupActive = useGroupActive();
   const [state, setState] = useState<SlotState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const abortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
+  const pageVisibleRef = useRef(
+    typeof document === "undefined"
+      ? true
+      : document.visibilityState !== "hidden",
+  );
+  const groupActiveRef = useRef(groupActive);
+  const wasGroupActiveRef = useRef(groupActive);
+  groupActiveRef.current = groupActive;
 
   const shouldFetch =
     !unsupported &&
@@ -194,27 +251,24 @@ export function WidgetSlot({
     typeof widgetId === "string" &&
     widgetId.trim().length > 0;
 
-  const shouldPoll =
-    typeof widgetType === "string" &&
-    TORRENT_WIDGET_TYPES.has(widgetType.trim().toLowerCase());
+  const pollIntervalMs = pollIntervalForType(widgetType);
 
-  useEffect(() => {
-    if (!shouldFetch || widgetId === undefined) {
-      return;
-    }
-    const controller = new AbortController();
-    abortRef.current = controller;
-    // 首载显示 loading；轮询刷新静默更新
-    if (!hasLoadedRef.current) {
-      setState({ status: "loading" });
-    }
+  const load = useCallback(
+    async (signal: AbortSignal, options?: { silent?: boolean }) => {
+      if (widgetId === undefined) {
+        return;
+      }
+      const silent = options?.silent === true;
+      if (!silent || !hasLoadedRef.current) {
+        setState({ status: "loading" });
+      }
 
-    void (async () => {
       try {
         const result = await fetchWidget(widgetId, {
-          signal: controller.signal,
+          signal,
+          timeoutMs: WIDGET_FETCH_TIMEOUT_MS,
         });
-        if (controller.signal.aborted) {
+        if (signal.aborted) {
           return;
         }
         if (!result.ok) {
@@ -225,9 +279,13 @@ export function WidgetSlot({
           return;
         }
         hasLoadedRef.current = true;
-        setState({ status: "success", data: result });
+        setState({
+          status: "success",
+          data: result,
+          fetchedAt: Date.now(),
+        });
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (signal.aborted) {
           return;
         }
         if (
@@ -236,29 +294,118 @@ export function WidgetSlot({
         ) {
           return;
         }
+        if (silent && hasLoadedRef.current) {
+          return;
+        }
         if (!hasLoadedRef.current) {
           setState({ status: "error", message: resolveErrorMessage(error) });
         }
       }
-    })();
-
-    return () => {
-      controller.abort();
-      abortRef.current = null;
-    };
-  }, [shouldFetch, widgetId, reloadToken]);
+    },
+    [widgetId],
+  );
 
   useEffect(() => {
-    if (!shouldFetch || !shouldPoll) {
+    if (!shouldFetch || widgetId === undefined) {
       return;
     }
-    const timerId = window.setInterval(() => {
-      setReloadToken((n) => n + 1);
-    }, TORRENT_WIDGET_POLL_INTERVAL_MS);
-    return () => {
-      window.clearInterval(timerId);
+    // widgetId 等依赖变化时重置，避免复用实例时 silent 短路导致卡在 loading
+    hasLoadedRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // 折叠组首次挂载仍拉一次数据，后续轮询由 groupActive 控制
+    void load(controller.signal);
+
+    let pollTimerId: number | null = null;
+    let staleTimerId: number | null = null;
+
+    const isActive = (): boolean =>
+      pageVisibleRef.current && groupActiveRef.current;
+
+    const clearPollTimer = (): void => {
+      if (pollTimerId !== null) {
+        window.clearInterval(pollTimerId);
+        pollTimerId = null;
+      }
     };
-  }, [shouldFetch, shouldPoll]);
+
+    const tick = (): void => {
+      if (!isActive()) {
+        return;
+      }
+      abortRef.current?.abort();
+      const next = new AbortController();
+      abortRef.current = next;
+      void load(next.signal, { silent: true });
+    };
+
+    const startPollTimer = (): void => {
+      clearPollTimer();
+      if (pollIntervalMs === null) {
+        return;
+      }
+      pollTimerId = window.setInterval(tick, pollIntervalMs);
+    };
+
+    const onVisibility = (): void => {
+      const visible = document.visibilityState !== "hidden";
+      pageVisibleRef.current = visible;
+      if (visible) {
+        if (pollIntervalMs !== null) {
+          // 折叠组不主动拉；timer 仍挂着，展开后由 tick 恢复
+          if (groupActiveRef.current) {
+            tick();
+          }
+          startPollTimer();
+        }
+        if (groupActiveRef.current) {
+          setNowMs(Date.now());
+        }
+      } else {
+        clearPollTimer();
+      }
+    };
+
+    // 即使分组折叠也挂 timer，tick 内按 isActive 短路，避免展开后无轮询
+    if (pageVisibleRef.current && pollIntervalMs !== null) {
+      startPollTimer();
+    }
+
+    // 成功数据陈旧提示需要周期性刷新「最后更新」文案
+    staleTimerId = window.setInterval(() => {
+      if (isActive()) {
+        setNowMs(Date.now());
+      }
+    }, 15_000);
+
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearPollTimer();
+      if (staleTimerId !== null) {
+        window.clearInterval(staleTimerId);
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+      controller.abort();
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [shouldFetch, widgetId, reloadToken, pollIntervalMs, load]);
+
+  // 分组从折叠展开时补一次静默刷新（首载由主 effect 负责，避免双请求）
+  useEffect(() => {
+    const wasActive = wasGroupActiveRef.current;
+    wasGroupActiveRef.current = groupActive;
+    if (!shouldFetch || pollIntervalMs === null) {
+      return;
+    }
+    if (!groupActive || wasActive || !pageVisibleRef.current) {
+      return;
+    }
+    abortRef.current?.abort();
+    const next = new AbortController();
+    abortRef.current = next;
+    void load(next.signal, { silent: true });
+  }, [groupActive, shouldFetch, pollIntervalMs, load]);
 
   const handleRetry = useCallback(() => {
     abortRef.current?.abort();
@@ -303,15 +450,25 @@ export function WidgetSlot({
   }
 
   const { metrics, sessions } = state.data;
+  const isStale = nowMs - state.fetchedAt >= WIDGET_STALE_MS;
 
   return (
     <div
       data-slot="widget-slot"
       data-state="success"
+      data-stale={isStale ? "true" : "false"}
       className={cn("flex flex-col gap-1", className)}
     >
       <MetricsList metrics={metrics} />
       {sessions !== undefined ? <SessionsList sessions={sessions} /> : null}
+      {isStale ? (
+        <p
+          className="text-center text-[10px] leading-none text-muted-foreground/80"
+          data-slot="widget-stale"
+        >
+          {formatStaleAge(state.fetchedAt, nowMs)}
+        </p>
+      ) : null}
     </div>
   );
 }

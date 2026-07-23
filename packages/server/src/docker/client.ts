@@ -1,4 +1,5 @@
 import http from "node:http";
+import https from "node:https";
 import type { DockerEndpoint } from "@homepage/config";
 import {
   clampPercent,
@@ -480,7 +481,8 @@ export function dockerEndpointCacheKey(endpoint: DockerEndpoint): string {
   if (endpoint.kind === "unix") {
     return `unix:${endpoint.socketPath}`;
   }
-  return `tcp:${endpoint.host}:${endpoint.port}`;
+  const scheme = endpoint.tls === true ? "https" : "tcp";
+  return `${scheme}:${endpoint.host}:${endpoint.port}`;
 }
 
 export function cpuSampleCacheKey(
@@ -689,13 +691,28 @@ export function mapListPayloadToSummaries(
 /** 按端点复用 keep-alive，避免每次 inspect/stats 都新建 socket */
 const dockerUnixAgents = new Map<string, http.Agent>();
 const dockerTcpAgents = new Map<string, http.Agent>();
+const dockerTlsAgents = new Map<string, https.Agent>();
 
-function agentForEndpoint(endpoint: DockerEndpoint): http.Agent {
+function agentForEndpoint(endpoint: DockerEndpoint): http.Agent | https.Agent {
   if (endpoint.kind === "unix") {
     let agent = dockerUnixAgents.get(endpoint.socketPath);
     if (agent === undefined) {
       agent = new http.Agent({ keepAlive: true, maxSockets: 24 });
       dockerUnixAgents.set(endpoint.socketPath, agent);
+    }
+    return agent;
+  }
+  if (endpoint.tls === true) {
+    const key = `${endpoint.host}:${endpoint.port}`;
+    let agent = dockerTlsAgents.get(key);
+    if (agent === undefined) {
+      // 局域网 Docker TLS 常见自签证书，跳过校验（信任模型 A）
+      agent = new https.Agent({
+        keepAlive: true,
+        maxSockets: 24,
+        rejectUnauthorized: false,
+      });
+      dockerTlsAgents.set(key, agent);
     }
     return agent;
   }
@@ -762,12 +779,25 @@ export function createDockerTransport(
               method: req.method,
               headers,
               timeout: timeoutMs,
-              agent,
+              agent: agent as http.Agent,
+            },
+            onResponse,
+          );
+        } else if (endpoint.tls === true) {
+          request = https.request(
+            {
+              host: endpoint.host,
+              port: endpoint.port,
+              path: req.path,
+              method: req.method,
+              headers,
+              timeout: timeoutMs,
+              agent: agent as https.Agent,
+              rejectUnauthorized: false,
             },
             onResponse,
           );
         } else {
-          // 第一阶段仅 plain TCP（tcp://）；不强制 TLS
           request = http.request(
             {
               host: endpoint.host,
@@ -776,7 +806,7 @@ export function createDockerTransport(
               method: req.method,
               headers,
               timeout: timeoutMs,
-              agent,
+              agent: agent as http.Agent,
             },
             onResponse,
           );

@@ -49,7 +49,10 @@ pnpm start
 
 ## resources 资源监控语义
 
-首期 `resources` 采集的是 **Node 运行进程或容器可见** 的 CPU、内存与磁盘路径，**不承诺**直接读取宿主机全局资源。
+`resources` 采集的是 **Node 运行进程或容器可见** 的 CPU、内存与磁盘路径，**不承诺**直接读取宿主机全局资源。
+
+- **CPU**：对两次 `os.cpus()` 时间片做差分，得到真实使用率（不是 loadavg 伪百分比）。冷启动会短间隔连采两拍（`setTimeout`，不阻塞事件循环）以保证首包有值。
+- **内存 / 磁盘**：分别为 `os.totalmem/freemem` 与 `statfs(path)`。
 
 若需监控宿主机磁盘，请由部署者以只读方式把宿主机目录挂载到容器内路径，并在 `widgets.yaml` 中配置对应容器内路径，例如：
 
@@ -68,8 +71,10 @@ volumes:
 ## Docker 端点
 
 - Unix socket：`unix:///var/run/docker.sock`（仅在需要容器状态时只读挂载）。
-- TCP：`tcp://host:port`（如 `tcp://192.168.1.10:2375`）。
-- 第一阶段仅支持容器 inspect/status 只读查询；**不支持** Docker stats，也不支持 start/stop/remove/exec 等写操作。
+- Plain TCP：`tcp://host:port`（如 `tcp://192.168.1.10:2375`）。
+- TLS：`https://host:port`（如 `https://192.168.1.10:2376`）；客户端跳过证书校验以兼容内网自签。
+- 只读：容器 list / inspect / stats（`stream=0&one-shot=1` 即时快照 + 进程内 CPU 差分）；**不支持** start/stop/remove/exec 等写操作。
+- 前端批量状态：先 lite 徽章再补 stats，约 15s 轮询；配置编辑器打开时会暂停轮询。
 
 ## 局域网访问与威胁模型
 

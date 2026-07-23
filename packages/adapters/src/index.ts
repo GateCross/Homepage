@@ -36,6 +36,8 @@ export {
 
 export {
   AdapterLocalError,
+  DEFAULT_ADAPTER_INSECURE_TLS,
+  DEFAULT_ADAPTER_RESPONSE_MAX_BYTES,
   DEFAULT_ADAPTER_TIMEOUT_MS,
   adapterFetch,
   getAdapterFetch,

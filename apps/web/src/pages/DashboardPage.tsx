@@ -133,40 +133,109 @@ export function DashboardPage(): JSX.Element {
   const searchTriggerRef = useRef<HTMLElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const load = useCallback(async (signal: AbortSignal) => {
-    setState({ status: "loading" });
-    try {
-      const config = await fetchConfig({ signal });
-      if (signal.aborted) {
-        return;
+  const hasConfigRef = useRef(false);
+  /** 成功配置指纹，silent revalidate 未变时跳过 setState，避免整树重渲 */
+  const configFingerprintRef = useRef<string | null>(null);
+  /** 单调世代：丢弃过期的 config 响应，避免 silent 覆盖保存结果 */
+  const loadEpochRef = useRef(0);
+
+  const load = useCallback(
+    async (signal: AbortSignal, options?: { silent?: boolean }) => {
+      const silent = options?.silent === true;
+      const epoch = ++loadEpochRef.current;
+      if (!silent || !hasConfigRef.current) {
+        setState({ status: "loading" });
       }
-      setState({ status: "success", config });
-    } catch (error) {
-      if (signal.aborted) {
-        return;
+      try {
+        const config = await fetchConfig({ signal });
+        if (signal.aborted || epoch !== loadEpochRef.current) {
+          return;
+        }
+        const fingerprint = JSON.stringify(config);
+        if (
+          silent &&
+          hasConfigRef.current &&
+          configFingerprintRef.current === fingerprint
+        ) {
+          return;
+        }
+        hasConfigRef.current = true;
+        configFingerprintRef.current = fingerprint;
+        setState({ status: "success", config });
+      } catch (error) {
+        if (signal.aborted || epoch !== loadEpochRef.current) {
+          return;
+        }
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        // 静默 revalidate 失败时保留当前成功配置
+        if (silent && hasConfigRef.current) {
+          return;
+        }
+        hasConfigRef.current = false;
+        configFingerprintRef.current = null;
+        setState({
+          status: "error",
+          message: resolveConfigErrorMessage(error),
+        });
       }
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError"
-      ) {
-        return;
-      }
-      if (error instanceof Error && error.name === "AbortError") {
-        return;
-      }
-      setState({
-        status: "error",
-        message: resolveConfigErrorMessage(error),
-      });
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
     abortRef.current = controller;
     void load(controller.signal);
+
+    // focus 与 visibilitychange 切回前台时常连发，合并为一次 silent revalidate
+    let debounceTimer: number | null = null;
+    const scheduleSilentRevalidate = (): void => {
+      if (!hasConfigRef.current) {
+        return;
+      }
+      if (debounceTimer !== null) {
+        window.clearTimeout(debounceTimer);
+      }
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null;
+        if (!hasConfigRef.current) {
+          return;
+        }
+        if (document.visibilityState === "hidden") {
+          return;
+        }
+        abortRef.current?.abort();
+        const next = new AbortController();
+        abortRef.current = next;
+        void load(next.signal, { silent: true });
+      }, 400);
+    };
+
+    const onVisibility = (): void => {
+      if (document.visibilityState === "visible") {
+        scheduleSilentRevalidate();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", scheduleSilentRevalidate);
     return () => {
+      if (debounceTimer !== null) {
+        window.clearTimeout(debounceTimer);
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", scheduleSilentRevalidate);
+      // 同时 abort effect 初始 controller 与当前 silent 请求
       controller.abort();
+      abortRef.current?.abort();
       abortRef.current = null;
     };
   }, [load, reloadToken]);
@@ -181,6 +250,8 @@ export function DashboardPage(): JSX.Element {
 
   const handleRetry = useCallback(() => {
     abortRef.current?.abort();
+    hasConfigRef.current = false;
+    configFingerprintRef.current = null;
     setReloadToken((n) => n + 1);
   }, []);
 
@@ -205,12 +276,31 @@ export function DashboardPage(): JSX.Element {
   }, []);
 
   const handleConfigSaved = useCallback(async () => {
+    // 取消 in-flight silent revalidate，防止旧配置回写
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const epoch = ++loadEpochRef.current;
     try {
-      const config = await fetchConfig();
+      const config = await fetchConfig({ signal: controller.signal });
+      if (controller.signal.aborted || epoch !== loadEpochRef.current) {
+        return;
+      }
+      hasConfigRef.current = true;
+      configFingerprintRef.current = JSON.stringify(config);
       setState({ status: "success", config });
       document.title = resolveDocumentTitle(config.settings.title);
       applyDocumentFavicon(config.settings.favicon);
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted || epoch !== loadEpochRef.current) {
+        return;
+      }
+      if (
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError")
+      ) {
+        return;
+      }
       // 保存已成功；刷新失败时允许用户手动重试主视图
       setReloadToken((n) => n + 1);
     }

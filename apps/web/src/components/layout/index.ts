@@ -11,6 +11,7 @@ export {
 } from "./BookmarkSections";
 export {
   CollapsibleGroup,
+  useGroupActive,
   type CollapsibleGroupProps,
 } from "./CollapsibleGroup";
 export { Header, type HeaderProps } from "./Header";
