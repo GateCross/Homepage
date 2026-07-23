@@ -86,6 +86,17 @@ export function createDockerRoutes(deps: DockerRouteDeps = {}): Hono {
         ...(statusCache !== undefined ? { cache: statusCache } : {}),
         includeStats,
       });
+
+      // lite 返回后后台预热 full（stats），使前端第二阶段多半命中缓存
+      if (!includeStats) {
+        void queryBatch(allowList, {
+          ...(statusCache !== undefined ? { cache: statusCache } : {}),
+          includeStats: true,
+        }).catch(() => {
+          // 预热失败不影响当前响应
+        });
+      }
+
       const parsed = ApiSuccessSchemas.dockerBatch.parse(body);
       const secrets = gatherSecrets(allowList);
       if (jsonContainsAnySecret(parsed, secrets)) {

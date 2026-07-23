@@ -166,8 +166,8 @@ export function DockerStatusProvider({
 
   /**
    * 两阶段加载：
-   * 1) lite（?stats=0）→ 尽快出徽章
-   * 2) full（含 stats）→ 补 CPU/内存；失败且 silent 时保留 lite 状态
+   * 1) lite（?stats=0）→ 尽快出徽章；服务端随后后台预热 full
+   * 2) 立即 full → 与预热 inflight 去重，running 只补 stats；失败不拖垮徽章
    */
   const load = useCallback(
     async (signal: AbortSignal, options?: { silent?: boolean }) => {
@@ -190,7 +190,7 @@ export function DockerStatusProvider({
         hasSuccessRef.current = true;
         setMap((prev) => mergeDockerMaps(prev, liteMap, "lite"));
 
-        // —— 阶段 2：含 stats ——
+        // —— 阶段 2：指标（服务端已启动预热，可复用 lite + 只拉 stats）——
         try {
           const fullBody = await fetchDockerBatch({
             signal,

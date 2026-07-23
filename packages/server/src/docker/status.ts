@@ -10,6 +10,7 @@ import {
 import {
   createDockerClient,
   DockerClientError,
+  mergeRunningWithStats,
   type DockerClient,
   type DockerTransport,
 } from "./client.js";
@@ -87,12 +88,12 @@ export function authorizeDockerEndpoint(
   return { ok: true, server, endpoint };
 }
 
-export async function queryDockerStatus(
+function buildClient(
   endpoint: DockerEndpoint,
-  container: string,
-  options: QueryDockerStatusOptions = {},
-): Promise<DockerStatusResponse> {
-  const client =
+  options: QueryDockerStatusOptions,
+  includeStats: boolean,
+): DockerClient {
+  return (
     options.createClient?.(endpoint) ??
     createDockerClient(endpoint, {
       ...(options.timeoutMs !== undefined
@@ -101,29 +102,49 @@ export async function queryDockerStatus(
       ...(options.transport !== undefined
         ? { transport: options.transport }
         : {}),
-      ...(options.includeStats !== undefined
-        ? { includeStats: options.includeStats }
-        : {}),
-    });
+      includeStats,
+    })
+  );
+}
 
+export async function queryDockerStatus(
+  endpoint: DockerEndpoint,
+  container: string,
+  options: QueryDockerStatusOptions = {},
+): Promise<DockerStatusResponse> {
+  const includeStats = options.includeStats !== false;
+  const client = buildClient(endpoint, options, includeStats);
   const status = await client.inspectContainer(container);
   return DockerStatusResponseSchema.parse(status);
+}
+
+/**
+ * 在已知 running 状态上只拉 stats 并合并。
+ * full 路径复用 lite 缓存时使用，避免重复 inspect。
+ */
+export async function queryDockerStatsOnto(
+  endpoint: DockerEndpoint,
+  container: string,
+  base: Extract<DockerStatusResponse, { status: "running" }>,
+  options: QueryDockerStatusOptions = {},
+): Promise<DockerStatusResponse> {
+  const client = buildClient(endpoint, options, true);
+  if (typeof client.containerStats !== "function") {
+    // 测试注入的精简 client 可能无此方法，回退完整查询
+    return queryDockerStatus(endpoint, container, {
+      ...options,
+      includeStats: true,
+    });
+  }
+  const stats = await client.containerStats(container);
+  return DockerStatusResponseSchema.parse(mergeRunningWithStats(base, stats));
 }
 
 export async function queryDockerContainers(
   endpoint: DockerEndpoint,
   options: QueryDockerStatusOptions = {},
 ): Promise<DockerContainerSummary[]> {
-  const client =
-    options.createClient?.(endpoint) ??
-    createDockerClient(endpoint, {
-      ...(options.timeoutMs !== undefined
-        ? { timeoutMs: options.timeoutMs }
-        : {}),
-      ...(options.transport !== undefined
-        ? { transport: options.transport }
-        : {}),
-    });
+  const client = buildClient(endpoint, options, false);
 
   try {
     return await client.listContainers();

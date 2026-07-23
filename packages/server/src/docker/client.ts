@@ -35,6 +35,8 @@ export type DockerTransport = {
 export type DockerClient = {
   /** 查询容器状态；运行中附带 CPU/内存占用；不得提供写操作 */
   inspectContainer: (containerNameOrId: string) => Promise<DockerStatusResponse>;
+  /** 仅拉资源占用（供 full 路径复用 lite 状态时跳过 inspect） */
+  containerStats: (containerNameOrId: string) => Promise<DockerResourceStats>;
   /** 列出容器摘要（只读发现） */
   listContainers: () => Promise<DockerContainerSummary[]>;
 };
@@ -496,7 +498,7 @@ function agentForEndpoint(endpoint: DockerEndpoint): http.Agent {
   if (endpoint.kind === "unix") {
     let agent = dockerUnixAgents.get(endpoint.socketPath);
     if (agent === undefined) {
-      agent = new http.Agent({ keepAlive: true, maxSockets: 16 });
+      agent = new http.Agent({ keepAlive: true, maxSockets: 24 });
       dockerUnixAgents.set(endpoint.socketPath, agent);
     }
     return agent;
@@ -504,7 +506,7 @@ function agentForEndpoint(endpoint: DockerEndpoint): http.Agent {
   const key = `${endpoint.host}:${endpoint.port}`;
   let agent = dockerTcpAgents.get(key);
   if (agent === undefined) {
-    agent = new http.Agent({ keepAlive: true, maxSockets: 16 });
+    agent = new http.Agent({ keepAlive: true, maxSockets: 24 });
     dockerTcpAgents.set(key, agent);
   }
   return agent;
@@ -635,19 +637,20 @@ export function createDockerClient(
   const transport =
     options.transport ?? createDockerTransport(endpoint, timeoutMs);
 
+  // stats 采样可能稍慢，单独放宽超时；与 inspect 共用 keep-alive agent
+  const statsTransport =
+    options.transport ??
+    createDockerTransport(
+      endpoint,
+      Math.max(timeoutMs, DOCKER_STATS_TIMEOUT_MS),
+    );
+
   async function fetchStats(
     containerNameOrId: string,
   ): Promise<DockerResourceStats> {
     const path = buildStatsPath(containerNameOrId);
     let response: DockerClientResponse;
     try {
-      // stats 采样可能稍慢，单独放宽超时
-      const statsTransport =
-        options.transport ??
-        createDockerTransport(
-          endpoint,
-          Math.max(timeoutMs, DOCKER_STATS_TIMEOUT_MS),
-        );
       response = await statsTransport.request({ method: "GET", path });
     } catch {
       return {};
@@ -710,6 +713,12 @@ export function createDockerClient(
         return mergeRunningWithStats(status, stats);
       }
       return status;
+    },
+
+    async containerStats(
+      containerNameOrId: string,
+    ): Promise<DockerResourceStats> {
+      return fetchStats(containerNameOrId);
     },
 
     async listContainers(): Promise<DockerContainerSummary[]> {
