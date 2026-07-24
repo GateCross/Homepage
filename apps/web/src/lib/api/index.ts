@@ -14,6 +14,7 @@ export {
   fetchEditableConfig,
   fetchInfo,
   fetchProbe,
+  fetchVersion,
   fetchWidget,
   importSiteIcon,
   resolveSiteIcons,
@@ -21,4 +22,5 @@ export {
   uploadAsset,
   type ApiRequestOptions,
   type FetchDockerBatchOptions,
+  type FetchVersionOptions,
 } from "./client";

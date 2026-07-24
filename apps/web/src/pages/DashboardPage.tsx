@@ -338,17 +338,20 @@ export function DashboardPage(): JSX.Element {
         data-state="loading"
       >
         <Background />
-        <div
-          className={cn(
-            DASHBOARD_SHELL_CLASS,
-            "relative z-10 flex flex-1 flex-col justify-center py-16",
-          )}
-        >
-          <LoadingStatus
-            message={messages.config.loading}
-            centered
-            className="mx-auto w-full max-w-sm rounded-2xl border border-border/50 bg-card/55 px-6 py-2 shadow-sm backdrop-blur-md"
-          />
+        <div className="relative z-10 flex min-h-screen flex-1 flex-col">
+          <Header title={DEFAULT_DASHBOARD_TITLE} />
+          <div
+            className={cn(
+              DASHBOARD_SHELL_CLASS,
+              "flex flex-1 flex-col justify-center py-16",
+            )}
+          >
+            <LoadingStatus
+              message={messages.config.loading}
+              centered
+              className="mx-auto w-full max-w-sm rounded-2xl border border-border/50 bg-card/55 px-6 py-2 shadow-sm backdrop-blur-md"
+            />
+          </div>
         </div>
       </div>
     );
@@ -362,21 +365,24 @@ export function DashboardPage(): JSX.Element {
         data-state="error"
       >
         <Background />
-        <div
-          className={cn(
-            DASHBOARD_SHELL_CLASS,
-            "relative z-10 flex max-w-lg flex-1 flex-col justify-center py-16",
-          )}
-        >
-          <div className="mb-3 text-center">
-            <h1 className="text-lg font-semibold">
-              {messages.config.errorTitle}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {messages.common.retryHint}
-            </p>
+        <div className="relative z-10 flex min-h-screen flex-1 flex-col">
+          <Header title={DEFAULT_DASHBOARD_TITLE} />
+          <div
+            className={cn(
+              DASHBOARD_SHELL_CLASS,
+              "flex max-w-lg flex-1 flex-col justify-center py-16",
+            )}
+          >
+            <div className="mb-3 text-center">
+              <h1 className="text-lg font-semibold">
+                {messages.config.errorTitle}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {messages.common.retryHint}
+              </p>
+            </div>
+            <ErrorStatus message={state.message} onRetry={handleRetry} />
           </div>
-          <ErrorStatus message={state.message} onRetry={handleRetry} />
         </div>
       </div>
     );

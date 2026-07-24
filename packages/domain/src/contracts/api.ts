@@ -152,6 +152,20 @@ export type IconImportSuccessResponse = z.infer<
   typeof IconImportSuccessResponseSchema
 >;
 
+/** GET /api/version：当前运行版本 + 可选远端更新检查结果 */
+export const VersionSuccessResponseSchema = z.object({
+  ok: z.literal(true),
+  version: z.string().min(1),
+  updateAvailable: z.boolean(),
+  latestVersion: z.string().min(1).optional(),
+  releaseUrl: z.string().min(1).optional(),
+  checkError: z.boolean().optional(),
+});
+
+export type VersionSuccessResponse = z.infer<
+  typeof VersionSuccessResponseSchema
+>;
+
 export const ApiSuccessSchemas = {
   config: ConfigSuccessResponseSchema,
   editableConfig: EditableConfigSuccessResponseSchema,
@@ -169,6 +183,7 @@ export const ApiSuccessSchemas = {
   info: InfoSuccessResponseSchema,
   openmeteo: OpenMeteoInfoResponseSchema,
   resources: ResourcesInfoResponseSchema,
+  version: VersionSuccessResponseSchema,
 } as const;
 
 export type ApiSuccessRoute = keyof typeof ApiSuccessSchemas;
@@ -344,6 +359,7 @@ export const ApiRoutes = {
   dockerStatus: "/api/docker/status",
   widgets: "/api/widgets",
   info: "/api/info",
+  version: "/api/version",
 } as const;
 
 export type ApiRouteKey = keyof typeof ApiRoutes;

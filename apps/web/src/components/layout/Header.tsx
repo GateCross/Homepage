@@ -8,6 +8,7 @@ import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 import { DASHBOARD_SHELL_CLASS } from "./shell";
+import { VersionLabel } from "./VersionFooter";
 
 export type HeaderProps = {
   title: string;
@@ -62,9 +63,12 @@ export function Header({
               onError={() => setIconFailed(true)}
             />
           ) : null}
-          <h1 className="truncate text-base font-semibold tracking-tight text-foreground [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] sm:text-lg">
-            {title}
-          </h1>
+          <div className="flex min-w-0 items-baseline gap-2 sm:gap-2.5">
+            <h1 className="truncate text-base font-semibold tracking-tight text-foreground [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] sm:text-lg">
+              {title}
+            </h1>
+            <VersionLabel />
+          </div>
         </div>
         <div
           data-slot="header-actions"

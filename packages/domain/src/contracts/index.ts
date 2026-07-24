@@ -40,6 +40,7 @@ export {
   InfoSuccessResponseSchema,
   ProbeSuccessResponseSchema,
   SiteIconTierSchema,
+  VersionSuccessResponseSchema,
   WidgetSuccessResponseSchema,
   createApiError,
   createApiNotFoundError,
@@ -75,6 +76,7 @@ export {
   type InfoSuccessResponse,
   type ProbeSuccessResponse,
   type SiteIconTierContract,
+  type VersionSuccessResponse,
   type WidgetSuccessResponse,
 } from "./api.js";
 

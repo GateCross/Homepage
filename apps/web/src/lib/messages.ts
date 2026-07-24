@@ -124,6 +124,14 @@ export const messages = {
     collapseGroup: "折叠分组",
     expandGroup: "展开分组",
   },
+
+  version: {
+    label: "版本",
+    checking: "正在检查版本…",
+    current: "当前版本",
+    updateAvailable: "有新版本",
+    viewRelease: "查看发布说明",
+  },
 } as const;
 
 export type Messages = typeof messages;

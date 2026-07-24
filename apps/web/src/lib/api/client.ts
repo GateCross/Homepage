@@ -15,6 +15,7 @@ import {
   type IconResolveSuccessResponse,
   type InfoSuccessResponse,
   type ServiceWidgetResult,
+  type VersionSuccessResponse,
 } from "@homepage/domain";
 
 import {
@@ -147,7 +148,8 @@ async function getAndParseSuccess<
     | "docker"
     | "dockerContainers"
     | "dockerBatch"
-    | "info",
+    | "info"
+    | "version",
 >(
   route: R,
   path: string,
@@ -163,7 +165,9 @@ async function getAndParseSuccess<
           ? DockerContainersSuccessResponse
           : R extends "dockerBatch"
             ? DockerBatchSuccessResponse
-            : InfoSuccessResponse
+            : R extends "version"
+              ? VersionSuccessResponse
+              : InfoSuccessResponse
 > {
   const fetchImpl = resolveFetch(options);
   const url = buildUrl(path, options?.baseUrl);
@@ -215,7 +219,9 @@ async function getAndParseSuccess<
               ? DockerContainersSuccessResponse
               : R extends "dockerBatch"
                 ? DockerBatchSuccessResponse
-                : InfoSuccessResponse;
+                : R extends "version"
+                  ? VersionSuccessResponse
+                  : InfoSuccessResponse;
     } catch (cause) {
       // 2xx 但可能是错误信封（部分网关误标状态码）
       const envelope = parseErrorEnvelope(body);
@@ -251,6 +257,23 @@ export async function fetchConfig(
   options?: ApiRequestOptions,
 ): Promise<ConfigSuccessResponse> {
   return getAndParseSuccess("config", ApiRoutes.config, options);
+}
+
+export type FetchVersionOptions = ApiRequestOptions & {
+  /**
+   * 默认 true。false 时请求 `?check=0`，仅取本地版本（可秒回），不触发出网更新检查。
+   */
+  checkRemote?: boolean;
+};
+
+export async function fetchVersion(
+  options?: FetchVersionOptions,
+): Promise<VersionSuccessResponse> {
+  const checkRemote = options?.checkRemote !== false;
+  const path = checkRemote
+    ? ApiRoutes.version
+    : `${ApiRoutes.version}?check=0`;
+  return getAndParseSuccess("version", path, options);
 }
 
 export async function fetchProbe(

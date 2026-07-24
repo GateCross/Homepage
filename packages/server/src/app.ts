@@ -28,6 +28,7 @@ import {
   resolveDefaultWebDistDir,
   tryServeConfigAsset,
 } from "./static.js";
+import { buildVersionResponse } from "./version.js";
 
 export type CreateAppOptions = {
   env?: Partial<ServerEnv>;
@@ -79,6 +80,23 @@ export function createApp(options: CreateAppOptions = {}): {
   app.get("/api/health", (c) =>
     toJsonResponse({ ok: true, service: "@homepage/server" }, 200),
   );
+
+  app.get("/api/version", async (c) => {
+    try {
+      // check=0：仅本地版本（缓存命中时可带更新信息），不发起出网
+      const checkParam = c.req.query("check");
+      const checkRemote = checkParam !== "0" && checkParam !== "false";
+      const body = await buildVersionResponse({ checkRemote });
+      return toJsonResponse(body, 200);
+    } catch (err) {
+      logError(
+        "server",
+        `版本检查失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+      const mapped = mapErrorToApiResponse(err);
+      return toErrorResponse(mapped);
+    }
+  });
 
   const shared = {
     getLoadOptions,
