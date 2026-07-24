@@ -345,6 +345,14 @@ function buildWidgetView(
     }
   }
 
+  // Immich API 版本
+  const versionRaw = raw["version"];
+  if (versionRaw === 2 || versionRaw === "2") {
+    widget.version = 2;
+  } else if (versionRaw === 1 || versionRaw === "1") {
+    widget.version = 1;
+  }
+
   return widget;
 }
 

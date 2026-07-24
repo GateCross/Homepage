@@ -130,6 +130,19 @@ const EMBY_FIELD_OPTIONS = [
   { id: "songs", label: "歌曲" },
 ] as const;
 
+const IMMICH_FIELD_OPTIONS = [
+  { id: "users", label: "用户" },
+  { id: "photos", label: "照片" },
+  { id: "videos", label: "视频" },
+  { id: "storage", label: "存储" },
+] as const;
+
+const CADDY_FIELD_OPTIONS = [
+  { id: "upstreams", label: "上游" },
+  { id: "requests", label: "请求" },
+  { id: "requests_failed", label: "失败" },
+] as const;
+
 const CUSTOM_API_FORMAT_OPTIONS = [
   "number",
   "percent",
@@ -168,6 +181,24 @@ function OptionSwitchRow({
   );
 }
 
+function toggleFieldList(
+  allOptions: readonly { id: string }[],
+  current: readonly string[],
+  id: string,
+  on: boolean,
+): string[] | undefined {
+  const allSelected = current.length === 0;
+  if (allSelected) {
+    const next = allOptions.map((f) => f.id).filter((fid) => (fid === id ? on : true));
+    return next.length === allOptions.length ? undefined : next;
+  }
+  const set = new Set(current);
+  if (on) set.add(id);
+  else set.delete(id);
+  const next = allOptions.map((f) => f.id).filter((fid) => set.has(fid));
+  return next.length === 0 || next.length === allOptions.length ? undefined : next;
+}
+
 function EmbyWidgetOptionsForm({
   widget,
   disabled,
@@ -182,28 +213,9 @@ function EmbyWidgetOptionsForm({
   const allSelected = fields.length === 0;
 
   const toggleField = (id: string, on: boolean): void => {
-    if (allSelected) {
-      // 从「全部」切到显式列表：保留其余项，去掉当前关闭项
-      const next = EMBY_FIELD_OPTIONS.map((f) => f.id).filter(
-        (fid) => (fid === id ? on : true),
-      );
-      onChange({
-        ...widget,
-        fields: next.length === EMBY_FIELD_OPTIONS.length ? undefined : next,
-      });
-      return;
-    }
-    const set = new Set(fields);
-    if (on) set.add(id);
-    else set.delete(id);
-    const next = EMBY_FIELD_OPTIONS.map((f) => f.id).filter((fid) =>
-      set.has(fid),
-    );
     onChange({
       ...widget,
-      fields: next.length === 0 || next.length === EMBY_FIELD_OPTIONS.length
-        ? undefined
-        : next,
+      fields: toggleFieldList(EMBY_FIELD_OPTIONS, fields, id, on),
     });
   };
 
@@ -274,6 +286,133 @@ function EmbyWidgetOptionsForm({
           onChange({ ...widget, showEpisodeNumber: checked })
         }
       />
+    </div>
+  );
+}
+
+function ImmichWidgetOptionsForm({
+  widget,
+  disabled,
+  onChange,
+}: {
+  widget: WidgetWrite;
+  disabled?: boolean | undefined;
+  onChange: (next: WidgetWrite) => void;
+}): JSX.Element {
+  const fields = widget.fields ?? [];
+  const allSelected = fields.length === 0;
+  const version = widget.version === 2 ? 2 : 1;
+
+  return (
+    <div className="space-y-3 border-t border-border/50 pt-3">
+      <p className="text-xs font-medium text-muted-foreground">Immich 选项</p>
+      <div className="space-y-1.5">
+        <Label>API 版本</Label>
+        <p className="text-xs text-muted-foreground">
+          Immich ≥ v1.118 请选 2；旧版选 1
+        </p>
+        <Select
+          value={String(version)}
+          disabled={disabled}
+          onChange={(e) =>
+            onChange({
+              ...widget,
+              version: e.target.value === "2" ? 2 : 1,
+            })
+          }
+        >
+          <option value="1">1（server-info）</option>
+          <option value="2">2（server）</option>
+        </Select>
+      </div>
+      <div className="space-y-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
+        <Label>展示字段</Label>
+        <p className="text-xs text-muted-foreground">
+          不勾选任何项时显示全部字段
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {IMMICH_FIELD_OPTIONS.map((opt) => {
+            const checked = allSelected || fields.includes(opt.id);
+            return (
+              <label key={opt.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-3.5 rounded border-border"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange({
+                      ...widget,
+                      fields: toggleFieldList(
+                        IMMICH_FIELD_OPTIONS,
+                        fields,
+                        opt.id,
+                        e.target.checked,
+                      ),
+                    })
+                  }
+                />
+                {opt.label}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaddyWidgetOptionsForm({
+  widget,
+  disabled,
+  onChange,
+}: {
+  widget: WidgetWrite;
+  disabled?: boolean | undefined;
+  onChange: (next: WidgetWrite) => void;
+}): JSX.Element {
+  const fields = widget.fields ?? [];
+  const allSelected = fields.length === 0;
+
+  return (
+    <div className="space-y-3 border-t border-border/50 pt-3">
+      <p className="text-xs font-medium text-muted-foreground">Caddy 选项</p>
+      <p className="text-xs text-muted-foreground">
+        组件 URL 应为 Caddy 管理 API（默认 :2019），不是站点入口
+      </p>
+      <div className="space-y-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
+        <Label>展示字段</Label>
+        <p className="text-xs text-muted-foreground">
+          不勾选任何项时显示全部字段
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {CADDY_FIELD_OPTIONS.map((opt) => {
+            const checked = allSelected || fields.includes(opt.id);
+            return (
+              <label key={opt.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-3.5 rounded border-border"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange({
+                      ...widget,
+                      fields: toggleFieldList(
+                        CADDY_FIELD_OPTIONS,
+                        fields,
+                        opt.id,
+                        e.target.checked,
+                      ),
+                    })
+                  }
+                />
+                {opt.label}
+              </label>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -806,6 +945,8 @@ function ServiceItemForm({
                   <option value="qbittorrent">qbittorrent</option>
                   <option value="transmission">transmission</option>
                   <option value="emby">emby</option>
+                  <option value="immich">immich</option>
+                  <option value="caddy">caddy</option>
                   <option value="customapi">customapi</option>
                 </Select>
               </div>
@@ -852,6 +993,7 @@ function ServiceItemForm({
               </div>
             )}
             {(value.widget.type === "emby" ||
+              value.widget.type === "immich" ||
               value.widget.type === "customapi") && (
               <SecretFieldInput
                 label="密钥 / API Key"
@@ -893,6 +1035,20 @@ function ServiceItemForm({
             )}
             {value.widget.type === "emby" ? (
               <EmbyWidgetOptionsForm
+                widget={value.widget}
+                disabled={disabled}
+                onChange={(next) => patch({ widget: next })}
+              />
+            ) : null}
+            {value.widget.type === "immich" ? (
+              <ImmichWidgetOptionsForm
+                widget={value.widget}
+                disabled={disabled}
+                onChange={(next) => patch({ widget: next })}
+              />
+            ) : null}
+            {value.widget.type === "caddy" ? (
+              <CaddyWidgetOptionsForm
                 widget={value.widget}
                 disabled={disabled}
                 onChange={(next) => patch({ widget: next })}

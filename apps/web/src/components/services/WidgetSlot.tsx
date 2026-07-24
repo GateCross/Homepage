@@ -45,6 +45,8 @@ const POLLING_WIDGET_TYPES = new Set([
   "transmission",
   "emby",
   "customapi",
+  "immich",
+  "caddy",
 ]);
 
 export type WidgetSlotProps = {

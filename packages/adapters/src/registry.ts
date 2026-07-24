@@ -1,7 +1,9 @@
 import type { ServiceWidgetResult, ServiceWidgetType } from "@homepage/domain";
 
+import { caddyAdapter } from "./caddy.js";
 import { customApiAdapter } from "./customapi.js";
 import { embyAdapter } from "./emby.js";
+import { immichAdapter } from "./immich.js";
 import { qbittorrentAdapter } from "./qbittorrent.js";
 import { transmissionAdapter } from "./transmission.js";
 import type {
@@ -20,6 +22,8 @@ const serviceAdapters = new Map<string, ServiceWidgetAdapter>([
   [transmissionAdapter.type, transmissionAdapter],
   [embyAdapter.type, embyAdapter],
   [customApiAdapter.type, customApiAdapter],
+  [immichAdapter.type, immichAdapter],
+  [caddyAdapter.type, caddyAdapter],
 ]);
 
 export function registerServiceWidgetAdapter(
@@ -40,6 +44,8 @@ export function listRegisteredServiceWidgetTypes(): ServiceWidgetType[] {
     transmissionAdapter.type,
     embyAdapter.type,
     customApiAdapter.type,
+    immichAdapter.type,
+    caddyAdapter.type,
   ].filter((type) => serviceAdapters.has(type));
 }
 

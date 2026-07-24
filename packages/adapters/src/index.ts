@@ -134,3 +134,27 @@ export type {
   CustomApiMapping,
   CustomApiOptions,
 } from "./customapi.js";
+
+export {
+  IMMICH_USERS_METRIC_ID,
+  IMMICH_PHOTOS_METRIC_ID,
+  IMMICH_VIDEOS_METRIC_ID,
+  IMMICH_STORAGE_METRIC_ID,
+  convertImmichStatistics,
+  fetchImmichStatistics,
+  immichAdapter,
+  parseImmichOptions,
+  readImmichApiKey,
+} from "./immich.js";
+export type { ImmichFetchDeps, ImmichWidgetOptions } from "./immich.js";
+
+export {
+  CADDY_UPSTREAMS_METRIC_ID,
+  CADDY_REQUESTS_METRIC_ID,
+  CADDY_REQUESTS_FAILED_METRIC_ID,
+  convertCaddyUpstreams,
+  fetchCaddyUpstreams,
+  caddyAdapter,
+  parseCaddyOptions,
+} from "./caddy.js";
+export type { CaddyFetchDeps, CaddyWidgetOptions } from "./caddy.js";

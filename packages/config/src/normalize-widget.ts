@@ -20,6 +20,8 @@ export const SUPPORTED_SERVICE_WIDGET_TYPES = [
   "transmission",
   "emby",
   "customapi",
+  "immich",
+  "caddy",
 ] as const satisfies readonly ServiceWidgetType[];
 
 const SUPPORTED_SET = new Set<string>(SUPPORTED_SERVICE_WIDGET_TYPES);
@@ -359,6 +361,85 @@ function buildTypePayload(
     }
 
     return { ok: true, secrets, options };
+  }
+
+  if (type === "immich") {
+    const secrets: Record<string, string> = {};
+
+    if (Object.prototype.hasOwnProperty.call(raw, "key") && raw["key"] != null) {
+      const resolved = resolveSecretString(
+        raw["key"],
+        env,
+        secretFieldLabel("key"),
+      );
+      if (!resolved.ok) {
+        return { ok: false, message: resolved.message };
+      }
+      if (resolved.value.length > 0) {
+        secrets["key"] = resolved.value;
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(raw, "apiKey") &&
+      raw["apiKey"] != null
+    ) {
+      const resolved = resolveSecretString(
+        raw["apiKey"],
+        env,
+        secretFieldLabel("apiKey"),
+      );
+      if (!resolved.ok) {
+        return { ok: false, message: resolved.message };
+      }
+      if (resolved.value.length > 0) {
+        secrets["key"] = resolved.value;
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(raw, "token") &&
+      raw["token"] != null
+    ) {
+      const resolved = resolveSecretString(
+        raw["token"],
+        env,
+        secretFieldLabel("token"),
+      );
+      if (!resolved.ok) {
+        return { ok: false, message: resolved.message };
+      }
+      if (resolved.value.length > 0) {
+        secrets["key"] = resolved.value;
+      }
+    }
+
+    const options: Record<string, unknown> = {};
+    const versionRaw = raw["version"];
+    if (versionRaw === 2 || versionRaw === "2") {
+      options["version"] = 2;
+    } else if (versionRaw === 1 || versionRaw === "1") {
+      options["version"] = 1;
+    }
+    if (Array.isArray(raw["fields"])) {
+      const fields = raw["fields"].filter(
+        (f): f is string => typeof f === "string" && f.trim().length > 0,
+      );
+      if (fields.length > 0) {
+        options["fields"] = fields.map((f) => f.trim().toLowerCase());
+      }
+    }
+
+    return { ok: true, secrets, options };
+  }
+
+  if (type === "caddy") {
+    const options: Record<string, unknown> = {};
+    if (Array.isArray(raw["fields"])) {
+      const fields = raw["fields"].filter(
+        (f): f is string => typeof f === "string" && f.trim().length > 0,
+      );
+      if (fields.length > 0) {
+        options["fields"] = fields.map((f) => f.trim().toLowerCase());
+      }
+    }
+    return { ok: true, secrets: {}, options };
   }
 
   // customapi

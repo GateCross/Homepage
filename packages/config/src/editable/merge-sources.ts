@@ -364,6 +364,13 @@ function mergeWidget(
     delete out["fields"];
   }
 
+  // Immich API 版本：仅 immich 类型写回，避免切换类型后残留在其它组件的 YAML
+  if (widget.type === "immich" && (widget.version === 1 || widget.version === 2)) {
+    out["version"] = widget.version;
+  } else {
+    delete out["version"];
+  }
+
   // 磁盘为多元素 widgets 数组时就地更新选中项，保留其余条目，避免静默丢数据
   if (
     diskItem !== null &&

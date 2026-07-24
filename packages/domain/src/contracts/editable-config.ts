@@ -82,8 +82,10 @@ export const EditableServiceWidgetViewSchema = z.object({
   enableUser: z.boolean().optional(),
   /** Emby：会话显示季集号 */
   showEpisodeNumber: z.boolean().optional(),
-  /** Emby：限制媒体数量字段（movies/series/episodes/songs） */
+  /** Emby / Immich / Caddy：限制展示字段 */
   fields: z.array(z.string()).optional(),
+  /** Immich API 版本：1（默认）或 2（≥ v1.118） */
+  version: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 export type EditableServiceWidgetView = z.infer<
@@ -114,6 +116,7 @@ export const EditableServiceWidgetWriteSchema = z.object({
   enableUser: z.boolean().optional(),
   showEpisodeNumber: z.boolean().optional(),
   fields: z.array(z.string()).optional(),
+  version: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 export type EditableServiceWidgetWrite = z.infer<

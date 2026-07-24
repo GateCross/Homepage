@@ -343,6 +343,9 @@ export function editableViewToDefaultWrite(
             ...(item.widget.fields !== undefined
               ? { fields: [...item.widget.fields] }
               : {}),
+            ...(item.widget.version !== undefined
+              ? { version: item.widget.version }
+              : {}),
           };
         }
         return writeItem;

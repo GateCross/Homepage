@@ -6,6 +6,8 @@ export const ServiceWidgetTypeSchema = z.enum([
   "transmission",
   "emby",
   "customapi",
+  "immich",
+  "caddy",
 ]);
 
 export type ServiceWidgetType = z.infer<typeof ServiceWidgetTypeSchema>;

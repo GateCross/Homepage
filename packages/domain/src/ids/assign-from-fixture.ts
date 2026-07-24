@@ -19,6 +19,8 @@ const SUPPORTED_SERVICE_WIDGET_TYPES = new Set([
   "transmission",
   "emby",
   "customapi",
+  "immich",
+  "caddy",
 ]);
 
 const SUPPORTED_INFO_WIDGET_TYPES = new Set([
