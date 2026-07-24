@@ -1,4 +1,8 @@
-/** HTTP 在线探测执行器（）。 - 优先 HEAD，必要时回退 GET - 超时 / DNS / TLS / 连接 → classifyHttpProbe → unreachable */
+/**
+ * HTTP 在线探测执行器。
+ * - 优先 HEAD，必要时回退 GET
+ * - 超时 / DNS / TLS / 连接 → classifyHttpProbe → unreachable
+ */
 import {
   HttpProbeResponseSchema,
   classifyHttpProbe,

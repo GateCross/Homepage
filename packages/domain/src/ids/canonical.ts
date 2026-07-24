@@ -1,7 +1,6 @@
 /** 稳定 ID 规范串构造。 规范串只允许：来源类型、文件内分组/条目索引、规范化类型、必要目标身份。 禁止：随机数、时间戳、进程自增、绝对磁盘目录解析、worker 状态、密钥明文。 */
 import {
   normalizeAbsoluteHttpUrl,
-  normalizeCoordinate,
   normalizeDiskPathSet,
   normalizeTypeToken,
 } from "./normalize.js";

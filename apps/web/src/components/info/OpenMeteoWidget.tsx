@@ -629,6 +629,10 @@ export function OpenMeteoWidget({
 
         const data = asOpenMeteoInfo(body);
         if (data === null) {
+          // 静默刷新解析失败：保留上次成功数据，避免卡片闪错
+          if (silent && hasSuccessRef.current) {
+            return;
+          }
           hasSuccessRef.current = false;
           setState({
             status: "error",

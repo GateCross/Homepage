@@ -1,4 +1,4 @@
-/** 一自动缩放单位体系） SID、账号、密码不得进入结果、错误消息或日志。 */
+/** qBittorrent 服务组件适配器。速率自动缩放单位；SID、账号、密码不得进入结果、错误消息或日志。 */
 import type { Metric, ServiceWidgetResult } from "@homepage/domain";
 
 import { scaleByteRate } from "./format.js";

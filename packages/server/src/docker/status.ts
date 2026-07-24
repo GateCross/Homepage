@@ -1,4 +1,9 @@
-/** server/container 后严格匹配当次 AllowList - 未登记 → 拒绝且 Docker 调用次数为 0 - running / stopped / unavailable 映射 */
+/**
+ * Docker 状态查询与授权。
+ * - server/container 须严格匹配当次 AllowList
+ * - 未登记 → 拒绝且 Docker 调用次数为 0
+ * - running / stopped / unavailable 等状态映射
+ */
 import type { AllowList, DockerEndpoint } from "@homepage/config";
 import { dockerContainerKey } from "@homepage/config";
 import {

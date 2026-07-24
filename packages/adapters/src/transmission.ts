@@ -264,11 +264,32 @@ export function countTransmissionTorrents(body: unknown): {
   return { downloading, seeding };
 }
 
+function countMetric(
+  id: string,
+  label: string,
+  count: number | null,
+): Metric {
+  if (count === null) {
+    return {
+      id,
+      label,
+      value: "—",
+      status: "unavailable",
+    };
+  }
+  return {
+    id,
+    label,
+    value: Math.trunc(count),
+    status: "ok",
+  };
+}
+
 export function buildTransmissionMetrics(
   downloadBps: number,
   uploadBps: number,
-  downloadingCount: number,
-  seedingCount: number,
+  downloadingCount: number | null,
+  seedingCount: number | null,
 ): Metric[] {
   const dlScaled = scaleByteRate(downloadBps);
   const upScaled = scaleByteRate(uploadBps);
@@ -287,18 +308,12 @@ export function buildTransmissionMetrics(
       unit: upScaled.unit,
       status: "ok",
     },
-    {
-      id: TRANSMISSION_DOWNLOADING_COUNT_METRIC_ID,
-      label: "下载中",
-      value: Math.trunc(downloadingCount),
-      status: "ok",
-    },
-    {
-      id: TRANSMISSION_SEEDING_COUNT_METRIC_ID,
-      label: "做种中",
-      value: Math.trunc(seedingCount),
-      status: "ok",
-    },
+    countMetric(
+      TRANSMISSION_DOWNLOADING_COUNT_METRIC_ID,
+      "下载中",
+      downloadingCount,
+    ),
+    countMetric(TRANSMISSION_SEEDING_COUNT_METRIC_ID, "做种中", seedingCount),
   ];
 }
 
@@ -307,7 +322,7 @@ export async function fetchTransmissionMetrics(
   auth: TransmissionAuth,
   deps: TransmissionFetchDeps = {},
 ): Promise<Metric[]> {
-  // 共用一次会话头：先 session-stats，再 torrent-get
+  // 共用一次会话头：先 session-stats（必出），再 torrent-get（可降级）
   let sessionId: string | undefined;
 
   const runWithSession = async (
@@ -343,15 +358,27 @@ export async function fetchTransmissionMetrics(
 
   const statsBody = await runWithSession("session-stats", {});
   const rates = parseSessionStats(statsBody);
-  const torrentsBody = await runWithSession("torrent-get", {
-    fields: ["status"],
-  });
-  const counts = countTransmissionTorrents(torrentsBody);
+
+  // 数量：torrent-get 失败（体积超限/超时/字段异常）时降级为 unavailable，不拖垮速率
+  let downloadingCount: number | null = null;
+  let seedingCount: number | null = null;
+  try {
+    const torrentsBody = await runWithSession("torrent-get", {
+      fields: ["status"],
+    });
+    const counts = countTransmissionTorrents(torrentsBody);
+    downloadingCount = counts.downloading;
+    seedingCount = counts.seeding;
+  } catch {
+    downloadingCount = null;
+    seedingCount = null;
+  }
+
   return buildTransmissionMetrics(
     rates.downloadBps,
     rates.uploadBps,
-    counts.downloading,
-    counts.seeding,
+    downloadingCount,
+    seedingCount,
   );
 }
 

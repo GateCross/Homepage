@@ -1,4 +1,8 @@
-/** ath：点分隔键 + 非负数组下标；拒绝原型链/表达式 - format 白名单：number | percent | bytes | duration | text - 单 mapping 失败隔离 */
+/**
+ * Custom API 服务组件适配器。
+ * path：点分隔键 + 非负数组下标；拒绝原型链/表达式。
+ * format 白名单：number | percent | bytes | duration | text；单 mapping 失败隔离。
+ */
 import type { Metric, MetricStatus, ServiceWidgetResult } from "@homepage/domain";
 
 import {

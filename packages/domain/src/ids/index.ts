@@ -37,7 +37,6 @@ export {
 
 export {
   normalizeAbsoluteHttpUrl,
-  normalizeCoordinate,
   normalizeDiskPathIdentity,
   normalizeDiskPathSet,
   normalizeTypeToken,

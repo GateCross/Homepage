@@ -215,7 +215,6 @@ export {
   findMissedAllowListIdsFromResults,
   joinCanonicalParts,
   normalizeAbsoluteHttpUrl,
-  normalizeCoordinate,
   normalizeDiskPathIdentity,
   normalizeDiskPathSet,
   normalizeTypeToken,

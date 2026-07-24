@@ -13,6 +13,10 @@ import type {
 
 import type { ParsedConfigSources } from "../load-config.js";
 import {
+  findFirstSupportedWidget,
+  pickEffectiveWidgetDeclarations,
+} from "../normalize-widget.js";
+import {
   createFieldValidationError,
   isNonEmptySecretString,
 } from "./helpers.js";
@@ -266,15 +270,14 @@ function mergeWidget(
   diskItem: Record<string, unknown> | null,
 ): void {
   if (widget === undefined) {
-    // 编辑器无 widget：删除支持的 widget/widgets 键？若磁盘有则保留原始（用户未编辑组件）
-    // 规格：支持字段以编辑器为准。EditableServiceItem.widget optional —
-    // 若写回省略 widget，表示清除组件。
+    // 编辑器无 widget：清除组件（以编辑器为准）
     delete target["widget"];
     delete target["widgets"];
     return;
   }
 
-  const diskWidget = extractDiskWidget(diskItem);
+  const extracted = extractDiskWidget(diskItem);
+  const diskWidget = extracted?.raw ?? null;
   const out: Record<string, unknown> = diskWidget
     ? deepClone(diskWidget)
     : {};
@@ -361,28 +364,85 @@ function mergeWidget(
     delete out["fields"];
   }
 
-  // 使用单数 widget 形态写出（与示例配置一致）；删除 widgets 数组以免歧义
+  // 磁盘为多元素 widgets 数组时就地更新选中项，保留其余条目，避免静默丢数据
+  if (
+    diskItem !== null &&
+    Array.isArray(diskItem["widgets"]) &&
+    diskItem["widgets"].length > 1 &&
+    extracted !== null &&
+    extracted.source === "widgets" &&
+    extracted.index >= 0
+  ) {
+    const list = deepClone(diskItem["widgets"]) as unknown[];
+    if (extracted.index < list.length) {
+      list[extracted.index] = out;
+      target["widgets"] = list;
+      delete target["widget"];
+      return;
+    }
+  }
+
+  // 单声明：写出单数 widget 形态（与示例配置一致）
   target["widget"] = out;
   delete target["widgets"];
 }
 
+type ExtractedDiskWidget = {
+  raw: Record<string, unknown>;
+  source: "widget" | "widgets";
+  /** widgets 数组中的下标；单数 widget 为 -1 */
+  index: number;
+};
+
+/**
+ * 与 buildWidgetView 一致：优先第一个受支持类型，否则第一个带 type 的声明。
+ * 声明源优先级与 pickEffectiveWidgetDeclarations 相同：widgets 数组 > 单数 widget。
+ */
 function extractDiskWidget(
   diskItem: Record<string, unknown> | null,
-): Record<string, unknown> | null {
+): ExtractedDiskWidget | null {
   if (!diskItem) return null;
+
+  const fromWidgetsArray = Array.isArray(diskItem["widgets"]);
+  if (fromWidgetsArray) {
+    const list = pickEffectiveWidgetDeclarations(diskItem);
+    const supported = findFirstSupportedWidget(list);
+    if (supported !== null) {
+      return {
+        raw: supported.raw,
+        source: "widgets",
+        index: supported.widgetIndex,
+      };
+    }
+    for (let i = 0; i < list.length; i += 1) {
+      const w = list[i];
+      if (w === null || typeof w !== "object" || Array.isArray(w)) {
+        continue;
+      }
+      const obj = w as Record<string, unknown>;
+      if (typeof obj["type"] === "string" && obj["type"].trim().length > 0) {
+        return {
+          raw: obj,
+          source: "widgets",
+          index: i,
+        };
+      }
+    }
+    return null;
+  }
+
   if (
     diskItem["widget"] !== null &&
     typeof diskItem["widget"] === "object" &&
     !Array.isArray(diskItem["widget"])
   ) {
-    return diskItem["widget"] as Record<string, unknown>;
+    return {
+      raw: diskItem["widget"] as Record<string, unknown>,
+      source: "widget",
+      index: -1,
+    };
   }
-  if (Array.isArray(diskItem["widgets"])) {
-    const first = diskItem["widgets"].find(
-      (w) => w !== null && typeof w === "object" && !Array.isArray(w),
-    );
-    return first ? (first as Record<string, unknown>) : null;
-  }
+
   return null;
 }
 
@@ -589,18 +649,37 @@ function mergeBookmarks(
   return result;
 }
 
+const KNOWN_INFO_WIDGET_TYPES = new Set([
+  "datetime",
+  "openmeteo",
+  "resources",
+]);
+
+function infoWidgetTypeToken(entry: Record<string, unknown>): string {
+  const typeRaw = entry["type"];
+  return typeof typeRaw === "string" ? typeRaw.trim().toLowerCase() : "";
+}
+
+function isKnownInfoWidgetType(type: string): boolean {
+  return KNOWN_INFO_WIDGET_TYPES.has(type.trim().toLowerCase());
+}
+
 function mergeInfoWidgets(
   disk: unknown,
   editable: EditableInfoWidget[],
 ): unknown {
-  // 以数组形态输出；尽量按索引对应磁盘条目以保留未知键
+  // 以数组形态输出；已知类型按编辑器顺序写回，未知类型原样保留，避免静默丢数据
   const diskEntries = extractDiskInfoEntries(disk);
+  // 仅用「已知类型」磁盘条目做未知键基底，避免与未知类型错位
+  const knownDiskEntries = diskEntries.filter((e) =>
+    isKnownInfoWidgetType(infoWidgetTypeToken(e)),
+  );
   const result: unknown[] = [];
 
   for (let i = 0; i < editable.length; i += 1) {
     const w = editable[i];
     if (!w) continue;
-    const diskEntry = diskEntries[i] ?? null;
+    const diskEntry = knownDiskEntries[i] ?? null;
     const base = diskEntry ? deepClone(diskEntry) : {};
 
     // 清理 type 简写形态，统一 type 字段
@@ -628,11 +707,11 @@ function mergeInfoWidgets(
       else delete base["label"];
       if (w.disk !== undefined) {
         // 规范化为 path|label 字符串或 {path,label}，统一写入 disk
-        const disk = w.disk;
-        if (typeof disk === "string") {
-          base["disk"] = disk;
+        const diskVal = w.disk;
+        if (typeof diskVal === "string") {
+          base["disk"] = diskVal;
         } else {
-          base["disk"] = disk.map((item) => {
+          base["disk"] = diskVal.map((item) => {
             if (typeof item === "string") return item;
             const label = item.label?.trim();
             if (label && label.length > 0) {
@@ -653,6 +732,13 @@ function mergeInfoWidgets(
     }
 
     result.push(base);
+  }
+
+  // 编辑器无法投影的未知类型：原样追加，防止保存后从磁盘消失
+  for (const entry of diskEntries) {
+    if (!isKnownInfoWidgetType(infoWidgetTypeToken(entry))) {
+      result.push(deepClone(entry));
+    }
   }
 
   return result;
@@ -701,9 +787,13 @@ function mergeDocker(
     editable.map((e) => e.name.trim()).filter((n) => n.length > 0),
   );
 
-  // 删除编辑器中已移除的端点
+  // 删除编辑器中已移除的字符串端点；
+  // 非字符串连接值编辑器无法投影，必须原样保留，避免保存静默丢数据
   for (const key of Object.keys(base)) {
     if (!editorNames.has(key)) {
+      if (typeof base[key] !== "string") {
+        continue;
+      }
       delete base[key];
     }
   }

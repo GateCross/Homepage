@@ -422,22 +422,35 @@ export function mapStatsToResourcesDetailed(
       : undefined;
 
   // 2) 回退 payload.precpu_stats（stream=0 双采样仍可用）
+  // one-shot 时 precpu 常全 0：有键但 system=0，不得当有效上一拍，
+  // 否则会把「自启动累计」当成「采样区间」算出虚高 CPU%，并跳过 seed 第二拍。
   if (cpuPercent === undefined) {
-    const cpuDelta =
-      (readNestedNumber(root, ["cpu_stats", "cpu_usage", "total_usage"]) ?? 0) -
-      (readNestedNumber(root, ["precpu_stats", "cpu_usage", "total_usage"]) ?? 0);
-    const systemDelta =
-      (readNestedNumber(root, ["cpu_stats", "system_cpu_usage"]) ?? 0) -
-      (readNestedNumber(root, ["precpu_stats", "system_cpu_usage"]) ?? 0);
-    const onlineCpus = resolveOnlineCpus(root);
-    if (systemDelta > 0 && cpuDelta >= 0) {
-      // precpu 存在且有有效 delta 才采用；全 0 的 precpu 在 one-shot 下常见，
-      // 若 previousCpu 也没有，宁可不报 cpu% 也不报假 0（首包内存仍可出）。
-      const hasPrecpu =
-        readNestedNumber(root, ["precpu_stats", "cpu_usage", "total_usage"]) !==
-          null &&
-        readNestedNumber(root, ["precpu_stats", "system_cpu_usage"]) !== null;
-      if (hasPrecpu) {
+    const curTotal = readNestedNumber(root, [
+      "cpu_stats",
+      "cpu_usage",
+      "total_usage",
+    ]);
+    const curSystem = readNestedNumber(root, ["cpu_stats", "system_cpu_usage"]);
+    const preTotal = readNestedNumber(root, [
+      "precpu_stats",
+      "cpu_usage",
+      "total_usage",
+    ]);
+    const preSystem = readNestedNumber(root, [
+      "precpu_stats",
+      "system_cpu_usage",
+    ]);
+    if (
+      curTotal !== null &&
+      curSystem !== null &&
+      preTotal !== null &&
+      preSystem !== null &&
+      preSystem > 0
+    ) {
+      const cpuDelta = curTotal - preTotal;
+      const systemDelta = curSystem - preSystem;
+      const onlineCpus = resolveOnlineCpus(root);
+      if (systemDelta > 0 && cpuDelta >= 0) {
         cpuPercent = clampPercent((cpuDelta / systemDelta) * onlineCpus * 100);
       }
     }
@@ -556,7 +569,7 @@ function mapStatusString(statusText: string): DockerStatusResponse {
   if (s === "restarting" || s.startsWith("restarting")) {
     return withOptionalMeta({ status: "restarting" }, { detail });
   }
-  if (s === "paused" || s.startsWith("up ") && s.includes("(paused)")) {
+  if (s === "paused" || (s.startsWith("up ") && s.includes("(paused)"))) {
     return withOptionalMeta({ status: "paused" }, { detail });
   }
   if (s.startsWith("paused")) {

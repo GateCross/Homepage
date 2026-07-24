@@ -1,4 +1,9 @@
-/** 受支持类型时卡片组件区标记暂不支持 - 密钥整值 `${ENV_VAR}` 插值；缺失或空 → 组件级中文配置错误且不登记 - 目标 URL / secrets / options 仅进入 Allow */
+/**
+ * 服务组件规范化。
+ * - 不支持类型时卡片组件区标记暂不支持
+ * - 密钥整值 `${ENV_VAR}` 插值；缺失或空 → 组件级中文配置错误且不登记
+ * - 目标 URL / secrets / options 仅进入 AllowList
+ */
 import {
   buildWidgetId,
   interpolateEnvWholeValue,

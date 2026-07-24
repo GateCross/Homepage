@@ -85,7 +85,7 @@ async function mapPool<T, R>(
 }
 
 /** 同一 server+container+bucket 并发去重，避免 lite 预热与 full 请求重复打 Docker */
-const inflight = new Map<string, Promise<DockerStatusResponse>>();
+const inflight = new Map<string, Promise<unknown>>();
 
 function inflightKey(
   server: string,
@@ -95,15 +95,15 @@ function inflightKey(
   return `${bucket}\0${server}\0${container}`;
 }
 
-async function withInflight(
+async function withInflight<T>(
   server: string,
   container: string,
   bucket: "lite" | "full",
-  work: () => Promise<DockerStatusResponse>,
-): Promise<DockerStatusResponse> {
+  work: () => Promise<T>,
+): Promise<T> {
   const key = inflightKey(server, container, bucket);
   const existing = inflight.get(key);
-  if (existing !== undefined) return existing;
+  if (existing !== undefined) return existing as Promise<T>;
   const promise = work().finally(() => {
     if (inflight.get(key) === promise) {
       inflight.delete(key);
@@ -119,36 +119,50 @@ function isRunningStatus(
   return result.status === "running";
 }
 
+const DOCKER_QUERY_FAIL: DockerStatusResponse = {
+  status: "unavailable",
+  reason: "Docker 查询失败",
+};
+
+type FullStatusQuery = {
+  result: DockerStatusResponse;
+  /**
+   * 是否写入/续期缓存。
+   * stats 失败降级为无指标 running 时为 false，避免把降级结果当成新鲜 full/lite。
+   */
+  persist: boolean;
+};
+
 /**
- * full 查询：优先复用 lite 缓存，running 只补 stats；否则完整 inspect+stats。
+ * full 查询：优先复用 **fresh** lite 缓存，running 只补 stats；
+ * stale lite 不可信（容器可能已停），回退完整 inspect+stats。
  */
 async function queryFullStatus(
   target: RegisteredDockerTarget,
   cache: DockerStatusCache,
   bypass: boolean,
   queryOptions: QueryDockerStatusOptions,
-): Promise<DockerStatusResponse> {
+): Promise<FullStatusQuery> {
   if (!bypass) {
-    // fresh 或 stale lite 均可复用状态，避免 full 冷路径再 inspect
     const liteHit = cache.lookup(target.server, target.container, "lite");
-    const lite =
-      liteHit.kind === "fresh" || liteHit.kind === "stale"
-        ? liteHit.value
-        : undefined;
-    if (lite !== undefined) {
+    // 仅 fresh lite 可复用；stale 必须 re-inspect，避免把已停容器当 running 补 stats
+    if (liteHit.kind === "fresh") {
+      const lite = liteHit.value;
       if (!isRunningStatus(lite)) {
-        return lite;
+        return { result: lite, persist: true };
       }
       return withInflight(target.server, target.container, "full", async () => {
         try {
-          return await queryDockerStatsOnto(
+          const result = await queryDockerStatsOnto(
             target.endpoint,
             target.container,
             lite,
             queryOptions,
           );
+          return { result, persist: true };
         } catch {
-          return { status: "unavailable", reason: "Docker 查询失败" };
+          // stats 失败：保留运行态返回，但不续期 full/lite 缓存
+          return { result: lite, persist: false };
         }
       });
     }
@@ -156,14 +170,30 @@ async function queryFullStatus(
 
   return withInflight(target.server, target.container, "full", async () => {
     try {
-      return await queryDockerStatus(target.endpoint, target.container, {
+      const result = await queryDockerStatus(target.endpoint, target.container, {
         ...queryOptions,
         includeStats: true,
       });
+      return { result, persist: true };
     } catch {
-      return { status: "unavailable", reason: "Docker 查询失败" };
+      return {
+        result: DOCKER_QUERY_FAIL,
+        persist: true,
+      };
     }
   });
+}
+
+/** full 结果写入缓存；persist=false 时跳过，避免降级结果续期 */
+function persistFullStatus(
+  cache: DockerStatusCache,
+  server: string,
+  container: string,
+  query: FullStatusQuery,
+): void {
+  if (!query.persist) return;
+  cache.set(server, container, query.result, "full");
+  cache.set(server, container, query.result, "lite");
 }
 
 /**
@@ -219,7 +249,11 @@ export async function queryDockerBatchStatus(
 
     let result: DockerStatusResponse;
     if (includeStats) {
-      result = await queryFullStatus(target, cache, bypass, queryOptions);
+      const full = await queryFullStatus(target, cache, bypass, queryOptions);
+      result = full.result;
+      if (!bypass) {
+        persistFullStatus(cache, target.server, target.container, full);
+      }
     } else {
       result = await withInflight(
         target.server,
@@ -233,16 +267,11 @@ export async function queryDockerBatchStatus(
               queryOptions,
             );
           } catch {
-            return { status: "unavailable", reason: "Docker 查询失败" };
+            return DOCKER_QUERY_FAIL;
           }
         },
       );
-    }
-
-    if (!bypass) {
-      cache.set(target.server, target.container, result, cacheBucket);
-      // full 结果可兼作 lite 命中（状态字段已完整）
-      if (includeStats) {
+      if (!bypass) {
         cache.set(target.server, target.container, result, "lite");
       }
     }
@@ -279,31 +308,28 @@ async function refreshTargetsInBackground(
   try {
     await mapPool(targets, concurrency, async (target) => {
       // 若刷新启动时已有同桶 inflight / 又变 fresh，query 层仍会去重
-      let result: DockerStatusResponse;
       if (includeStats) {
-        result = await queryFullStatus(target, cache, false, queryOptions);
-      } else {
-        result = await withInflight(
-          target.server,
-          target.container,
-          "lite",
-          async () => {
-            try {
-              return await queryDockerStatus(
-                target.endpoint,
-                target.container,
-                queryOptions,
-              );
-            } catch {
-              return { status: "unavailable", reason: "Docker 查询失败" };
-            }
-          },
-        );
+        const full = await queryFullStatus(target, cache, false, queryOptions);
+        persistFullStatus(cache, target.server, target.container, full);
+        return full.result;
       }
+      const result = await withInflight(
+        target.server,
+        target.container,
+        "lite",
+        async () => {
+          try {
+            return await queryDockerStatus(
+              target.endpoint,
+              target.container,
+              queryOptions,
+            );
+          } catch {
+            return DOCKER_QUERY_FAIL;
+          }
+        },
+      );
       cache.set(target.server, target.container, result, cacheBucket);
-      if (includeStats) {
-        cache.set(target.server, target.container, result, "lite");
-      }
       return result;
     });
   } catch {
@@ -345,9 +371,20 @@ export async function queryDockerStatusCached(
             includeStats,
           };
           const target = { server, container, endpoint };
-          const fresh = includeStats
-            ? await queryFullStatus(target, cache, false, queryOptions)
-            : await withInflight(server, container, "lite", async () => {
+          if (includeStats) {
+            const full = await queryFullStatus(
+              target,
+              cache,
+              false,
+              queryOptions,
+            );
+            persistFullStatus(cache, server, container, full);
+          } else {
+            const fresh = await withInflight(
+              server,
+              container,
+              "lite",
+              async () => {
                 try {
                   return await queryDockerStatus(
                     endpoint,
@@ -355,11 +392,10 @@ export async function queryDockerStatusCached(
                     queryOptions,
                   );
                 } catch {
-                  return { status: "unavailable", reason: "Docker 查询失败" };
+                  return DOCKER_QUERY_FAIL;
                 }
-              });
-          cache.set(server, container, fresh, cacheBucket);
-          if (includeStats) {
+              },
+            );
             cache.set(server, container, fresh, "lite");
           }
         } catch {
@@ -379,29 +415,29 @@ export async function queryDockerStatusCached(
     includeStats,
   };
 
-  let result: DockerStatusResponse;
   if (includeStats) {
-    result = await queryFullStatus(
+    const full = await queryFullStatus(
       { server, container, endpoint },
       cache,
       bypass,
       queryOptions,
     );
-  } else {
-    result = await withInflight(server, container, "lite", async () => {
-      try {
-        return await queryDockerStatus(endpoint, container, queryOptions);
-      } catch {
-        return { status: "unavailable", reason: "Docker 查询失败" };
-      }
-    });
+    if (!bypass) {
+      persistFullStatus(cache, server, container, full);
+    }
+    return full.result;
   }
 
-  if (!bypass) {
-    cache.set(server, container, result, cacheBucket);
-    if (includeStats) {
-      cache.set(server, container, result, "lite");
+  const result = await withInflight(server, container, "lite", async () => {
+    try {
+      return await queryDockerStatus(endpoint, container, queryOptions);
+    } catch {
+      return DOCKER_QUERY_FAIL;
     }
+  });
+
+  if (!bypass) {
+    cache.set(server, container, result, "lite");
   }
   return result;
 }

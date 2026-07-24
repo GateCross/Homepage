@@ -1,6 +1,12 @@
 const ABSOLUTE_HTTP_PROTOCOLS = new Set(["http:", "https:"]);
 
-/** - 剥离 userinfo（用户名/密码不得进入身份） - 剥离 hash；保留 pathname 与 search - 空路径规范为 `/` - 非法或非 http(s) 返回 `null` */
+/**
+ * 规范化绝对 http(s) URL，作为稳定身份输入。
+ * - 剥离 userinfo（用户名/密码不得进入身份）
+ * - 剥离 hash；保留 pathname 与 search
+ * - 空路径规范为 `/`
+ * - 非法或非 http(s) 返回 `null`
+ */
 export function normalizeAbsoluteHttpUrl(raw: string): string | null {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
@@ -69,16 +75,4 @@ export function normalizeDiskPathSet(
 
 export function normalizeTypeToken(raw: string): string {
   return raw.trim().toLowerCase();
-}
-
-export function normalizeCoordinate(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "nan";
-  }
-  // 固定足够精度，去掉多余尾随 0，保留符号与小数点语义稳定
-  const fixed = value.toFixed(8);
-  if (!fixed.includes(".")) {
-    return fixed;
-  }
-  return fixed.replace(/\.?0+$/, "");
 }

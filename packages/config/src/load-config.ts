@@ -1,4 +1,8 @@
-/** ets 规范化与稳定 widgetId（密钥仅 AllowList） - 3.7 widgets.yaml 信息组件规范化与稳定 infoId（目标仅 AllowList.infoTargets） */
+/**
+ * 配置加载入口：读取五文件、规范化并构建 AllowList。
+ * - services 规范化与稳定 widgetId（密钥仅 AllowList）
+ * - widgets.yaml 信息组件规范化与稳定 infoId（目标仅 AllowList.infoTargets）
+ */
 import type { NormalizedConfig } from "@homepage/domain";
 
 import type { AllowList } from "./allowlist.js";

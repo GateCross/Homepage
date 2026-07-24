@@ -34,6 +34,7 @@ const COUNTS_TIMEOUT = "获取 Emby 媒体数量超时";
 const COUNTS_NETWORK = "无法连接 Emby 媒体数量接口";
 const COUNTS_BAD_JSON = "Emby 媒体数量响应不是有效 JSON";
 const COUNTS_BAD_FIELDS = "Emby 媒体数量响应缺少计数字段";
+const WIDGET_FAIL = "获取 Emby 状态失败";
 
 const COUNT_FIELD_DEFS = [
   {
@@ -457,12 +458,19 @@ export async function fetchEmbyWidgetData(
   let countMetrics: Metric[] = [];
   let sessionMetrics: Metric[] = [];
   let sessions: EmbySessionSummary[] | undefined;
+  let countsFailed = false;
+  let sessionsFailed = false;
 
   if (options.enableBlocks) {
     tasks.push(
-      fetchEmbyCounts(baseUrl, apiKey, deps, options.fields).then((m) => {
-        countMetrics = m;
-      }),
+      fetchEmbyCounts(baseUrl, apiKey, deps, options.fields)
+        .then((m) => {
+          countMetrics = m;
+        })
+        .catch(() => {
+          // 部分失败：计数降级，不拖垮整卡
+          countsFailed = true;
+        }),
     );
   }
 
@@ -471,10 +479,14 @@ export async function fetchEmbyWidgetData(
       fetchEmbySessions(baseUrl, apiKey, deps, {
         enableUser: options.enableUser,
         showEpisodeNumber: options.showEpisodeNumber,
-      }).then((result) => {
-        sessionMetrics = result.metrics;
-        sessions = result.sessions;
-      }),
+      })
+        .then((result) => {
+          sessionMetrics = result.metrics;
+          sessions = result.sessions;
+        })
+        .catch(() => {
+          sessionsFailed = true;
+        }),
     );
   }
 
@@ -484,6 +496,17 @@ export async function fetchEmbyWidgetData(
   }
 
   await Promise.all(tasks);
+
+  // 两侧都开且都失败 → 整卡失败；仅一侧失败则返回成功侧
+  if (countsFailed && sessionsFailed) {
+    throw new AdapterLocalError(WIDGET_FAIL);
+  }
+  if (countsFailed && !options.enableNowPlaying) {
+    throw new AdapterLocalError(COUNTS_FAIL);
+  }
+  if (sessionsFailed && !options.enableBlocks) {
+    throw new AdapterLocalError(SESSIONS_FAIL);
+  }
 
   return {
     metrics: [...countMetrics, ...sessionMetrics],

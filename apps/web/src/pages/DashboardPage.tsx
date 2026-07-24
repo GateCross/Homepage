@@ -301,7 +301,10 @@ export function DashboardPage(): JSX.Element {
       ) {
         return;
       }
-      // 保存已成功；刷新失败时允许用户手动重试主视图
+      // 保存已成功；刷新失败时保留当前配置，避免整页 loading 闪断
+      if (hasConfigRef.current) {
+        return;
+      }
       setReloadToken((n) => n + 1);
     }
   }, []);

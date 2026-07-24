@@ -126,11 +126,20 @@ export function ConfigEditorShell({
     };
   }, [open, load]);
 
-  const setDraft = useCallback((draft: EditableConfigWrite) => {
-    setLoadState((prev) =>
-      prev.status === "ready" ? { status: "ready", draft } : prev,
-    );
-  }, []);
+  const setDraft = useCallback(
+    (
+      next:
+        | EditableConfigWrite
+        | ((prev: EditableConfigWrite) => EditableConfigWrite),
+    ) => {
+      setLoadState((prev) => {
+        if (prev.status !== "ready") return prev;
+        const draft = typeof next === "function" ? next(prev.draft) : next;
+        return { status: "ready", draft };
+      });
+    },
+    [],
+  );
 
   const handleSave = useCallback(async () => {
     if (savingRef.current) return;
@@ -287,7 +296,9 @@ export function ConfigEditorShell({
                     value={draft.settings}
                     disabled={saving}
                     errors={fieldErrors}
-                    onChange={(settings) => setDraft({ ...draft, settings })}
+                    onChange={(settings) =>
+                      setDraft((prev) => ({ ...prev, settings }))
+                    }
                   />
                 ) : null}
                 {tab === "services" ? (
@@ -296,7 +307,9 @@ export function ConfigEditorShell({
                     dockerEndpoints={draft.dockerEndpoints}
                     disabled={saving}
                     errors={fieldErrors}
-                    onChange={(services) => setDraft({ ...draft, services })}
+                    onChange={(services) =>
+                      setDraft((prev) => ({ ...prev, services }))
+                    }
                   />
                 ) : null}
                 {tab === "bookmarks" ? (
@@ -304,7 +317,9 @@ export function ConfigEditorShell({
                     value={draft.bookmarks}
                     disabled={saving}
                     errors={fieldErrors}
-                    onChange={(bookmarks) => setDraft({ ...draft, bookmarks })}
+                    onChange={(bookmarks) =>
+                      setDraft((prev) => ({ ...prev, bookmarks }))
+                    }
                   />
                 ) : null}
                 {tab === "info" ? (
@@ -313,7 +328,7 @@ export function ConfigEditorShell({
                     disabled={saving}
                     errors={fieldErrors}
                     onChange={(infoWidgets) =>
-                      setDraft({ ...draft, infoWidgets })
+                      setDraft((prev) => ({ ...prev, infoWidgets }))
                     }
                   />
                 ) : null}
@@ -323,7 +338,7 @@ export function ConfigEditorShell({
                     disabled={saving}
                     errors={fieldErrors}
                     onChange={(dockerEndpoints) =>
-                      setDraft({ ...draft, dockerEndpoints })
+                      setDraft((prev) => ({ ...prev, dockerEndpoints }))
                     }
                   />
                 ) : null}
