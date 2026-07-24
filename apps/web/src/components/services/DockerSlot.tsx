@@ -15,7 +15,7 @@ import {
   DOCKER_BATCH_POLL_INTERVAL_MS,
   useDockerStatusEntry,
   useOptionalDockerStatusStore,
-} from "@/lib/docker-status-store";
+} from "@/hooks/docker-status-store";
 import { dockerStatusText, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 

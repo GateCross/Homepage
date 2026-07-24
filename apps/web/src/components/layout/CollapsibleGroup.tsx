@@ -11,7 +11,7 @@ import {
   readGroupCollapsed,
   writeGroupCollapsed,
 } from "@/lib/group-collapse";
-import { GroupActiveProvider, useGroupActive } from "@/lib/group-active";
+import { GroupActiveProvider, useGroupActive } from "@/hooks/group-active";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 

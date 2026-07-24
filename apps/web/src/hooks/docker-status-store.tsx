@@ -316,7 +316,7 @@ export function DockerStatusProvider({
       const hit = map.get(dockerTargetKey(server, container));
       if (hit) return hit;
       const globalErr = map.get(GLOBAL_ERROR_KEY);
-      if (globalErr && globalErr.status === "error") return globalErr;
+      if (globalErr?.status === "error") return globalErr;
       if (!hasSuccessRef.current) return { status: "loading" };
       return { status: "error", message: "未返回该容器状态" };
     },

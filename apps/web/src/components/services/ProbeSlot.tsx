@@ -14,7 +14,7 @@ import {
   formatPublicError,
   formatUnknownError,
 } from "@/lib/format-error";
-import { useGroupActive } from "@/lib/group-active";
+import { useGroupActive } from "@/hooks/group-active";
 import { messages, probeStatusText } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 

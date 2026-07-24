@@ -39,7 +39,7 @@ import { resolveDocumentTitle } from "@/lib/config-editor/validation";
 import {
   DockerStatusProvider,
   useOptionalDockerStatusStore,
-} from "@/lib/docker-status-store";
+} from "@/hooks/docker-status-store";
 import {
   formatPublicError,
   formatUnknownError,
