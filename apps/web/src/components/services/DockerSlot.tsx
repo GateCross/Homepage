@@ -280,6 +280,25 @@ export function DockerSlot({
 
   if (state.status === "loading") {
     const label = dockerStatusText("loading");
+    // badge：只留旋转图标，避免顶栏挤掉服务名
+    if (mode === "badge") {
+      return (
+        <div
+          data-slot="docker-slot"
+          data-state="loading"
+          data-mode="badge"
+          role="status"
+          aria-label={label}
+          className={cn(
+            "inline-flex size-5 items-center justify-center text-xs leading-none text-muted-foreground",
+            className,
+          )}
+          title={label}
+        >
+          <StatusIcon state="loading" />
+        </div>
+      );
+    }
     return (
       <div
         data-slot="docker-slot"
@@ -347,6 +366,10 @@ export function DockerSlot({
     data.status !== "unavailable" ? data.detail : reason;
 
   if (mode === "badge") {
+    // 正常运行：图标即可表达状态，文案进 title/aria，把顶栏宽度还给服务名
+    const iconOnly =
+      data.status === "running" &&
+      (health === undefined || health === "healthy");
     return (
       <div
         data-slot="docker-slot"
@@ -356,13 +379,16 @@ export function DockerSlot({
         role="status"
         aria-label={label}
         className={cn(
-          "inline-flex h-5 max-w-[7.5rem] items-center gap-1.5 text-xs leading-none",
+          "inline-flex h-5 items-center text-xs leading-none",
+          iconOnly ? "size-5 justify-center" : "max-w-[6.5rem] gap-1",
           className,
         )}
         title={title ?? label}
       >
         <StatusIcon state={uiState} />
-        <span className={cn("truncate font-medium", tone)}>{label}</span>
+        {iconOnly ? null : (
+          <span className={cn("truncate font-medium", tone)}>{label}</span>
+        )}
       </div>
     );
   }

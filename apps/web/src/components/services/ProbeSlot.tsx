@@ -224,12 +224,12 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
         role="status"
         aria-label={label}
         className={cn(
-          "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
+          "inline-flex size-5 items-center justify-center text-xs leading-none text-muted-foreground",
           className,
         )}
+        title={label}
       >
         <StatusIcon state="loading" />
-        <span>{label}</span>
       </div>
     );
   }
@@ -265,7 +265,7 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
       ? Math.round(data.latencyMs)
       : undefined;
 
-  // 可达类状态只展示延迟；不可达才显示状态文案
+  // 可达：图标 + 紧凑延迟；不可达才展示完整状态文案
   let label: string;
   let ariaLabel: string;
   if (data.status === "unreachable") {
@@ -285,9 +285,10 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
       role="status"
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex h-5 items-center gap-1.5 text-xs leading-none text-muted-foreground",
+        "inline-flex h-5 max-w-[5.5rem] items-center gap-1 text-[11px] leading-none text-muted-foreground",
         className,
       )}
+      title={ariaLabel}
     >
       <StatusIcon state={data.status} />
       <span className="truncate tabular-nums">{label}</span>

@@ -48,13 +48,16 @@ export function ServiceCard({
       <div className="relative z-[1] flex items-start gap-3">
         <ServiceIconView icon={service.icon} name={service.name} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="min-w-0 truncate text-[0.9rem] font-semibold leading-snug tracking-tight text-foreground">
+          <div className="flex items-start justify-between gap-1.5">
+            <h3
+              className="min-w-0 flex-1 truncate text-[0.9rem] font-semibold leading-snug tracking-tight text-foreground"
+              title={service.name}
+            >
               {service.name}
             </h3>
             {showTopStatus ? (
               <div
-                className="flex shrink-0 items-center gap-2 pt-0.5"
+                className="flex shrink-0 items-center gap-1 pt-0.5"
                 // 避免点到状态区域时触发整卡跳转
                 onClick={(e) => e.preventDefault()}
               >
