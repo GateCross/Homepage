@@ -69,7 +69,10 @@ export function ServiceCard({
                   />
                 ) : null}
                 {showProbe ? (
-                  <ProbeSlot probeId={service.httpProbe!.probeId!} />
+                  <ProbeSlot
+                    probeId={service.httpProbe!.probeId!}
+                    suppressOkIcon={showDocker}
+                  />
                 ) : null}
               </div>
             ) : null}

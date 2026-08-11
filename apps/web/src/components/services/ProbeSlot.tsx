@@ -24,6 +24,11 @@ export const PROBE_POLL_INTERVAL_MS = 30_000;
 export type ProbeSlotProps = {
   probeId: string;
   className?: string;
+  /**
+   * 与 Docker 徽章并排时：可达态不画第二颗勾，只保留延迟数字。
+   * 异常 / 不可达 / 错误仍显示图标。
+   */
+  suppressOkIcon?: boolean;
 };
 
 type SlotState =
@@ -85,7 +90,11 @@ function StatusIcon({
   }
 }
 
-export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
+export function ProbeSlot({
+  probeId,
+  className,
+  suppressOkIcon = false,
+}: ProbeSlotProps): JSX.Element {
   const groupActive = useGroupActive();
   const [state, setState] = useState<SlotState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
@@ -217,6 +226,24 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
 
   if (state.status === "loading") {
     const label = probeStatusText("loading");
+    // 与 Docker 并排时：加载中也不再多一颗转圈，避免顶栏两个 spinner
+    if (suppressOkIcon) {
+      return (
+        <div
+          data-slot="probe-slot"
+          data-state="loading"
+          role="status"
+          aria-label={label}
+          className={cn(
+            "inline-flex h-5 max-w-[5.5rem] items-center text-[11px] leading-none text-muted-foreground",
+            className,
+          )}
+          title={label}
+        >
+          <span className="truncate tabular-nums">…</span>
+        </div>
+      );
+    }
     return (
       <div
         data-slot="probe-slot"
@@ -264,8 +291,7 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
     "latencyMs" in data && data.latencyMs !== undefined
       ? Math.round(data.latencyMs)
       : undefined;
-
-  // 可达：图标 + 紧凑延迟；不可达才展示完整状态文案
+  // 可达：图标 + 紧凑延迟；与 Docker 并排时可达态去掉第二颗勾
   let label: string;
   let ariaLabel: string;
   if (data.status === "unreachable") {
@@ -278,6 +304,8 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
       latencyMs !== undefined ? `${statusLabel} ${latencyMs}ms` : statusLabel;
   }
 
+  const hideOkIcon = suppressOkIcon && data.status === "reachable";
+
   return (
     <div
       data-slot="probe-slot"
@@ -285,12 +313,13 @@ export function ProbeSlot({ probeId, className }: ProbeSlotProps): JSX.Element {
       role="status"
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex h-5 max-w-[5.5rem] items-center gap-1 text-[11px] leading-none text-muted-foreground",
+        "inline-flex h-5 max-w-[5.5rem] items-center text-[11px] leading-none text-muted-foreground",
+        hideOkIcon ? "gap-0" : "gap-1",
         className,
       )}
       title={ariaLabel}
     >
-      <StatusIcon state={data.status} />
+      {hideOkIcon ? null : <StatusIcon state={data.status} />}
       <span className="truncate tabular-nums">{label}</span>
     </div>
   );
