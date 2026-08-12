@@ -11,6 +11,8 @@
   },
   "scripts": {
     "typecheck": "tsc -b packages/domain packages/config packages/adapters packages/server --pretty false && tsc -p apps/web --noEmit --pretty false && tsc --noEmit -p tsconfig.json --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "build": "pnpm -r --sort --workspace-concurrency=Infinity run build",
     "build:libs": "tsc -b packages/domain packages/config packages/adapters --pretty false",
@@ -22,15 +24,16 @@
     "clean": "pnpm -r run clean"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
-    "tsx": "^4.21.0",
     "@eslint/js": "^9.39.1",
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.4"
+    "typescript-eslint": "^8.46.4",
+    "vitest": "3.2.4"
   }
 }

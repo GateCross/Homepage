@@ -19,6 +19,7 @@ export {
   discoverIconRefsFromHtml,
   isHttpOrHttpsUrl,
   isSameHost,
+  isSameOrigin,
   mergeIconDiscovery,
   mimeTypeForImageExt,
   resolveMaybeRelativeUrl,

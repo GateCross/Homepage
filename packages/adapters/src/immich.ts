@@ -195,6 +195,7 @@ export function convertImmichStatistics(
     fields.length === 0 ? null : new Set(fields.map((f) => f.toLowerCase()));
 
   const metrics: Metric[] = [];
+  let parsedCount = 0;
   for (const def of FIELD_DEFS) {
     if (allow !== null && !allow.has(def.field)) {
       continue;
@@ -202,12 +203,22 @@ export function convertImmichStatistics(
 
     if (def.field === "users") {
       const users = readUsersCount(record);
-      metrics.push({
-        id: def.id,
-        label: def.label,
-        value: Math.trunc(users ?? 0),
-        status: "ok",
-      });
+      if (users === null) {
+        metrics.push({
+          id: def.id,
+          label: def.label,
+          value: "—",
+          status: "unavailable",
+        });
+      } else {
+        parsedCount += 1;
+        metrics.push({
+          id: def.id,
+          label: def.label,
+          value: Math.trunc(users),
+          status: "ok",
+        });
+      }
       continue;
     }
 
@@ -217,11 +228,11 @@ export function convertImmichStatistics(
         metrics.push({
           id: def.id,
           label: def.label,
-          value: 0,
-          unit: "B",
-          status: "ok",
+          value: "—",
+          status: "unavailable",
         });
       } else {
+        parsedCount += 1;
         const scaled = scaleBytes(bytes);
         metrics.push({
           id: def.id,
@@ -241,15 +252,25 @@ export function convertImmichStatistics(
         break;
       }
     }
-    metrics.push({
-      id: def.id,
-      label: def.label,
-      value: Math.trunc(value ?? 0),
-      status: "ok",
-    });
+    if (value === null) {
+      metrics.push({
+        id: def.id,
+        label: def.label,
+        value: "—",
+        status: "unavailable",
+      });
+    } else {
+      parsedCount += 1;
+      metrics.push({
+        id: def.id,
+        label: def.label,
+        value: Math.trunc(value),
+        status: "ok",
+      });
+    }
   }
 
-  if (metrics.length === 0) {
+  if (metrics.length === 0 || parsedCount === 0) {
     throw new AdapterLocalError(STATS_BAD_FIELDS);
   }
   return metrics;

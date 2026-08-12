@@ -20,6 +20,7 @@ import { mergeEditableIntoSources } from "./merge-sources.js";
 import { editableToFiveYamlDocuments } from "./serialize.js";
 import {
   cleanupPrepared,
+  ConfigReplaceFailedError,
   prepareAndValidateFiveFiles,
   replaceFiveFiles,
   rollbackReplacedFiles,
@@ -59,16 +60,22 @@ async function writeConfigLocked(
   payload: EditableConfigWrite,
   options: WriteConfigOptions,
 ): Promise<WriteConfigResult> {
+  // 已持写锁：内部 loadConfig 必须跳过读锁
+  const lockedOptions: WriteConfigOptions = {
+    ...options,
+    skipConfigLock: true,
+  };
+
   if (configFaultGate.isFaulted()) {
-    const recovered = await configFaultGate.tryRecover(options);
+    const recovered = await configFaultGate.tryRecover(lockedOptions);
     if (!recovered) {
       throw createConfigFaultedError();
     }
   }
 
   const configDir = resolveConfigDir(
-    options.configDir,
-    options.env ?? process.env,
+    lockedOptions.configDir,
+    lockedOptions.env ?? process.env,
   );
   let prepared: PreparedFiveFiles | null = null;
   let snapshot: FiveFileSnapshot | null = null;
@@ -77,26 +84,36 @@ async function writeConfigLocked(
 
   try {
     const { sources } = await readAndParseConfigSources({
-      ...options,
+      ...lockedOptions,
       configDir,
     });
 
     const merged = mergeEditableIntoSources(payload, sources);
     const yamlTexts = editableToFiveYamlDocuments(merged);
 
-    prepared = await prepareAndValidateFiveFiles(yamlTexts, options);
+    prepared = await prepareAndValidateFiveFiles(yamlTexts, lockedOptions);
     snapshot = await snapshotFiveFiles(configDir);
 
-    const replaceResult = await replaceFiveFiles(configDir, prepared);
-    replaced = replaceResult.replaced;
+    try {
+      const replaceResult = await replaceFiveFiles(configDir, prepared);
+      replaced = replaceResult.replaced;
+    } catch (err) {
+      if (err instanceof ConfigReplaceFailedError) {
+        replaced = [...err.replaced];
+        throw createFieldValidationError(CONFIG_SAVE_FAILED_MESSAGE, {
+          file: err.failedFile,
+        });
+      }
+      throw err;
+    }
 
     try {
       await loadConfig({
-        ...options,
+        ...lockedOptions,
         configDir,
       });
     } catch {
-      await rollbackAndVerify(configDir, snapshot, replaced, options);
+      await rollbackAndVerify(configDir, snapshot, replaced, lockedOptions);
       replaced = [];
       throw createFieldValidationError(CONFIG_SAVE_FAILED_MESSAGE, {});
     }
@@ -106,7 +123,7 @@ async function writeConfigLocked(
   } catch (err) {
     if (!committed && snapshot !== null && replaced.length > 0) {
       try {
-        await rollbackAndVerify(configDir, snapshot, replaced, options);
+        await rollbackAndVerify(configDir, snapshot, replaced, lockedOptions);
         replaced = [];
       } catch {
         // rollbackAndVerify 已开启故障闸门

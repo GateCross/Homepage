@@ -133,8 +133,11 @@ export function createIconService(
           : [];
       const refs = mergeIconDiscovery(fromHtml, pageUrl);
 
+      // 候选同源基准：优先最终页面 URL，否则取图源；防止 HTML 绝对外链二次 SSRF
+      const candidateOriginBase = pageUrl || sourceUrl;
       const downloaded = await downloadCandidateBodies(refs, {
         ...fetchOpts,
+        sourceUrl: candidateOriginBase,
         timeoutMs: fetchOpts.timeoutMs ?? ICON_FETCH_TIMEOUT_MS,
         maxBytes: ICON_IMAGE_MAX_BYTES,
         maxKeep: ICON_MAX_CANDIDATES,

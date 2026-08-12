@@ -2,7 +2,7 @@
  * 站点图标出网抓取。
  * - 放行内网
  * - 忽略 TLS 证书错误（仅此路径）
- * - 仅跟随同 host 重定向
+ * - 仅跟随同 origin 重定向（protocol+host+port）
  * - 匿名，不带 Cookie
  */
 import * as http from "node:http";
@@ -10,7 +10,7 @@ import * as https from "node:https";
 import { URL } from "node:url";
 
 import {
-  isSameHost,
+  isSameOrigin,
   type DiscoveredIconRef,
 } from "@homepage/domain";
 
@@ -39,6 +39,11 @@ export type IconFetchOptions = {
   timeoutMs?: number;
   maxBytes?: number;
   maxRedirects?: number;
+  /**
+   * 候选下载同源基准（通常为 Icon Source URL / 最终页面 URL）。
+   * 设置后 downloadCandidateBodies 会跳过不同 origin 的 ref。
+   */
+  sourceUrl?: string;
   /** 测试注入 */
   requestImpl?: typeof requestOnce;
 };
@@ -208,7 +213,7 @@ export function requestOnce(
 }
 
 /**
- * GET url，仅跟随同 host 重定向。
+ * GET url，仅跟随同 origin 重定向。
  */
 export async function fetchIconResource(
   startUrl: string,
@@ -241,11 +246,11 @@ export async function fetchIconResource(
           statusCode: result.statusCode,
         };
       }
-      if (!isSameHost(startUrl, next)) {
+      if (!isSameOrigin(startUrl, next)) {
         return {
           ok: false,
           kind: "redirect",
-          message: "拒绝跨主机重定向",
+          message: "拒绝跨源重定向",
           statusCode: result.statusCode,
         };
       }
@@ -299,9 +304,14 @@ export async function downloadCandidateBodies(
   options: IconFetchOptions & { maxKeep?: number } = {},
 ): Promise<ResolvedCandidateBytes[]> {
   const maxKeep = options.maxKeep ?? ICON_MAX_CANDIDATES;
+  const sourceUrl = options.sourceUrl;
   const out: ResolvedCandidateBytes[] = [];
   for (const ref of refs) {
     if (out.length >= maxKeep) break;
+    // 第三方 HTML 绝对外链不得牵引服务端对其它主机出网（二次 SSRF）
+    if (sourceUrl !== undefined && !isSameOrigin(sourceUrl, ref.href)) {
+      continue;
+    }
     const result = await fetchIconResource(ref.href, {
       ...options,
       maxBytes: options.maxBytes ?? ICON_IMAGE_MAX_BYTES,

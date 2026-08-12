@@ -525,6 +525,8 @@ function mergeServices(
   const diskGroups = expandDiskGroups(disk);
   const result: Array<Record<string, unknown[]>> = [];
 
+  // 同名分组按出现序号对应，避免全部挂到第一组
+  const diskGroupOcc = new Map<string, number>();
   for (let gi = 0; gi < editable.length; gi += 1) {
     const group = editable[gi];
     if (!group) continue;
@@ -536,7 +538,18 @@ function mergeServices(
       });
     }
 
-    const diskGroup = diskGroups.find((g) => g.name === groupName) ?? null;
+    const occ = diskGroupOcc.get(groupName) ?? 0;
+    diskGroupOcc.set(groupName, occ + 1);
+    let seen = 0;
+    let diskGroup: { name: string; items: unknown[] } | null = null;
+    for (const g of diskGroups) {
+      if (g.name !== groupName) continue;
+      if (seen === occ) {
+        diskGroup = g;
+        break;
+      }
+      seen += 1;
+    }
     const items: unknown[] = [];
 
     for (let ii = 0; ii < group.items.length; ii += 1) {
@@ -585,6 +598,7 @@ function mergeBookmarks(
 ): unknown {
   const diskGroups = expandDiskGroups(disk);
   const result: Array<Record<string, unknown[]>> = [];
+  const diskGroupOcc = new Map<string, number>();
 
   for (let gi = 0; gi < editable.length; gi += 1) {
     const group = editable[gi];
@@ -597,7 +611,18 @@ function mergeBookmarks(
       });
     }
 
-    const diskGroup = diskGroups.find((g) => g.name === groupName) ?? null;
+    const occ = diskGroupOcc.get(groupName) ?? 0;
+    diskGroupOcc.set(groupName, occ + 1);
+    let seen = 0;
+    let diskGroup: { name: string; items: unknown[] } | null = null;
+    for (const g of diskGroups) {
+      if (g.name !== groupName) continue;
+      if (seen === occ) {
+        diskGroup = g;
+        break;
+      }
+      seen += 1;
+    }
     const items: unknown[] = [];
 
     for (let ii = 0; ii < group.items.length; ii += 1) {
@@ -681,12 +706,25 @@ function mergeInfoWidgets(
   const knownDiskEntries = diskEntries.filter((e) =>
     isKnownInfoWidgetType(infoWidgetTypeToken(e)),
   );
+  // 按 type 出现序匹配，避免重排后未知键串位
+  const usedKnown = new Array(knownDiskEntries.length).fill(false);
   const result: unknown[] = [];
 
   for (let i = 0; i < editable.length; i += 1) {
     const w = editable[i];
     if (!w) continue;
-    const diskEntry = knownDiskEntries[i] ?? null;
+    const wantType = w.type.trim().toLowerCase();
+    let diskEntry: Record<string, unknown> | null = null;
+    for (let ki = 0; ki < knownDiskEntries.length; ki += 1) {
+      if (usedKnown[ki]) continue;
+      const cand = knownDiskEntries[ki];
+      if (!cand) continue;
+      if (infoWidgetTypeToken(cand) === wantType) {
+        usedKnown[ki] = true;
+        diskEntry = cand;
+        break;
+      }
+    }
     const base = diskEntry ? deepClone(diskEntry) : {};
 
     // 清理 type 简写形态，统一 type 字段

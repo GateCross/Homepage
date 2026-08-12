@@ -16,6 +16,7 @@ export { mergeEditableIntoSources } from "./merge-sources.js";
 export { editableToFiveYamlDocuments } from "./serialize.js";
 export {
   cleanupPrepared,
+  ConfigReplaceFailedError,
   prepareAndValidateFiveFiles,
   replaceFiveFiles,
   rollbackReplacedFiles,

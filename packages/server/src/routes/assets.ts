@@ -118,6 +118,20 @@ export function createAssetsRoutes(deps: AssetsRouteDeps): Hono {
 
   app.post("/assets/upload", async (c) => {
     try {
+      // 尽早拒绝：Content-Length 超限时不解析 multipart（仍可能 chunked 绕过，属深度防御）
+      const contentLengthHeader = c.req.header("content-length");
+      if (contentLengthHeader !== undefined && contentLengthHeader.trim() !== "") {
+        const contentLength = Number(contentLengthHeader);
+        if (
+          Number.isFinite(contentLength) &&
+          contentLength > MAX_UPLOAD_BYTES + 64 * 1024
+        ) {
+          return toErrorResponse(
+            createConfigInvalidError("图片不能超过 5MB"),
+          );
+        }
+      }
+
       let form: FormData;
       try {
         form = await c.req.formData();

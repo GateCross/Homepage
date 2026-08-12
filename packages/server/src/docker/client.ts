@@ -25,6 +25,9 @@ export const DOCKER_CPU_SAMPLE_MAX_AGE_MS = 60_000;
  */
 export const DOCKER_CPU_SEED_GAP_MS = 200;
 
+/** Docker Engine 单次响应体上限，防止异常/恶意端点 OOM */
+export const DOCKER_RESPONSE_MAX_BYTES = 16 * 1024 * 1024;
+
 const ALLOWED_PATH_PREFIX = "/containers/";
 const ALLOWED_INSPECT_SUFFIX = "/json";
 /** one-shot：Engine 立即返回当前计数，不在服务端等采样间隔（约 1s） */
@@ -766,16 +769,31 @@ export function createDockerTransport(
 
         const onResponse = (res: http.IncomingMessage) => {
           const chunks: Buffer[] = [];
+          let total = 0;
+          let exceeded = false;
           res.on("data", (chunk: Buffer | string) => {
-            chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+            if (exceeded) return;
+            const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+            total += buf.byteLength;
+            if (total > DOCKER_RESPONSE_MAX_BYTES) {
+              exceeded = true;
+              res.destroy();
+              settleError(
+                new DockerClientError("Docker 响应体积超过限制", "other"),
+              );
+              return;
+            }
+            chunks.push(buf);
           });
           res.on("end", () => {
+            if (exceeded) return;
             settleOk({
               statusCode: res.statusCode ?? 0,
               body: Buffer.concat(chunks).toString("utf8"),
             });
           });
           res.on("error", () => {
+            if (exceeded) return;
             settleError(
               new DockerClientError("读取 Docker 响应失败", "unreachable"),
             );

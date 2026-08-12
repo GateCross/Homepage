@@ -280,3 +280,31 @@ export function isSameHost(fromUrl: string, toUrl: string): boolean {
     return false;
   }
 }
+
+function defaultPort(protocol: string): string {
+  if (protocol === "http:") return "80";
+  if (protocol === "https:") return "443";
+  return "";
+}
+
+function effectivePort(u: URL): string {
+  return u.port || defaultPort(u.protocol);
+}
+
+/**
+ * 同 origin：protocol + hostname + 有效端口。
+ * Icon 重定向与候选下载应使用本函数，避免同 host 跨端口横向。
+ */
+export function isSameOrigin(fromUrl: string, toUrl: string): boolean {
+  try {
+    const a = new URL(fromUrl);
+    const b = new URL(toUrl);
+    return (
+      a.protocol === b.protocol &&
+      a.hostname.toLowerCase() === b.hostname.toLowerCase() &&
+      effectivePort(a) === effectivePort(b)
+    );
+  } catch {
+    return false;
+  }
+}

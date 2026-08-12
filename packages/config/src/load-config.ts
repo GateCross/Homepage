@@ -26,12 +26,16 @@ import {
   resolveConfigDir,
   type FiveConfigFiles,
 } from "./read-files.js";
+import { configWriteLock } from "./editable/write-lock.js";
 
 export type LoadConfigOptions = {
-
   configDir?: string;
-
   env?: NodeJS.ProcessEnv;
+  /**
+   * 调用方已持有写锁时置 true，避免 loadConfig 再抢读锁死锁。
+   * 仅服务端写回/校验内部使用。
+   */
+  skipConfigLock?: boolean;
 };
 
 /** 单次 loadConfig 的结果：浏览器安全视图 + 仅服务端可见的当次 AllowList。 调用方不得跨请求复用 allowList 作为全局授权真相。 */
@@ -121,6 +125,16 @@ export async function readAndParseConfigSources(
 /** 视图，确保不含 AllowList 中的密钥 / 请求头值 数据 API 每次请求都应调用本函数并用**当次** AllowList 鉴权。 */
 export async function loadConfig(
   options: LoadConfigOptions = {},
+): Promise<LoadConfigResult> {
+  if (options.skipConfigLock === true) {
+    return loadConfigUnlocked(options);
+  }
+  // 与写回共享读写锁，避免五文件 rename 窗口读到混版
+  return configWriteLock.runRead(() => loadConfigUnlocked(options));
+}
+
+async function loadConfigUnlocked(
+  options: LoadConfigOptions,
 ): Promise<LoadConfigResult> {
   const { files, sources } = await readAndParseConfigSources(options);
 

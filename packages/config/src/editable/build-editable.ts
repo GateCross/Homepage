@@ -43,6 +43,7 @@ import {
   createDockerConnectionSensitiveError,
   secretStatusFromRaw,
 } from "./helpers.js";
+import { configWriteLock } from "./write-lock.js";
 
 function secretView(raw: unknown): SecretFieldView {
   return { status: secretStatusFromRaw(raw) };
@@ -637,6 +638,15 @@ export function buildEditableConfig(
 /** 同一请求：原始树 + 完整规范化（单次读盘），二者均成功后构建可编辑结果。 */
 export async function getEditableConfig(
   options: LoadConfigOptions = {},
+): Promise<EditableConfig> {
+  if (options.skipConfigLock === true) {
+    return getEditableConfigUnlocked(options);
+  }
+  return configWriteLock.runRead(() => getEditableConfigUnlocked(options));
+}
+
+async function getEditableConfigUnlocked(
+  options: LoadConfigOptions,
 ): Promise<EditableConfig> {
   const { files, sources } = await readAndParseConfigSources(options);
 

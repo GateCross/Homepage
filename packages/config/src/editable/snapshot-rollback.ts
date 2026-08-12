@@ -88,6 +88,19 @@ export type ReplaceResult = {
   replaced: ConfigFileName[];
 };
 
+/** 部分五文件已替换后失败：携带已替换列表供调用方回滚 */
+export class ConfigReplaceFailedError extends Error {
+  readonly replaced: ConfigFileName[];
+  readonly failedFile: ConfigFileName;
+
+  constructor(replaced: ConfigFileName[], failedFile: ConfigFileName) {
+    super(CONFIG_SAVE_FAILED_MESSAGE);
+    this.name = "ConfigReplaceFailedError";
+    this.replaced = replaced;
+    this.failedFile = failedFile;
+  }
+}
+
 /**
  * 持锁逐文件：同目录临时文件 → 原子 rename。
  * 记录已替换文件供失败补偿。
@@ -126,9 +139,8 @@ export async function replaceFiveFiles(
     } catch {
       // 清理本次临时文件
       await safeUnlink(tempTarget);
-      throw createFieldValidationError(CONFIG_SAVE_FAILED_MESSAGE, {
-        file: name,
-      });
+      // 已成功 rename 的文件必须带回，否则外层无法回滚混版
+      throw new ConfigReplaceFailedError([...replaced], name);
     }
   }
 
@@ -166,7 +178,8 @@ export async function rollbackReplacedFiles(
         }
         await rename(tempTarget, target);
       } else {
-        await safeUnlink(target);
+        // 仅忽略「本就不存在」；权限等失败必须上抛以触发故障闸门
+        await unlinkMissingOnly(target);
       }
     } catch {
       await safeUnlink(tempTarget);
@@ -204,6 +217,16 @@ async function safeUnlink(filePath: string): Promise<void> {
   try {
     await unlink(filePath);
   } catch {
-    // ignore
+    // 临时文件清理可忽略
+  }
+}
+
+/** 回滚删除：仅 ENOENT 可忽略 */
+async function unlinkMissingOnly(filePath: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch (err) {
+    if (isNotFound(err)) return;
+    throw err;
   }
 }

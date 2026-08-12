@@ -53,6 +53,9 @@ function errorToResponse(err: IconServiceError) {
   }
 }
 
+/** Iconify 代理响应体上限 */
+const ICONIFY_MAX_BYTES = 256 * 1024;
+
 export function createIconsRoutes(deps: IconsRouteDeps): Hono {
   const app = new Hono();
   const service =
@@ -179,13 +182,28 @@ export function createIconsRoutes(deps: IconsRouteDeps): Hono {
         );
       }
 
+      const contentLength = response.headers.get("content-length");
+      if (contentLength !== null) {
+        const n = Number(contentLength);
+        if (Number.isFinite(n) && n > ICONIFY_MAX_BYTES) {
+          return toErrorResponse(
+            createExternalFailureError("图标源响应体积超过限制"),
+          );
+        }
+      }
       const body = await response.arrayBuffer();
+      if (body.byteLength > ICONIFY_MAX_BYTES) {
+        return toErrorResponse(
+          createExternalFailureError("图标源响应体积超过限制"),
+        );
+      }
       return new Response(body, {
         status: 200,
         headers: {
           "Content-Type": "image/svg+xml; charset=utf-8",
           "Cache-Control": "public, max-age=86400",
           "X-Content-Type-Options": "nosniff",
+          "Content-Disposition": "attachment",
         },
       });
     } catch (err) {
