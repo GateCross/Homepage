@@ -51,3 +51,4 @@ docs/adr/*
 
 # git worktrees
 .worktrees/
+.kiro/*
