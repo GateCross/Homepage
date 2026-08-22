@@ -1,4 +1,4 @@
-import type { ServiceWidgetResult, ServiceWidgetType } from "@homepage/domain";
+import type { ServiceWidgetResult } from "@homepage/domain";
 
 import { caddyAdapter } from "./caddy.js";
 import { customApiAdapter } from "./customapi.js";
@@ -26,27 +26,10 @@ const serviceAdapters = new Map<string, ServiceWidgetAdapter>([
   [caddyAdapter.type, caddyAdapter],
 ]);
 
-export function registerServiceWidgetAdapter(
-  adapter: ServiceWidgetAdapter,
-): void {
-  serviceAdapters.set(adapter.type, adapter);
-}
-
 export function getServiceWidgetAdapter(
   type: string,
 ): ServiceWidgetAdapter | undefined {
   return serviceAdapters.get(type);
-}
-
-export function listRegisteredServiceWidgetTypes(): ServiceWidgetType[] {
-  return [
-    qbittorrentAdapter.type,
-    transmissionAdapter.type,
-    embyAdapter.type,
-    customApiAdapter.type,
-    immichAdapter.type,
-    caddyAdapter.type,
-  ].filter((type) => serviceAdapters.has(type));
 }
 
 /** 是否已注册该类型（未知类型不得发网）。 */

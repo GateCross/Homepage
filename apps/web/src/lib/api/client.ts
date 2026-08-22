@@ -2,6 +2,8 @@ import {
   ApiRoutes,
   parseApiSuccess,
   parseErrorEnvelope,
+  type ApiSuccessRoute,
+  type ApiSuccessSchemas,
   type AssetUploadSuccessResponse,
   type ConfigSuccessResponse,
   type ConfigWriteSuccessResponse,
@@ -141,56 +143,45 @@ function throwFromErrorBody(body: unknown, status: number): never {
   });
 }
 
-async function getAndParseSuccess<
-  R extends
-    | "config"
-    | "probe"
-    | "docker"
-    | "dockerContainers"
-    | "dockerBatch"
-    | "info"
-    | "version",
->(
+type RequestSuccessOptions = ApiRequestOptions & {
+  method?: "GET" | "POST" | "PUT";
+  body?: BodyInit;
+  timeoutMessage?: string;
+  timeoutMs?: number;
+};
+
+async function requestAndParseSuccess<R extends ApiSuccessRoute>(
   route: R,
   path: string,
-  options?: ApiRequestOptions,
-): Promise<
-  R extends "config"
-    ? ConfigSuccessResponse
-    : R extends "probe"
-      ? HttpProbeResponse
-      : R extends "docker"
-        ? DockerSuccessResponse
-        : R extends "dockerContainers"
-          ? DockerContainersSuccessResponse
-          : R extends "dockerBatch"
-            ? DockerBatchSuccessResponse
-            : R extends "version"
-              ? VersionSuccessResponse
-              : InfoSuccessResponse
-> {
+  options: RequestSuccessOptions = {},
+): Promise<(typeof ApiSuccessSchemas)[R]["_output"]> {
   const fetchImpl = resolveFetch(options);
-  const url = buildUrl(path, options?.baseUrl);
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
+  const { signal, cleanup } = withTimeoutSignal(
+    options.signal,
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
 
   let response: Response;
   try {
-    response = await fetchImpl(url, {
-      method: "GET",
+    response = await fetchImpl(buildUrl(path, options.baseUrl), {
+      method: options.method ?? "GET",
       headers: {
         Accept: "application/json",
-        ...(options?.headers ?? {}),
+        ...(options.body instanceof FormData
+          ? {}
+          : options.body !== undefined
+            ? { "Content-Type": "application/json" }
+            : {}),
+        ...(options.headers ?? {}),
       },
+      ...(options.body !== undefined ? { body: options.body } : {}),
       signal,
     });
   } catch (cause) {
     cleanup();
     if (isAbortError(cause)) {
-      if (options?.signal?.aborted) {
-        throw cause;
-      }
-      throw new ApiClientError("请求超时，请稍后重试", {
+      if (options.signal?.aborted) throw cause;
+      throw new ApiClientError(options.timeoutMessage ?? "请求超时，请稍后重试", {
         kind: "network",
         cause,
       });
@@ -203,27 +194,10 @@ async function getAndParseSuccess<
 
   try {
     const body = await readJsonBody(response);
-
-    if (!response.ok) {
-      throwFromErrorBody(body, response.status);
-    }
-
+    if (!response.ok) throwFromErrorBody(body, response.status);
     try {
-      return parseApiSuccess(route, body) as R extends "config"
-        ? ConfigSuccessResponse
-        : R extends "probe"
-          ? HttpProbeResponse
-          : R extends "docker"
-            ? DockerSuccessResponse
-            : R extends "dockerContainers"
-              ? DockerContainersSuccessResponse
-              : R extends "dockerBatch"
-                ? DockerBatchSuccessResponse
-                : R extends "version"
-                  ? VersionSuccessResponse
-                  : InfoSuccessResponse;
+      return parseApiSuccess(route, body);
     } catch (cause) {
-      // 2xx 但可能是错误信封（部分网关误标状态码）
       const envelope = parseErrorEnvelope(body);
       if (envelope !== null) {
         throw new ApiClientError(envelope.error.message, {
@@ -241,6 +215,14 @@ async function getAndParseSuccess<
   } finally {
     cleanup();
   }
+}
+
+async function getAndParseSuccess<R extends ApiSuccessRoute>(
+  route: R,
+  path: string,
+  options?: ApiRequestOptions,
+): Promise<(typeof ApiSuccessSchemas)[R]["_output"]> {
+  return requestAndParseSuccess(route, path, options);
 }
 
 function requireNonEmptyId(id: string, label: string): string {
@@ -328,66 +310,11 @@ export async function fetchWidget(
   options?: ApiRequestOptions,
 ): Promise<ServiceWidgetResult> {
   const id = requireNonEmptyId(widgetId, "服务组件");
-  const path = `${ApiRoutes.widgets}/${encodeURIComponent(id)}`;
-  const fetchImpl = resolveFetch(options);
-  const url = buildUrl(path, options?.baseUrl);
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
-
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        ...(options?.headers ?? {}),
-      },
-      signal,
-    });
-  } catch (cause) {
-    cleanup();
-    if (isAbortError(cause)) {
-      if (options?.signal?.aborted) {
-        throw cause;
-      }
-      throw new ApiClientError("请求超时，请稍后重试", {
-        kind: "network",
-        cause,
-      });
-    }
-    throw new ApiClientError(API_CLIENT_MESSAGES.network, {
-      kind: "network",
-      cause,
-    });
-  }
-
-  try {
-    const body = await readJsonBody(response);
-
-    if (!response.ok) {
-      throwFromErrorBody(body, response.status);
-    }
-
-    try {
-      return parseApiSuccess("widgetResult", body);
-    } catch (cause) {
-      const envelope = parseErrorEnvelope(body);
-      if (envelope !== null) {
-        throw new ApiClientError(envelope.error.message, {
-          kind: "http_error",
-          status: response.status,
-          publicError: envelope.error,
-        });
-      }
-      throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
-        kind: "invalid_response",
-        status: response.status,
-        cause,
-      });
-    }
-  } finally {
-    cleanup();
-  }
+  return requestAndParseSuccess(
+    "widgetResult",
+    `${ApiRoutes.widgets}/${encodeURIComponent(id)}`,
+    options,
+  );
 }
 
 export async function fetchInfo(
@@ -433,128 +360,19 @@ function withTimeoutSignal(
 export async function fetchEditableConfig(
   options?: ApiRequestOptions,
 ): Promise<EditableConfig> {
-  const fetchImpl = resolveFetch(options);
-  const url = buildUrl(ApiRoutes.configEditable, options?.baseUrl);
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
-
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        ...(options?.headers ?? {}),
-      },
-      signal,
-    });
-  } catch (cause) {
-    cleanup();
-    if (isAbortError(cause)) {
-      if (options?.signal?.aborted) {
-        throw cause;
-      }
-      throw new ApiClientError("请求超时，请稍后重试", {
-        kind: "network",
-        cause,
-      });
-    }
-    throw new ApiClientError(API_CLIENT_MESSAGES.network, {
-      kind: "network",
-      cause,
-    });
-  }
-
-  try {
-    const body = await readJsonBody(response);
-    if (!response.ok) {
-      throwFromErrorBody(body, response.status);
-    }
-    try {
-      return parseApiSuccess("editableConfig", body);
-    } catch (cause) {
-      const envelope = parseErrorEnvelope(body);
-      if (envelope !== null) {
-        throw new ApiClientError(envelope.error.message, {
-          kind: "http_error",
-          status: response.status,
-          publicError: envelope.error,
-        });
-      }
-      throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
-        kind: "invalid_response",
-        status: response.status,
-        cause,
-      });
-    }
-  } finally {
-    cleanup();
-  }
+  return requestAndParseSuccess("editableConfig", ApiRoutes.configEditable, options);
 }
 
 export async function saveConfig(
   payload: EditableConfigWrite,
   options?: ApiRequestOptions,
 ): Promise<ConfigWriteSuccessResponse> {
-  const fetchImpl = resolveFetch(options);
-  const url = buildUrl(ApiRoutes.config, options?.baseUrl);
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
-
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      method: "PUT",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(options?.headers ?? {}),
-      },
-      body: JSON.stringify(payload),
-      signal,
-    });
-  } catch (cause) {
-    cleanup();
-    if (isAbortError(cause)) {
-      if (options?.signal?.aborted) {
-        throw cause;
-      }
-      throw new ApiClientError("保存超时，请稍后重试", {
-        kind: "network",
-        cause,
-      });
-    }
-    throw new ApiClientError(API_CLIENT_MESSAGES.network, {
-      kind: "network",
-      cause,
-    });
-  }
-
-  try {
-    const body = await readJsonBody(response);
-    if (!response.ok) {
-      throwFromErrorBody(body, response.status);
-    }
-    try {
-      return parseApiSuccess("configWrite", body);
-    } catch (cause) {
-      const envelope = parseErrorEnvelope(body);
-      if (envelope !== null) {
-        throw new ApiClientError(envelope.error.message, {
-          kind: "http_error",
-          status: response.status,
-          publicError: envelope.error,
-        });
-      }
-      throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
-        kind: "invalid_response",
-        status: response.status,
-        cause,
-      });
-    }
-  } finally {
-    cleanup();
-  }
+  return requestAndParseSuccess("configWrite", ApiRoutes.config, {
+    ...options,
+    method: "PUT",
+    body: JSON.stringify(payload),
+    timeoutMessage: "保存超时，请稍后重试",
+  });
 }
 
 const UPLOAD_TIMEOUT_MS = 60_000;
@@ -594,67 +412,15 @@ export async function uploadAsset(
     });
   }
 
-  const fetchImpl = resolveFetch(options);
-  const url = buildUrl(ApiRoutes.assetsUpload, options?.baseUrl);
-  const timeoutMs = options?.timeoutMs ?? UPLOAD_TIMEOUT_MS;
-  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
-
   const form = new FormData();
   form.append("file", file, file.name);
-
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        ...(options?.headers ?? {}),
-      },
-      body: form,
-      signal,
-    });
-  } catch (cause) {
-    cleanup();
-    if (isAbortError(cause)) {
-      if (options?.signal?.aborted) {
-        throw cause;
-      }
-      throw new ApiClientError("上传超时，请稍后重试", {
-        kind: "network",
-        cause,
-      });
-    }
-    throw new ApiClientError(API_CLIENT_MESSAGES.network, {
-      kind: "network",
-      cause,
-    });
-  }
-
-  try {
-    const body = await readJsonBody(response);
-    if (!response.ok) {
-      throwFromErrorBody(body, response.status);
-    }
-    try {
-      return parseApiSuccess("assetUpload", body);
-    } catch (cause) {
-      const envelope = parseErrorEnvelope(body);
-      if (envelope !== null) {
-        throw new ApiClientError(envelope.error.message, {
-          kind: "http_error",
-          status: response.status,
-          publicError: envelope.error,
-        });
-      }
-      throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
-        kind: "invalid_response",
-        status: response.status,
-        cause,
-      });
-    }
-  } finally {
-    cleanup();
-  }
+  return requestAndParseSuccess("assetUpload", ApiRoutes.assetsUpload, {
+    ...options,
+    method: "POST",
+    body: form,
+    timeoutMs: options?.timeoutMs ?? UPLOAD_TIMEOUT_MS,
+    timeoutMessage: "上传超时，请稍后重试",
+  });
 }
 
 const ICON_RESOLVE_TIMEOUT_MS = 60_000;
@@ -664,72 +430,13 @@ async function postJsonAndParseSuccess<R extends "iconResolve" | "iconImport">(
   path: string,
   payload: unknown,
   options?: ApiRequestOptions,
-): Promise<
-  R extends "iconResolve"
-    ? IconResolveSuccessResponse
-    : IconImportSuccessResponse
-> {
-  const fetchImpl = resolveFetch(options);
-  const url = buildUrl(path, options?.baseUrl);
-  const timeoutMs = options?.timeoutMs ?? ICON_RESOLVE_TIMEOUT_MS;
-  const { signal, cleanup } = withTimeoutSignal(options?.signal, timeoutMs);
-
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(options?.headers ?? {}),
-      },
-      body: JSON.stringify(payload),
-      signal,
-    });
-  } catch (cause) {
-    cleanup();
-    if (isAbortError(cause)) {
-      if (options?.signal?.aborted) {
-        throw cause;
-      }
-      throw new ApiClientError("请求超时，请稍后重试", {
-        kind: "network",
-        cause,
-      });
-    }
-    throw new ApiClientError(API_CLIENT_MESSAGES.network, {
-      kind: "network",
-      cause,
-    });
-  }
-
-  try {
-    const body = await readJsonBody(response);
-    if (!response.ok) {
-      throwFromErrorBody(body, response.status);
-    }
-    try {
-      return parseApiSuccess(route, body) as R extends "iconResolve"
-        ? IconResolveSuccessResponse
-        : IconImportSuccessResponse;
-    } catch (cause) {
-      const envelope = parseErrorEnvelope(body);
-      if (envelope !== null) {
-        throw new ApiClientError(envelope.error.message, {
-          kind: "http_error",
-          status: response.status,
-          publicError: envelope.error,
-        });
-      }
-      throw new ApiClientError(API_CLIENT_MESSAGES.invalidSuccess, {
-        kind: "invalid_response",
-        status: response.status,
-        cause,
-      });
-    }
-  } finally {
-    cleanup();
-  }
+): Promise<(typeof ApiSuccessSchemas)[R]["_output"]> {
+  return requestAndParseSuccess(route, path, {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(payload),
+    timeoutMs: options?.timeoutMs ?? ICON_RESOLVE_TIMEOUT_MS,
+  });
 }
 
 /** Icon Resolve：从站点发现候选图标（不写 YAML / 不落盘）。 */

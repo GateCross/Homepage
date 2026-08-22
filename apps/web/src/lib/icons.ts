@@ -1,7 +1,4 @@
-import {
-  isAbsoluteHttpUrl,
-  resolveBookmarkIconFallback,
-} from "@homepage/domain";
+import { isAbsoluteHttpUrl } from "@homepage/domain";
 
 export type ResolvedIcon =
   | {
@@ -38,8 +35,7 @@ export type IconResolveResult = ResolvedIcon | IconResolveFailure;
 
 export type ServiceIconDisplay =
   | { kind: "icon"; icon: ResolvedIcon }
-  | { kind: "placeholder" }
-  | { kind: "hidden" };
+  | { kind: "placeholder" };
 
 export type BookmarkIconDisplay =
   | { kind: "icon"; icon: ResolvedIcon }
@@ -153,21 +149,11 @@ function normalizeRootRelativeIconPath(raw: string): string | null {
 
 export function resolveServiceIconDisplay(
   raw: string | null | undefined,
-  options: {
-    iconAvailable?: boolean;
-    preferPlaceholder?: boolean;
-  } = {},
+  options: { iconAvailable?: boolean } = {},
 ): ServiceIconDisplay {
   const resolved = resolveIconIdentifier(raw);
-  if (resolved.kind === "failed") {
-    return options.preferPlaceholder === false
-      ? { kind: "hidden" }
-      : { kind: "placeholder" };
-  }
-  if (options.iconAvailable === false) {
-    return options.preferPlaceholder === false
-      ? { kind: "hidden" }
-      : { kind: "placeholder" };
+  if (resolved.kind === "failed" || options.iconAvailable === false) {
+    return { kind: "placeholder" };
   }
   return { kind: "icon", icon: resolved };
 }
@@ -183,17 +169,5 @@ export function resolveBookmarkIconDisplay(input: {
     return { kind: "icon", icon: resolved };
   }
 
-  // abbr 保留入参但不参与回退；与领域 resolveBookmarkIconFallback 对齐
-  const fallback = resolveBookmarkIconFallback({
-    icon: input.icon,
-    abbr: input.abbr,
-    name: input.name,
-    iconAvailable: false,
-  });
-
-  if (fallback.kind === "icon") {
-    // iconAvailable=false 时领域不会返回 icon；防御性回落占位
-    return { kind: "placeholder" };
-  }
   return { kind: "placeholder" };
 }

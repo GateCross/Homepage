@@ -12,15 +12,12 @@ import {
 import type { DockerHealth, DockerStatusResponse } from "@homepage/domain";
 
 import {
-  DOCKER_BATCH_POLL_INTERVAL_MS,
   useDockerStatusEntry,
   useOptionalDockerStatusStore,
 } from "@/hooks/docker-status-store";
 import { dockerStatusText, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
-/** @deprecated 使用批量轮询间隔；保留导出名以免外部引用断裂 */
-export const DOCKER_POLL_INTERVAL_MS = DOCKER_BATCH_POLL_INTERVAL_MS;
 
 export type DockerSlotMode = "full" | "badge" | "metrics";
 

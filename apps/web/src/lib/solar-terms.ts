@@ -59,9 +59,6 @@ export type SolarTermOccurrence = {
   day: number;
 };
 
-export function isSolarTermName(value: string): value is SolarTermName {
-  return (TERM_NAMES as readonly string[]).includes(value);
-}
 
 /** 指定公历年的第 n 个节气交节时刻（n: 0=小寒 … 23=冬至）。 */
 export function solarTermInstantMs(year: number, index: number): number | null {

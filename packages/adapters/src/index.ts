@@ -1,14 +1,4 @@
-import { DOMAIN_PACKAGE_NAME } from "@homepage/domain";
-
 export const ADAPTERS_PACKAGE_NAME = "@homepage/adapters" as const;
-
-export const ADAPTERS_BOUNDARY = {
-  packageName: ADAPTERS_PACKAGE_NAME,
-  dependsOn: [DOMAIN_PACKAGE_NAME] as const,
-  role: "external-protocol-to-unified-metrics",
-} as const;
-
-export { DOMAIN_PACKAGE_NAME };
 
 export type {
   AdapterRunInput,
@@ -29,8 +19,6 @@ export {
 export {
   getServiceWidgetAdapter,
   isRegisteredServiceWidgetType,
-  listRegisteredServiceWidgetTypes,
-  registerServiceWidgetAdapter,
   runServiceWidget,
 } from "./registry.js";
 
@@ -66,14 +54,12 @@ export {
   QBITTORRENT_DOWNLOADING_COUNT_METRIC_ID,
   QBITTORRENT_SEEDING_COUNT_METRIC_ID,
   buildQbittorrentMetrics,
-  countTorrentStates,
   extractSidFromSetCookieLines,
   fetchQbittorrentTransferMetrics,
   fetchTorrentsInfoRaw,
   fetchTransferInfoRaw,
   loginQbittorrent,
   qbittorrentAdapter,
-  transferInfoToMetrics,
   transferInfoToRates,
 } from "./qbittorrent.js";
 export type { QbittorrentAuth, QbittorrentFetchDeps } from "./qbittorrent.js";
@@ -84,7 +70,6 @@ export {
   TRANSMISSION_DOWNLOADING_COUNT_METRIC_ID,
   TRANSMISSION_SEEDING_COUNT_METRIC_ID,
   buildTransmissionMetrics,
-  callTransmissionRpc,
   countTransmissionTorrents,
   fetchTransmissionMetrics,
   parseSessionStats,

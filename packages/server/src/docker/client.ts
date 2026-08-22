@@ -392,18 +392,6 @@ export type MapStatsToResourcesResult = {
   cpuSample: DockerCpuCounterSample | null;
 };
 
-/**
- * 将 Docker stats 响应映射为资源占用。
- * 优先 one-shot + 进程内上一拍；无上一拍时尝试 precpu_stats（兼容 stream=0）。
- * 内存：usage - cache（优先 inactive_file）/ limit，即时可用。
- */
-export function mapStatsToResources(
-  payload: unknown,
-  options: MapStatsToResourcesOptions = {},
-): DockerResourceStats {
-  return mapStatsToResourcesDetailed(payload, options).resources;
-}
-
 /** 同 mapStatsToResources，额外返回本拍 CPU 计数供缓存 */
 export function mapStatsToResourcesDetailed(
   payload: unknown,
@@ -524,11 +512,6 @@ export function setPreviousCpuSample(
     cpuSampleCacheKey(endpoint, containerNameOrId),
     sample,
   );
-}
-
-/** 测试用：清空进程内 CPU 上一拍 */
-export function clearPreviousCpuSamples(): void {
-  previousCpuSamples.clear();
 }
 
 export function mergeRunningWithStats(

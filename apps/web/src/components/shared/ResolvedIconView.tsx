@@ -2,7 +2,6 @@ import { useEffect, useState, type JSX } from "react";
 
 import {
   resolveBookmarkIconDisplay,
-  resolveIconIdentifier,
   resolveServiceIconDisplay,
   type BookmarkIconDisplay,
   type ResolvedIcon,
@@ -107,15 +106,13 @@ export type ServiceIconViewProps = {
   icon?: string | null | undefined;
   name: string;
   className?: string;
-  preferPlaceholder?: boolean;
 };
 
 export function ServiceIconView({
   icon,
   name,
   className,
-  preferPlaceholder = true,
-}: ServiceIconViewProps): JSX.Element | null {
+}: ServiceIconViewProps): JSX.Element {
   const [failed, setFailed] = useState(false);
   // icon 变更时清除失败态，避免换图标后仍显示占位
   useEffect(() => {
@@ -123,25 +120,9 @@ export function ServiceIconView({
   }, [icon]);
   const display: ServiceIconDisplay = resolveServiceIconDisplay(icon, {
     iconAvailable: !failed,
-    preferPlaceholder,
   });
 
-  if (display.kind === "hidden") {
-    return null;
-  }
   if (display.kind === "placeholder") {
-    return className !== undefined ? (
-      <GenericIconPlaceholder className={className} />
-    ) : (
-      <GenericIconPlaceholder />
-    );
-  }
-
-  const resolved = resolveIconIdentifier(icon);
-  if (resolved.kind === "failed") {
-    if (!preferPlaceholder) {
-      return null;
-    }
     return className !== undefined ? (
       <GenericIconPlaceholder className={className} />
     ) : (

@@ -68,17 +68,6 @@ type RequestOnceResult =
       message: string;
     };
 
-function headersToRecord(
-  headers: http.IncomingHttpHeaders,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(headers)) {
-    if (v === undefined) continue;
-    out[k.toLowerCase()] = Array.isArray(v) ? v.join(", ") : v;
-  }
-  return out;
-}
-
 export function requestOnce(
   targetUrl: string,
   options: {
@@ -281,14 +270,6 @@ export async function fetchIconResource(
     kind: "redirect",
     message: "重定向次数过多",
   };
-}
-
-export function contentTypeHint(
-  headers: http.IncomingHttpHeaders,
-): string | undefined {
-  const raw = headersToRecord(headers)["content-type"];
-  if (!raw) return undefined;
-  return raw.split(";")[0]?.trim().toLowerCase();
 }
 
 export type ResolvedCandidateBytes = {

@@ -483,24 +483,6 @@ function CustomApiWidgetOptionsForm({
       <p className="text-xs font-medium text-muted-foreground">
         Custom API 选项
       </p>
-      <div className="space-y-1.5">
-        <Label>请求方法</Label>
-        <Select
-          value={widget.method ?? "GET"}
-          disabled={disabled}
-          onChange={(e) => {
-            const v = e.target.value;
-            onChange({
-              ...widget,
-              method: v === "GET" ? "GET" : undefined,
-            });
-          }}
-        >
-          <option value="GET">GET</option>
-        </Select>
-        <p className="text-xs text-muted-foreground">当前仅支持 GET</p>
-      </div>
-
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label>请求头</Label>

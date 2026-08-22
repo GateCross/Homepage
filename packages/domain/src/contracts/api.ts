@@ -24,8 +24,6 @@ import {
   API_ERROR_STATUS_BY_CODE,
   API_JSON_CONTENT_TYPE,
   ApiErrorCode,
-  ApiHttpStatus,
-  resolveApiErrorStatus,
   type ApiErrorCodeValue,
   type ApiHttpStatusCode,
 } from "./http-status.js";
@@ -363,8 +361,3 @@ export const ApiRoutes = {
 } as const;
 
 export type ApiRouteKey = keyof typeof ApiRoutes;
-
-export const ApiSuccessMeta = {
-  status: ApiHttpStatus.OK,
-  contentType: API_JSON_CONTENT_TYPE,
-} as const;

@@ -1,7 +1,4 @@
 import {
-  DockerStateSchema,
-  HttpProbeStateSchema,
-  type DockerState,
   type HttpProbeState,
   type HttpUnreachableReason,
   type StatusRange,
@@ -127,12 +124,4 @@ export function classifyHttpProbe(
   }
 
   return { status: "reachable_abnormal", ...base };
-}
-
-export function isValidHttpProbeState(value: unknown): value is HttpProbeState {
-  return HttpProbeStateSchema.safeParse(value).success;
-}
-
-export function isValidDockerState(value: unknown): value is DockerState {
-  return DockerStateSchema.safeParse(value).success;
 }

@@ -23,7 +23,6 @@ export {
 
 export {
   ApiRoutes,
-  ApiSuccessMeta,
   ApiSuccessSchemas,
   AssetUploadSuccessResponseSchema,
   ConfigSuccessResponseSchema,

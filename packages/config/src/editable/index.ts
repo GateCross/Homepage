@@ -3,10 +3,8 @@ export { configFaultGate } from "./fault-gate.js";
 export {
   CONFIG_FAULTED_MESSAGE,
   CONFIG_SAVE_FAILED_MESSAGE,
-  CONFIG_WRITE_IN_PROGRESS_MESSAGE,
   DOCKER_CONNECTION_SENSITIVE_MESSAGE,
   createConfigFaultedError,
-  createConfigWriteInProgressError,
   createDockerConnectionSensitiveError,
   createFieldValidationError,
   dockerConnectionHasUserInfo,

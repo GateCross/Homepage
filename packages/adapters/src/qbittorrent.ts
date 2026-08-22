@@ -29,31 +29,10 @@ const TRANSFER_TIMEOUT = "获取 qBittorrent 传输信息超时";
 const TRANSFER_NETWORK = "无法连接 qBittorrent 传输信息接口";
 const TRANSFER_BAD_JSON = "qBittorrent 传输信息不是有效 JSON";
 const TRANSFER_BAD_FIELDS = "qBittorrent 传输信息缺少速率字段";
-const TORRENTS_FAIL = "获取 qBittorrent 种子列表失败";
 const TORRENTS_TIMEOUT = "获取 qBittorrent 种子列表超时";
 const TORRENTS_NETWORK = "无法连接 qBittorrent 种子列表接口";
 const TORRENTS_BAD_JSON = "qBittorrent 种子列表不是有效 JSON";
 const MISSING_CREDENTIALS = "qBittorrent 缺少用户名或密码配置";
-
-/** 下载中（含卡住/元数据/强制下载等） */
-const QB_DOWNLOADING_STATES = new Set([
-  "downloading",
-  "stalledDL",
-  "metaDL",
-  "forcedDL",
-  "allocating",
-  "checkingDL",
-  "queuedDL",
-]);
-
-/** 做种中（含卡住/强制/排队上传等） */
-const QB_SEEDING_STATES = new Set([
-  "uploading",
-  "stalledUP",
-  "forcedUP",
-  "queuedUP",
-  "checkingUP",
-]);
 
 export type QbittorrentAuth = {
   username: string;
@@ -255,43 +234,6 @@ export function transferInfoToRates(data: unknown): {
     throw new AdapterLocalError(TRANSFER_BAD_FIELDS);
   }
   return { downloadBps: dlN, uploadBps: upN };
-}
-
-/** @deprecated 优先使用 transferInfoToRates + buildQbittorrentMetrics */
-export function transferInfoToMetrics(data: unknown): Metric[] {
-  const rates = transferInfoToRates(data);
-  return buildQbittorrentMetrics(rates.downloadBps, rates.uploadBps, 0, 0);
-}
-
-export function countTorrentStates(data: unknown): {
-  downloading: number;
-  seeding: number;
-} {
-  if (!Array.isArray(data)) {
-    throw new AdapterLocalError(TORRENTS_BAD_JSON);
-  }
-  let downloading = 0;
-  let seeding = 0;
-  for (const item of data) {
-    if (
-      item === null ||
-      item === undefined ||
-      typeof item !== "object" ||
-      Array.isArray(item)
-    ) {
-      continue;
-    }
-    const state = (item as Record<string, unknown>)["state"];
-    if (typeof state !== "string") {
-      continue;
-    }
-    if (QB_DOWNLOADING_STATES.has(state)) {
-      downloading += 1;
-    } else if (QB_SEEDING_STATES.has(state)) {
-      seeding += 1;
-    }
-  }
-  return { downloading, seeding };
 }
 
 function countMetric(

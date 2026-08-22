@@ -126,63 +126,6 @@ export function parseDatetimeOptions(
   }
 }
 
-export function formatDateTimeInZone(
-  date: Date,
-  timezone: string,
-  format: DatetimeFormatOptions,
-): string {
-  const tz = resolveTimeZone(timezone);
-
-  const buildOptions = (
-    zone: string,
-    includeHour12: boolean,
-  ): Intl.DateTimeFormatOptions => {
-    const opts: Intl.DateTimeFormatOptions = { timeZone: zone };
-    if (format.dateStyle !== undefined) {
-      opts.dateStyle = format.dateStyle;
-    }
-    if (format.timeStyle !== undefined) {
-      opts.timeStyle = format.timeStyle;
-    }
-    if (opts.dateStyle === undefined && opts.timeStyle === undefined) {
-      opts.dateStyle = "medium";
-      opts.timeStyle = "medium";
-    }
-    if (includeHour12 && typeof format.hour12 === "boolean") {
-      opts.hour12 = format.hour12;
-    }
-    return opts;
-  };
-
-  try {
-    return new Intl.DateTimeFormat(
-      DISPLAY_LOCALE,
-      buildOptions(tz, true),
-    ).format(date);
-  } catch {
-    try {
-      return new Intl.DateTimeFormat(
-        DISPLAY_LOCALE,
-        buildOptions(tz, false),
-      ).format(date);
-    } catch {
-      try {
-        return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
-          timeZone: DEFAULT_TIMEZONE,
-          dateStyle: "medium",
-          timeStyle: "medium",
-        }).format(date);
-      } catch {
-        try {
-          return date.toISOString();
-        } catch {
-          return "—";
-        }
-      }
-    }
-  }
-}
-
 function formatPart(
   date: Date,
   timezone: string,

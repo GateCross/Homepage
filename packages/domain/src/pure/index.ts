@@ -8,17 +8,10 @@ export {
   resolveColumns,
 } from "./grid.js";
 export {
-  resolveBookmarkIconFallback,
-  type BookmarkIconFallbackInput,
-  type BookmarkIconFallbackResult,
-} from "./bookmark-icon.js";
-
-export {
   bytesToDataUrl,
   detectImageExtension,
   discoverIconRefsFromHtml,
   isHttpOrHttpsUrl,
-  isSameHost,
   isSameOrigin,
   mergeIconDiscovery,
   mimeTypeForImageExt,
@@ -37,8 +30,6 @@ export {
 
 export {
   classifyHttpProbe,
-  isValidDockerState,
-  isValidHttpProbeState,
   matchesExpected,
   normalizeExpectedStatus,
   type NetworkProbeResult,

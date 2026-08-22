@@ -3,10 +3,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { serve } from "@hono/node-server";
-import { ADAPTERS_PACKAGE_NAME } from "@homepage/adapters";
-import { CONFIG_PACKAGE_NAME } from "@homepage/config";
-import { DOMAIN_PACKAGE_NAME } from "@homepage/domain";
-
 import { createApp } from "./app.js";
 import {
   DEFAULT_HOST,
@@ -20,20 +16,7 @@ import { logError, logInfo } from "./log.js";
 
 export const SERVER_PACKAGE_NAME = "@homepage/server" as const;
 
-export const SERVER_BOUNDARY = {
-  packageName: SERVER_PACKAGE_NAME,
-  dependsOn: [
-    DOMAIN_PACKAGE_NAME,
-    CONFIG_PACKAGE_NAME,
-    ADAPTERS_PACKAGE_NAME,
-  ] as const,
-  role: "api-proxy-docker-static",
-} as const;
-
 export {
-  ADAPTERS_PACKAGE_NAME,
-  CONFIG_PACKAGE_NAME,
-  DOMAIN_PACKAGE_NAME,
   DEFAULT_HOST,
   DEFAULT_PORT,
   resolveHost,

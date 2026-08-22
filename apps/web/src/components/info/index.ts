@@ -1,6 +1,5 @@
 export {
   DateTimeWidget,
-  formatDateTimeInZone,
   isValidIanaTimeZone,
   parseDatetimeOptions,
   resolveTimeZone,

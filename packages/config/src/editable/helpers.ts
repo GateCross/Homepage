@@ -1,8 +1,4 @@
-import {
-  ApiErrorCode,
-  createPublicError,
-  type PublicError,
-} from "@homepage/domain";
+import { ApiErrorCode, createPublicError } from "@homepage/domain";
 
 import { ConfigValidationError } from "../errors.js";
 
@@ -12,9 +8,6 @@ export const DOCKER_CONNECTION_SENSITIVE_MESSAGE =
 
 export const CONFIG_FAULTED_MESSAGE =
   "配置处于故障状态，服务已暂停配置读写。请恢复磁盘上的配置五文件后重试" as const;
-
-export const CONFIG_WRITE_IN_PROGRESS_MESSAGE =
-  "配置正在保存中，请稍后再试" as const;
 
 export const CONFIG_SAVE_FAILED_MESSAGE =
   "配置保存失败，已恢复为保存前状态。请检查后重试" as const;
@@ -41,14 +34,6 @@ export function createConfigFaultedError(
   return new ConfigValidationError(publicError);
 }
 
-export function createConfigWriteInProgressError(): ConfigValidationError {
-  const publicError = createPublicError({
-    message: CONFIG_WRITE_IN_PROGRESS_MESSAGE,
-    code: ApiErrorCode.CONFIG_WRITE_IN_PROGRESS,
-  });
-  return new ConfigValidationError(publicError);
-}
-
 export function createFieldValidationError(
   message: string,
   location: { file?: string; path?: string },
@@ -60,16 +45,6 @@ export function createFieldValidationError(
     ...(location.path !== undefined ? { path: location.path } : {}),
   });
   return new ConfigValidationError(publicError);
-}
-
-export function publicErrorFromUnknown(err: unknown): PublicError {
-  if (err instanceof ConfigValidationError) {
-    return err.publicError;
-  }
-  return createPublicError({
-    message: "配置处理失败",
-    code: ApiErrorCode.INTERNAL,
-  });
 }
 
 /**

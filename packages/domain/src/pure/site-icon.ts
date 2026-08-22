@@ -270,17 +270,6 @@ export function isHttpOrHttpsUrl(raw: string): boolean {
   }
 }
 
-/** 判断 redirect 目标是否与起始 URL 同 host（hostname 大小写不敏感）。 */
-export function isSameHost(fromUrl: string, toUrl: string): boolean {
-  try {
-    const a = new URL(fromUrl);
-    const b = new URL(toUrl);
-    return a.hostname.toLowerCase() === b.hostname.toLowerCase();
-  } catch {
-    return false;
-  }
-}
-
 function defaultPort(protocol: string): string {
   if (protocol === "http:") return "80";
   if (protocol === "https:") return "443";

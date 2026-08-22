@@ -198,11 +198,6 @@ export function defaultCollectMemory(): MemorySample {
   };
 }
 
-/** @deprecated 使用 defaultCollectMemory */
-export function defaultCollectMemoryPercent(): number {
-  return defaultCollectMemory().percent;
-}
-
 export async function defaultCollectDisk(diskPath: string): Promise<DiskSample> {
   try {
     const stats = await statfs(diskPath);
@@ -244,17 +239,6 @@ export async function defaultCollectDisk(diskPath: string): Promise<DiskSample> 
     }
     return { ok: false, message: "无法读取该磁盘使用率" };
   }
-}
-
-/** @deprecated 使用 defaultCollectDisk */
-export async function defaultCollectDiskPercent(
-  diskPath: string,
-): Promise<
-  { ok: true; percent: number } | { ok: false; message: string }
-> {
-  const result = await defaultCollectDisk(diskPath);
-  if (!result.ok) return result;
-  return { ok: true, percent: result.percent };
 }
 
 export function createDefaultResourcesCollector(): ResourcesCollector {

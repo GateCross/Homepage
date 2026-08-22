@@ -150,7 +150,3 @@ export function VersionLabel({ className }: VersionLabelProps): JSX.Element {
     </span>
   );
 }
-
-/** @deprecated 使用 VersionLabel；保留别名避免外部引用中断 */
-export const VersionFooter = VersionLabel;
-export type VersionFooterProps = VersionLabelProps;

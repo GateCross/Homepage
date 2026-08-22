@@ -1,14 +1,4 @@
-import { DOMAIN_PACKAGE_NAME } from "@homepage/domain";
-
 export const CONFIG_PACKAGE_NAME = "@homepage/config" as const;
-
-export const CONFIG_BOUNDARY = {
-  packageName: CONFIG_PACKAGE_NAME,
-  dependsOn: [DOMAIN_PACKAGE_NAME] as const,
-  role: "yaml-load-normalize-allowlist",
-} as const;
-
-export { DOMAIN_PACKAGE_NAME };
 
 export {
   CONFIG_DIR_ENV,
@@ -106,7 +96,6 @@ export {
   DEFAULT_INFO_TIMEZONE,
   SUPPORTED_INFO_WIDGET_TYPES,
   collectResourceDiskEntries,
-  collectResourceDiskPaths,
   expandInfoWidgetEntry,
   extractInfoWidgetEntries,
   isValidIanaTimeZone,
@@ -131,14 +120,12 @@ export {
 export {
   CONFIG_FAULTED_MESSAGE,
   CONFIG_SAVE_FAILED_MESSAGE,
-  CONFIG_WRITE_IN_PROGRESS_MESSAGE,
   DOCKER_CONNECTION_SENSITIVE_MESSAGE,
   buildEditableConfig,
   cleanupPrepared,
   configFaultGate,
   configWriteLock,
   createConfigFaultedError,
-  createConfigWriteInProgressError,
   createDockerConnectionSensitiveError,
   createFieldValidationError,
   dockerConnectionHasUserInfo,

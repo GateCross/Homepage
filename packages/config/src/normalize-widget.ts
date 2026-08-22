@@ -26,15 +26,6 @@ export const SUPPORTED_SERVICE_WIDGET_TYPES = [
 
 const SUPPORTED_SET = new Set<string>(SUPPORTED_SERVICE_WIDGET_TYPES);
 
-/** 视为密钥、仅服务端持有的字段名 */
-const SECRET_FIELD_NAMES = [
-  "password",
-  "key",
-  "apiKey",
-  "token",
-  "username",
-] as const;
-
 export type NormalizeWidgetEnv = Readonly<Record<string, string | undefined>>;
 
 export type NormalizeWidgetContext = {
@@ -556,6 +547,3 @@ export function normalizeServiceWidget(
     widgetId,
   };
 }
-
-/** 供测试：密钥字段名列表 */
-export const WIDGET_SECRET_FIELD_NAMES = SECRET_FIELD_NAMES;

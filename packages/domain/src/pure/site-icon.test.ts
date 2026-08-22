@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isSameHost, isSameOrigin } from "./site-icon.js";
+import { isSameOrigin } from "./site-icon.js";
 
 describe("isSameOrigin", () => {
   it("同 host 不同端口判定为不同源", () => {
@@ -26,14 +26,6 @@ describe("isSameOrigin", () => {
 
   it("hostname 大小写不敏感", () => {
     expect(isSameOrigin("http://Example.COM/x", "http://example.com/y")).toBe(
-      true,
-    );
-  });
-});
-
-describe("isSameHost 兼容", () => {
-  it("仍只比较 hostname（文档化旧行为）", () => {
-    expect(isSameHost("http://example.com/a", "http://example.com:2375/b")).toBe(
       true,
     );
   });

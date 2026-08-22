@@ -138,39 +138,6 @@ export async function transmissionRpc(
   return { status: response.status, body, sessionId: nextSessionId };
 }
 
-export async function callTransmissionRpc(
-  baseUrl: string,
-  auth: TransmissionAuth,
-  method: string,
-  args: Record<string, unknown> = {},
-  deps: TransmissionFetchDeps = {},
-): Promise<unknown> {
-  let sessionId: string | undefined;
-  // 最多：无会话 → 409 取会话 → 再请求一次
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = await transmissionRpc(
-      baseUrl,
-      auth,
-      method,
-      args,
-      deps,
-      sessionId,
-    );
-    if (result.status === 409) {
-      if (result.sessionId === null || result.sessionId.length === 0) {
-        throw new AdapterLocalError(SESSION_ID_FAIL);
-      }
-      sessionId = result.sessionId;
-      continue;
-    }
-    if (result.status < 200 || result.status >= 300 || result.body === null) {
-      throw new AdapterLocalError(RPC_FAIL);
-    }
-    return result.body;
-  }
-  throw new AdapterLocalError(SESSION_ID_FAIL);
-}
-
 function coerceNonNegNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.max(0, value);

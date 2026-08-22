@@ -20,10 +20,5 @@ export {
   ServiceSections,
   type ServiceSectionsProps,
 } from "./ServiceSections";
-export {
-  VersionLabel,
-  VersionFooter,
-  type VersionLabelProps,
-  type VersionFooterProps,
-} from "./VersionFooter";
+export { VersionLabel, type VersionLabelProps } from "./VersionFooter";
 export { DASHBOARD_SHELL_CLASS } from "./shell";

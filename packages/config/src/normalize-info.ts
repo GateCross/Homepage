@@ -341,13 +341,6 @@ export function collectResourceDiskEntries(
   return sortedPaths.map((p) => byPath.get(p)!).filter(Boolean);
 }
 
-/** @deprecated 使用 collectResourceDiskEntries */
-export function collectResourceDiskPaths(
-  raw: Record<string, unknown>,
-): string[] {
-  return collectResourceDiskEntries(raw).map((e) => e.path);
-}
-
 function normalizeBoolFlag(raw: unknown, defaultValue: boolean): boolean {
   if (raw === undefined || raw === null) {
     return defaultValue;
