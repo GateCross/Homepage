@@ -190,7 +190,7 @@ export function SearchDialog({
           <CommandInput
             ref={inputRef}
             value={query}
-            onValueChange={(value) => {
+            onValueChange={(value: string) => {
               setQuery(value);
               setInvalidHint(null);
             }}
