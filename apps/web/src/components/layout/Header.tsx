@@ -7,7 +7,6 @@ import { resolveBrandFavicon } from "@/lib/asset-path";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
-import { DASHBOARD_SHELL_CLASS } from "./shell";
 import { VersionLabel } from "./VersionFooter";
 
 export type HeaderProps = {
@@ -47,7 +46,7 @@ export function Header({
     >
       <div
         className={cn(
-          DASHBOARD_SHELL_CLASS,
+          "dashboard-shell",
           "flex items-center justify-between gap-4 py-2.5 sm:py-3",
         )}
       >

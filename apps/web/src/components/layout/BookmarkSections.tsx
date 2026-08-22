@@ -5,7 +5,7 @@ import {
 } from "@homepage/domain";
 import type { JSX } from "react";
 
-import { BookmarkItem } from "@/components/bookmarks";
+import { BookmarkItem } from "@/components/bookmarks/BookmarkItem";
 import { EmptyStatus } from "@/components/error";
 import {
   ADAPTIVE_GRID_UNBOUNDED_MAX_COLUMNS,

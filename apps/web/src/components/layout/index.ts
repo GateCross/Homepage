@@ -21,4 +21,3 @@ export {
   type ServiceSectionsProps,
 } from "./ServiceSections";
 export { VersionLabel, type VersionLabelProps } from "./VersionFooter";
-export { DASHBOARD_SHELL_CLASS } from "./shell";

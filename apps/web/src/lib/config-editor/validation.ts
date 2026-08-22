@@ -367,30 +367,6 @@ export function resolveDocumentTitle(title: string | undefined): string {
 
 export { DEFAULT_DASHBOARD_TITLE };
 
-/** 列表上移 */
-export function moveItemUp<T>(list: T[], index: number): T[] {
-  if (index <= 0 || index >= list.length) return list;
-  const next = [...list];
-  const a = next[index - 1];
-  const b = next[index];
-  if (a === undefined || b === undefined) return list;
-  next[index - 1] = b;
-  next[index] = a;
-  return next;
-}
-
-/** 列表下移 */
-export function moveItemDown<T>(list: T[], index: number): T[] {
-  if (index < 0 || index >= list.length - 1) return list;
-  const next = [...list];
-  const a = next[index];
-  const b = next[index + 1];
-  if (a === undefined || b === undefined) return list;
-  next[index] = b;
-  next[index + 1] = a;
-  return next;
-}
-
 /** 将 from 位置元素移到 to 位置；索引非法或相同则原样返回 */
 export function moveItem<T>(list: T[], from: number, to: number): T[] {
   if (

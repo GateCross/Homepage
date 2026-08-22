@@ -41,20 +41,3 @@ export {
   normalizeDiskPathSet,
   normalizeTypeToken,
 } from "./normalize.js";
-
-export {
-  assignStableIdsFromFixture,
-  collectPublicIdSurfaces,
-  findMissedAllowListIdsFromResults,
-  serializeFourIdSets,
-  type FixtureInfoWidget,
-  type FixtureServiceItem,
-  type FixtureServiceWidget,
-  type FourIdSets,
-  type IdAssignmentFixture,
-  type IdAssignmentResult,
-  type InfoAllowEntry,
-  type ProbeAllowEntry,
-  type SimulatedAllowList,
-  type WidgetAllowEntry,
-} from "./assign-from-fixture.js";

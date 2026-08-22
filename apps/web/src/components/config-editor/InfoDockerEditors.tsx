@@ -10,10 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  moveItemDown,
-  moveItemUp,
-} from "@/lib/config-editor/validation";
+import { moveItem } from "@/lib/config-editor/validation";
 
 export type InfoWidgetsEditorProps = {
   value: EditableInfoWidget[];
@@ -128,8 +125,8 @@ export function InfoWidgetsEditor({
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={disabled || i === 0}
-                  onClick={() => onChange(moveItemUp(value, i))}
+                  disabled={disabled ?? i === 0}
+                  onClick={() => onChange(moveItem(value, i, i - 1))}
                 >
                   上移
                 </Button>
@@ -137,8 +134,8 @@ export function InfoWidgetsEditor({
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={disabled || i >= value.length - 1}
-                  onClick={() => onChange(moveItemDown(value, i))}
+                  disabled={disabled ?? i >= value.length - 1}
+                  onClick={() => onChange(moveItem(value, i, i + 1))}
                 >
                   下移
                 </Button>

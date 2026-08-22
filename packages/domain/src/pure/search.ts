@@ -7,39 +7,15 @@ export type SearchableItem = {
   description?: string | undefined;
 };
 
-/** 从绝对/协议相对 URL 提取 hostname（不含端口与 userinfo）；不依赖 DOM/Node URL。 */
+/** 从绝对或协议相对 URL 提取 hostname（不含端口和 userinfo）。 */
 function extractHost(href: string | undefined): string {
-  if (href === undefined) {
+  const trimmed = href?.trim();
+  if (!trimmed) return "";
+  try {
+    return new URL(trimmed.startsWith("//") ? `http:${trimmed}` : trimmed).hostname;
+  } catch {
     return "";
   }
-  const trimmed = href.trim();
-  if (trimmed.length === 0) {
-    return "";
-  }
-  // 仅解析带 scheme:// 或 // 的地址；相对路径无 host
-  const match = trimmed.match(/^(?:[a-zA-Z][a-zA-Z\d+\-.]*:)?\/\/([^/?#]+)/);
-  if (match === null || match[1] === undefined) {
-    return "";
-  }
-  let authority = match[1];
-  // 去掉 userinfo
-  const at = authority.lastIndexOf("@");
-  if (at !== -1) {
-    authority = authority.slice(at + 1);
-  }
-  // IPv6: [2001:db8::1]:443
-  if (authority.startsWith("[")) {
-    const end = authority.indexOf("]");
-    if (end !== -1) {
-      return authority.slice(1, end).toLowerCase();
-    }
-  }
-  // host:port
-  const colon = authority.indexOf(":");
-  if (colon !== -1) {
-    authority = authority.slice(0, colon);
-  }
-  return authority.toLowerCase();
 }
 
 function itemMatchesQuery<T extends SearchableItem>(
@@ -50,10 +26,10 @@ function itemMatchesQuery<T extends SearchableItem>(
     return true;
   }
   const description = item.description?.trim().toLowerCase();
-  if (description !== undefined && description.length > 0 && description.includes(q)) {
+  if (description?.includes(q)) {
     return true;
   }
-  if (item.href !== undefined && item.href.toLowerCase().includes(q)) {
+  if (item.href?.toLowerCase().includes(q)) {
     return true;
   }
   const host = extractHost(item.href);

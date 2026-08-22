@@ -7,6 +7,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.dashboard-shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 72rem;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .dashboard-shell {
+    padding-inline: 1.5rem;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

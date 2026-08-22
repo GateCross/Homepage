@@ -11,7 +11,7 @@ import {
   type NormalizedConfig,
 } from "@homepage/domain";
 
-import { ConfigEditorShell } from "@/components/config-editor";
+import { ConfigEditorShell } from "@/components/config-editor/ConfigEditorShell";
 import {
   ErrorStatus,
   LoadingStatus,
@@ -20,7 +20,6 @@ import {
 import {
   Background,
   BookmarkSections,
-  DASHBOARD_SHELL_CLASS,
   Header,
   InfoSection,
   ServiceSections,
@@ -342,7 +341,7 @@ export function DashboardPage(): JSX.Element {
           <Header title={DEFAULT_DASHBOARD_TITLE} />
           <div
             className={cn(
-              DASHBOARD_SHELL_CLASS,
+              "dashboard-shell",
               "flex flex-1 flex-col justify-center py-16",
             )}
           >
@@ -369,7 +368,7 @@ export function DashboardPage(): JSX.Element {
           <Header title={DEFAULT_DASHBOARD_TITLE} />
           <div
             className={cn(
-              DASHBOARD_SHELL_CLASS,
+              "dashboard-shell",
               "flex max-w-lg flex-1 flex-col justify-center py-16",
             )}
           >
@@ -418,7 +417,7 @@ export function DashboardPage(): JSX.Element {
 
           <main
             className={cn(
-              DASHBOARD_SHELL_CLASS,
+              "dashboard-shell",
               "flex flex-1 flex-col gap-8 py-4 sm:gap-9 sm:py-6",
             )}
           >

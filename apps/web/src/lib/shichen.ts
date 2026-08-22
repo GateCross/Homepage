@@ -33,19 +33,8 @@ export function shichenFromDate(
   if (hour === null) {
     return null;
   }
-  let name: string;
-  if (hour >= 23 || hour < 1) name = "子";
-  else if (hour < 3) name = "丑";
-  else if (hour < 5) name = "寅";
-  else if (hour < 7) name = "卯";
-  else if (hour < 9) name = "辰";
-  else if (hour < 11) name = "巳";
-  else if (hour < 13) name = "午";
-  else if (hour < 15) name = "未";
-  else if (hour < 17) name = "申";
-  else if (hour < 19) name = "酉";
-  else if (hour < 21) name = "戌";
-  else name = "亥";
-
+  const name = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"][
+    Math.floor(((hour + 1) % 24) / 2)
+  ]!;
   return { name, label: `${name}时` };
 }
