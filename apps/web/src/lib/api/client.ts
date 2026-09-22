@@ -217,14 +217,6 @@ async function requestAndParseSuccess<R extends ApiSuccessRoute>(
   }
 }
 
-async function getAndParseSuccess<R extends ApiSuccessRoute>(
-  route: R,
-  path: string,
-  options?: ApiRequestOptions,
-): Promise<(typeof ApiSuccessSchemas)[R]["_output"]> {
-  return requestAndParseSuccess(route, path, options);
-}
-
 function requireNonEmptyId(id: string, label: string): string {
   const trimmed = id.trim();
   if (trimmed.length === 0) {
@@ -238,7 +230,7 @@ function requireNonEmptyId(id: string, label: string): string {
 export async function fetchConfig(
   options?: ApiRequestOptions,
 ): Promise<ConfigSuccessResponse> {
-  return getAndParseSuccess("config", ApiRoutes.config, options);
+  return requestAndParseSuccess("config", ApiRoutes.config, options);
 }
 
 export type FetchVersionOptions = ApiRequestOptions & {
@@ -255,7 +247,7 @@ export async function fetchVersion(
   const path = checkRemote
     ? ApiRoutes.version
     : `${ApiRoutes.version}?check=0`;
-  return getAndParseSuccess("version", path, options);
+  return requestAndParseSuccess("version", path, options);
 }
 
 export async function fetchProbe(
@@ -264,7 +256,7 @@ export async function fetchProbe(
 ): Promise<HttpProbeResponse> {
   const id = requireNonEmptyId(probeId, "探测");
   const path = `${ApiRoutes.probe}/${encodeURIComponent(id)}`;
-  return getAndParseSuccess("probe", path, options);
+  return requestAndParseSuccess("probe", path, options);
 }
 
 export async function fetchDocker(
@@ -275,7 +267,7 @@ export async function fetchDocker(
   const serverId = requireNonEmptyId(server, "Docker 服务端");
   const containerId = requireNonEmptyId(container, "Docker 容器");
   const path = `${ApiRoutes.docker}/${encodeURIComponent(serverId)}/${encodeURIComponent(containerId)}`;
-  return getAndParseSuccess("docker", path, options);
+  return requestAndParseSuccess("docker", path, options);
 }
 
 export type FetchDockerBatchOptions = ApiRequestOptions & {
@@ -293,7 +285,7 @@ export async function fetchDockerBatch(
   const path = includeStats
     ? ApiRoutes.dockerStatus
     : `${ApiRoutes.dockerStatus}?stats=0`;
-  return getAndParseSuccess("dockerBatch", path, options);
+  return requestAndParseSuccess("dockerBatch", path, options);
 }
 
 export async function fetchDockerContainers(
@@ -302,7 +294,7 @@ export async function fetchDockerContainers(
 ): Promise<DockerContainersSuccessResponse> {
   const serverId = requireNonEmptyId(server, "Docker 服务端");
   const path = `${ApiRoutes.docker}/${encodeURIComponent(serverId)}/containers`;
-  return getAndParseSuccess("dockerContainers", path, options);
+  return requestAndParseSuccess("dockerContainers", path, options);
 }
 
 export async function fetchWidget(
@@ -323,7 +315,7 @@ export async function fetchInfo(
 ): Promise<InfoSuccessResponse> {
   const id = requireNonEmptyId(infoId, "信息组件");
   const path = `${ApiRoutes.info}/${encodeURIComponent(id)}`;
-  return getAndParseSuccess("info", path, options);
+  return requestAndParseSuccess("info", path, options);
 }
 
 function withTimeoutSignal(

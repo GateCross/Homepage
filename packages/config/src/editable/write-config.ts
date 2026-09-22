@@ -53,7 +53,7 @@ export async function writeConfig(
 
   const payload = parseEditableConfigWrite(body);
 
-  return configWriteLock.run(() => writeConfigLocked(payload, options));
+  return configWriteLock.runWrite(() => writeConfigLocked(payload, options));
 }
 
 async function writeConfigLocked(

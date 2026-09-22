@@ -33,8 +33,6 @@ export function Header({
     setIconFailed(false);
   }, [faviconSrc]);
 
-  const showIcon = !iconFailed;
-
   return (
     <header
       data-slot="dashboard-header"
@@ -51,7 +49,7 @@ export function Header({
         )}
       >
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-          {showIcon ? (
+          {!iconFailed ? (
             <img
               src={faviconSrc}
               alt=""

@@ -67,5 +67,5 @@ export function parseServiceWidgetResult(value: unknown): ServiceWidgetResult {
 export function unsupportedWidgetResult(
   message: string = UNSUPPORTED_WIDGET_ERROR,
 ): ServiceWidgetResult {
-  return parseServiceWidgetResult({ ok: false, error: message });
+  return { ok: false, error: message };
 }

@@ -62,11 +62,6 @@ class ConfigRwLock {
       this.pump();
     }
   }
-
-  /** 兼容旧名：写路径 */
-  async run<T>(fn: () => Promise<T>): Promise<T> {
-    return this.runWrite(fn);
-  }
 }
 
 export const configWriteLock = new ConfigRwLock();
