@@ -150,9 +150,9 @@ function fileResponse(
   }
 
   const stream = createReadStream(filePath);
-  const body = Readable.toWeb(stream) as unknown as import("node:stream/web").ReadableStream;
+  const body = Readable.toWeb(stream);
   headers["Content-Length"] = String(stat.size);
-  return new Response(body as unknown as ConstructorParameters<typeof Response>[0], {
+  return new Response(body, {
     status,
     headers,
   });

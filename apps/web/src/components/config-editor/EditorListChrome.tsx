@@ -160,7 +160,7 @@ export function DragHandle({
       tabIndex={disabled ? -1 : 0}
       aria-label="拖拽排序"
       title="拖拽排序"
-      aria-disabled={disabled || undefined}
+      aria-disabled={disabled ? true : undefined}
       className={cn(
         "inline-flex size-8 shrink-0 select-none items-center justify-center rounded-md text-muted-foreground/70 transition-colors",
         disabled

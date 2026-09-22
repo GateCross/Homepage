@@ -45,7 +45,7 @@ export function getAdapterFetch(): FetchLike {
   if (typeof globalThis.fetch !== "function") {
     throw new AdapterLocalError("当前运行环境不支持网络请求");
   }
-  return globalThis.fetch.bind(globalThis) as FetchLike;
+  return globalThis.fetch.bind(globalThis);
 }
 
 export function joinBaseUrl(baseUrl: string, relativePath: string): string {
@@ -377,7 +377,7 @@ export async function adapterFetch(
         err !== undefined &&
         typeof err === "object" &&
         "name" in err
-          ? String((err as { name: unknown }).name)
+          ? String((err).name)
           : "";
       if (name === "AbortError" || name === "TimeoutError") {
         throw new AdapterLocalError(timeoutMessage);
@@ -414,7 +414,7 @@ export async function adapterFetch(
       err !== undefined &&
       typeof err === "object" &&
       "name" in err
-        ? String((err as { name: unknown }).name)
+        ? String((err).name)
         : "";
     if (name === "AbortError" || name === "TimeoutError") {
       throw new AdapterLocalError(timeoutMessage);

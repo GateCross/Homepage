@@ -425,7 +425,7 @@ function normalizeDatetimeWidget(
   return {
     infoId,
     type: "datetime",
-    options: options as unknown as Record<string, unknown>,
+    options: options,
   };
 }
 

@@ -27,6 +27,8 @@ export { Input, type InputProps } from "./input";
 export { Label } from "./label";
 export { Select, type SelectProps } from "./select";
 export { Skeleton } from "./skeleton";
+export { StatusIndicator, type StatusIndicatorProps, type StatusLevel } from "./status-indicator";
+export { GlassCard, type GlassCardProps } from "./glass-card";
 export { Switch } from "./switch";
 export { Textarea, type TextareaProps } from "./textarea";
 export {

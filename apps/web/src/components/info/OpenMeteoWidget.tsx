@@ -277,7 +277,7 @@ export function asOpenMeteoInfo(
   ) {
     return null;
   }
-  const temperatureC = obj["temperatureC"] as number;
+  const temperatureC = obj["temperatureC"];
   const conditionText = parseOptionalText(obj["conditionText"]);
   const weatherCode = parseOptionalNumber(obj["weatherCode"]);
   const location = parseOptionalText(obj["location"]);

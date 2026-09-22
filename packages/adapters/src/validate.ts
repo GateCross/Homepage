@@ -33,7 +33,7 @@ export function isMetricWellFormed(
   if (valueType !== "string" && valueType !== "number") {
     return false;
   }
-  if (valueType === "number" && !Number.isFinite(metric.value as number)) {
+  if (valueType === "number" && !Number.isFinite(metric.value)) {
     return false;
   }
   return true;

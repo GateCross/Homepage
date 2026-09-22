@@ -98,7 +98,7 @@ export function discoverIconRefsFromHtml(
   LINK_TAG_RE.lastIndex = 0;
   let tagMatch: RegExpExecArray | null;
   while ((tagMatch = LINK_TAG_RE.exec(html)) !== null) {
-    const attrs = parseAttributes(tagMatch[0]!);
+    const attrs = parseAttributes(tagMatch[0]);
     const rel = attrs["rel"];
     const href = attrs["href"];
     if (!rel || !href) continue;

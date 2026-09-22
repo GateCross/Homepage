@@ -40,7 +40,7 @@ export function editableToFiveYamlDocuments(
     "bookmarks.yaml": toYamlText(mergedSources.bookmarks, "bookmarks.yaml"),
     "widgets.yaml": toYamlText(mergedSources.widgets, "widgets.yaml"),
     "docker.yaml": toYamlText(mergedSources.docker, "docker.yaml"),
-  } as FiveYamlTexts;
+  };
 
   for (const name of CONFIG_FILE_NAMES) {
     if (typeof texts[name] !== "string") {

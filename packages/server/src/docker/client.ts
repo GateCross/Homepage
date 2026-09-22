@@ -793,7 +793,7 @@ export function createDockerTransport(
               method: req.method,
               headers,
               timeout: timeoutMs,
-              agent: agent as http.Agent,
+              agent: agent,
             },
             onResponse,
           );
@@ -820,7 +820,7 @@ export function createDockerTransport(
               method: req.method,
               headers,
               timeout: timeoutMs,
-              agent: agent as http.Agent,
+              agent: agent,
             },
             onResponse,
           );

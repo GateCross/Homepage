@@ -229,7 +229,7 @@ export async function defaultCollectDisk(diskPath: string): Promise<DiskSample> 
       err !== undefined &&
       typeof err === "object" &&
       "code" in err
-        ? String((err as { code: unknown }).code)
+        ? String((err).code)
         : "";
     if (code === "ENOENT") {
       return { ok: false, message: "磁盘路径不存在或不可访问" };

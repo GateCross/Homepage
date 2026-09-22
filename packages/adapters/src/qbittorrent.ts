@@ -48,7 +48,7 @@ export function extractSidFromSetCookieLines(lines: readonly string[]): string |
   for (const line of lines) {
     // 典型：SID=xxxx; Path=/; HttpOnly
     const match = /(?:^|,\s*)SID=([^;,\s]+)/i.exec(line);
-    if (match !== null && match[1] !== undefined && match[1].length > 0) {
+    if (match?.[1] !== undefined && match[1].length > 0) {
       return match[1];
     }
   }

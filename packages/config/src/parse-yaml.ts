@@ -1,4 +1,5 @@
-import { LineCounter, parseDocument, YAMLError } from "yaml";
+import type { YAMLError } from "yaml";
+import { LineCounter, parseDocument } from "yaml";
 
 import type { ConfigFileName } from "./constants.js";
 import { createConfigValidationError, type ConfigValidationError } from "./errors.js";

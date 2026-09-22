@@ -93,7 +93,7 @@ function mergeSettings(
       prev !== null &&
       typeof prev === "object" &&
       !Array.isArray(prev) &&
-      Object.prototype.hasOwnProperty.call(prev as object, "image")
+      Object.prototype.hasOwnProperty.call(prev, "image")
     ) {
       const prevObj = deepClone(prev as Record<string, unknown>);
       prevObj["image"] = editable.background;
@@ -216,7 +216,7 @@ function mergeHttpProbe(
   probe: EditableHttpProbe | undefined,
   diskItem: Record<string, unknown> | null,
 ): void {
-  if (probe === undefined || !probe.enabled) {
+  if (!probe?.enabled) {
     delete target["siteMonitor"];
     // expectedStatus / probeTimeout 若仅服务于探测，删除支持字段；未知保留
     delete target["expectedStatus"];

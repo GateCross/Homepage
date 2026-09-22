@@ -49,6 +49,15 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  --color-status-online: var(--status-online);
+  --color-status-online-bg: var(--status-online-bg);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -90,6 +99,15 @@
   --border: oklch(0.9 0.01 255);
   --input: oklch(0.9 0.01 255);
   --ring: oklch(0.55 0.12 255);
+
+  --status-online: oklch(0.58 0.18 145);
+  --status-online-bg: oklch(0.58 0.18 145 / 12%);
+  --status-warning: oklch(0.68 0.16 65);
+  --status-warning-bg: oklch(0.68 0.16 65 / 12%);
+  --status-danger: oklch(0.55 0.22 27);
+  --status-danger-bg: oklch(0.55 0.22 27 / 12%);
+  --status-neutral: oklch(0.6 0.02 265);
+  --status-neutral-bg: oklch(0.6 0.02 265 / 12%);
 }
 
 .dark {
@@ -120,6 +138,15 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.6 0.1 250);
+
+  --status-online: oklch(0.72 0.19 145);
+  --status-online-bg: oklch(0.72 0.19 145 / 16%);
+  --status-warning: oklch(0.75 0.16 65);
+  --status-warning-bg: oklch(0.75 0.16 65 / 16%);
+  --status-danger: oklch(0.65 0.22 27);
+  --status-danger-bg: oklch(0.65 0.22 27 / 18%);
+  --status-neutral: oklch(0.65 0.02 265);
+  --status-neutral-bg: oklch(0.65 0.02 265 / 16%);
 }
 
 @layer base {

@@ -49,18 +49,18 @@ export function BookmarkItem({
               ? "text-muted-foreground"
               : "select-none text-transparent",
           )}
-          aria-hidden={!bookmark.description || undefined}
+          aria-hidden={!bookmark.description ? true : undefined}
         >
-          {bookmark.description || " "}
+          {bookmark.description !== undefined && bookmark.description.length > 0 ? bookmark.description : "\u00A0"}
         </p>
       </div>
     </div>
   );
 
   const shellClass = cn(
-    "group homepage-rise block rounded-2xl border border-white/25 bg-card/45 px-2.5 py-2 shadow-[0_10px_28px_-14px_rgba(0,0,0,0.4)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/55",
+    "group homepage-rise block rounded-[var(--radius-lg)] border border-border/70 bg-card/65 px-2.5 py-2 shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
     isNavigable &&
-      "cursor-pointer hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card/68 hover:shadow-[0_16px_32px_-14px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/40 dark:hover:bg-card/72",
+      "cursor-pointer hover:-translate-y-0.5 hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
     !isNavigable && "cursor-default",
     className,
   );

@@ -26,6 +26,20 @@ export default defineConfig({
     // 生产镜像不需要浏览器 sourcemap，可省约 2MB+
     sourcemap: false,
     target: "es2022",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-icons": ["lucide-react"],
+          "vendor-radix": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-slot",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-tooltip",
+          ],
+        },
+      },
+    },
   },
   server: {
     port: Number(process.env["PORT"]) || 5173,

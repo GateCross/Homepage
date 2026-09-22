@@ -31,7 +31,7 @@ export function SafeExternalLink({
           data-slot="safe-external-link"
           data-link-state="invalid"
           className={cn(className)}
-          {...(rest as Record<string, unknown>)}
+          {...(rest)}
         >
           {children}
         </span>

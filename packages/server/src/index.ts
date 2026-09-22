@@ -57,9 +57,9 @@ export function resolveListenOptions(
   };
 }
 
-export async function startServer(
+export function startServer(
   options: ListenOptions = {},
-): Promise<StartedServer> {
+): StartedServer {
   const listen = resolveListenOptions(options);
   const { app, env } = createApp({
     env: {
@@ -110,9 +110,9 @@ export function isMainModule(
   }
 }
 
-async function main(): Promise<void> {
+function main(): void {
   try {
-    const started = await startServer();
+    const started = startServer();
     logInfo(
       SERVER_PACKAGE_NAME,
       `已监听 ${started.host}:${started.port} → ${started.url}`,

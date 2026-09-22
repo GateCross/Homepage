@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -11,7 +13,11 @@ import {
   type NormalizedConfig,
 } from "@homepage/domain";
 
-import { ConfigEditorShell } from "@/components/config-editor/ConfigEditorShell";
+const ConfigEditorShell = lazy(() =>
+  import("@/components/config-editor/ConfigEditorShell").then((m) => ({
+    default: m.ConfigEditorShell,
+  })),
+);
 import {
   ErrorStatus,
   LoadingStatus,
@@ -115,12 +121,18 @@ function ConfigEditorWithDockerPause({
     };
   }, [open, store]);
 
+  if (!open) {
+    return <></>;
+  }
+
   return (
-    <ConfigEditorShell
-      open={open}
-      onOpenChange={onOpenChange}
-      {...(onSaved !== undefined ? { onSaved } : {})}
-    />
+    <Suspense fallback={null}>
+      <ConfigEditorShell
+        open={open}
+        onOpenChange={onOpenChange}
+        {...(onSaved !== undefined ? { onSaved } : {})}
+      />
+    </Suspense>
   );
 }
 

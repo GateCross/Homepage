@@ -77,7 +77,7 @@ export function createApp(options: CreateAppOptions = {}): {
 
   const app = new Hono();
 
-  app.get("/api/health", (c) =>
+  app.get("/api/health", (_c) =>
     toJsonResponse({ ok: true, service: "@homepage/server" }, 200),
   );
 

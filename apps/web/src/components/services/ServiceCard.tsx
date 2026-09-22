@@ -31,7 +31,7 @@ export function ServiceCard({
     Boolean(service.httpProbe?.enabled && service.httpProbe.probeId);
   const showDocker = Boolean(service.docker);
   const showTopStatus = showProbe || showDocker;
-  const hasBottomStatus = Boolean(service.docker || service.widget);
+  const hasBottomStatus = Boolean(service.docker ?? service.widget);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     if (!isNavigable) {
@@ -70,7 +70,7 @@ export function ServiceCard({
                 ) : null}
                 {showProbe ? (
                   <ProbeSlot
-                    probeId={service.httpProbe!.probeId!}
+                    probeId={service.httpProbe!.probeId}
                     suppressOkIcon={showDocker}
                   />
                 ) : null}
@@ -121,12 +121,12 @@ export function ServiceCard({
   );
 
   const shellClass = cn(
-    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/25 bg-card/45 p-3 text-left shadow-[0_10px_28px_-14px_rgba(0,0,0,0.4)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/55",
+    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border/70 bg-card/65 p-3 text-left shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
     accentClass &&
       "before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:content-['']",
     accentClass,
     isNavigable &&
-      "cursor-pointer hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card/68 hover:shadow-[0_16px_32px_-14px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/40 dark:hover:bg-card/72",
+      "cursor-pointer hover:-translate-y-0.5 hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
     !isNavigable && "cursor-default",
     className,
   );

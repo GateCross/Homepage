@@ -99,7 +99,7 @@ export function createConfigRoutes(deps: ConfigRouteDeps = {}): Hono {
   const getEditable = deps.getEditableConfigImpl ?? getEditableConfig;
   const write = deps.writeConfigImpl ?? writeConfig;
 
-  app.get("/config", async (c) => {
+  app.get("/config", async (_c) => {
     try {
       const options = deps.getLoadOptions?.() ?? {};
       const faulted = await ensureNotFaulted(options);
@@ -126,7 +126,7 @@ export function createConfigRoutes(deps: ConfigRouteDeps = {}): Hono {
     }
   });
 
-  app.get("/config/editable", async (c) => {
+  app.get("/config/editable", async (_c) => {
     try {
       const options = deps.getLoadOptions?.() ?? {};
       const faulted = await ensureNotFaulted(options);

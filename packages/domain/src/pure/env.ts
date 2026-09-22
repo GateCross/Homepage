@@ -37,7 +37,7 @@ export function interpolateEnvWholeValue(
     return { kind: "missing", name };
   }
 
-  const resolved = env[name] as string;
+  const resolved = env[name];
   if (resolved === "") {
     return { kind: "empty", name };
   }

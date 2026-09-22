@@ -11,7 +11,7 @@ export function sortServicesStable<T extends Weightable>(items: readonly T[]): T
       const aHas = typeof aw === "number" && Number.isFinite(aw);
       const bHas = typeof bw === "number" && Number.isFinite(bw);
       if (aHas && bHas && aw !== bw) {
-        return (bw as number) - (aw as number);
+        return (bw) - (aw);
       }
       if (aHas && !bHas) {
         return -1;

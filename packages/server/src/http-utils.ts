@@ -43,7 +43,7 @@ export function getServerFetch(): FetchLike {
       "other",
     );
   }
-  return globalThis.fetch.bind(globalThis) as FetchLike;
+  return globalThis.fetch.bind(globalThis);
 }
 
 type ErrorChainItem = {
@@ -62,19 +62,19 @@ function collectErrorChain(err: unknown): ErrorChainItem[] {
     seen.add(current);
     if (typeof current === "object") {
       const name =
-        "name" in current ? String((current as { name: unknown }).name) : "";
+        "name" in current ? String((current).name) : "";
       const code =
-        "code" in current ? String((current as { code: unknown }).code) : "";
+        "code" in current ? String((current).code) : "";
       const message =
         current instanceof Error
           ? current.message
           : "message" in current
-            ? String((current as { message: unknown }).message)
+            ? String((current).message)
             : "";
       chain.push({ name, code, message });
       current =
         "cause" in current
-          ? (current as { cause: unknown }).cause
+          ? (current).cause
           : undefined;
     } else if (typeof current === "string") {
       chain.push({ name: "", code: "", message: current });

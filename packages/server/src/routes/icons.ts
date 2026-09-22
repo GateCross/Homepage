@@ -76,7 +76,7 @@ export function createIconsRoutes(deps: IconsRouteDeps): Hono {
         body !== null &&
         typeof body === "object" &&
         "url" in body &&
-        typeof (body as { url: unknown }).url === "string"
+        typeof (body).url === "string"
           ? (body as { url: string }).url
           : "";
 
@@ -109,14 +109,14 @@ export function createIconsRoutes(deps: IconsRouteDeps): Hono {
         body !== null &&
         typeof body === "object" &&
         "sessionId" in body &&
-        typeof (body as { sessionId: unknown }).sessionId === "string"
+        typeof (body).sessionId === "string"
           ? (body as { sessionId: string }).sessionId
           : "";
       const candidateId =
         body !== null &&
         typeof body === "object" &&
         "candidateId" in body &&
-        typeof (body as { candidateId: unknown }).candidateId === "string"
+        typeof (body).candidateId === "string"
           ? (body as { candidateId: string }).candidateId
           : "";
 

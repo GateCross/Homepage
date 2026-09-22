@@ -50,7 +50,16 @@ export function redactValue(
     }
     return out;
   }
-  return String(value);
+  if (typeof value === "symbol") {
+    return value.toString();
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return value.toString();
+  }
+  return JSON.stringify(value);
 }
 
 export function logError(

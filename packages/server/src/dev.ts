@@ -8,7 +8,7 @@ import { logError, logInfo } from "./log.js";
 
 const PACKAGE_NAME = "@homepage/server" as const;
 
-async function main(): Promise<void> {
+function main(): void {
   try {
     const env = resolveServerEnv();
     const { app } = createApp({

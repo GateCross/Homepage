@@ -264,7 +264,7 @@ function resolveServiceContext(
   }
   // AllowList 以 httpProbeTargets Map 为特征；上下文对象则无此字段
   if ("httpProbeTargets" in contextOrAllowList) {
-    return { allowList: contextOrAllowList as AllowList };
+    return { allowList: contextOrAllowList };
   }
   return contextOrAllowList;
 }

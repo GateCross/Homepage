@@ -249,24 +249,32 @@ export function DateTimeWidget({
 
   // 仅在本地日历日变化时重算（故意不把 now 列入依赖）
   const lunar = useMemo(
-    () => lunarFromDate(now, parsed.timezone),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
-    [localDateKey, parsed.timezone],
+    () => {
+      void localDateKey;
+      return lunarFromDate(now, parsed.timezone);
+    },
+    [localDateKey, now, parsed.timezone],
   );
   const solarTerm = useMemo(
-    () => currentSolarTerm(now, parsed.timezone),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
-    [localDateKey, parsed.timezone],
+    () => {
+      void localDateKey;
+      return currentSolarTerm(now, parsed.timezone);
+    },
+    [localDateKey, now, parsed.timezone],
   );
   const upcomingTerm = useMemo(
-    () => nextSolarTerm(now, parsed.timezone),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
-    [localDateKey, parsed.timezone],
+    () => {
+      void localDateKey;
+      return nextSolarTerm(now, parsed.timezone);
+    },
+    [localDateKey, now, parsed.timezone],
   );
   const holidayCountdown = useMemo(
-    () => nextStatutoryHolidayCountdown(now, parsed.timezone),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by localDateKey
-    [localDateKey, parsed.timezone],
+    () => {
+      void localDateKey;
+      return nextStatutoryHolidayCountdown(now, parsed.timezone);
+    },
+    [localDateKey, now, parsed.timezone],
   );
   // 时辰约两小时一变，用整点桶避免每秒重算
   const hourBucket = useMemo(() => {
@@ -282,9 +290,11 @@ export function DateTimeWidget({
     }
   }, [now, parsed.timezone]);
   const shichen = useMemo(
-    () => shichenFromDate(now, parsed.timezone),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated by hourBucket
-    [hourBucket, parsed.timezone],
+    () => {
+      void hourBucket;
+      return shichenFromDate(now, parsed.timezone);
+    },
+    [hourBucket, now, parsed.timezone],
   );
   const label = parsed.label ?? "本地时间";
 

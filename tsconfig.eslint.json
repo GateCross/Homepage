@@ -20,7 +20,10 @@
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "packages/**/*.ts",
-    "packages/**/*.tsx"
+    "packages/**/*.tsx",
+    "packages/**/*.mjs",
+    "*.ts",
+    "*.js"
   ],
   "exclude": [
     "node_modules",

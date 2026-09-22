@@ -14,7 +14,10 @@
   },
   "include": [
     "eslint.config.js",
-    "scripts/**/*.mjs"
+    "vitest.config.ts",
+    "scripts/**/*.mjs",
+    "packages/**/*.test.ts",
+    "packages/**/*.mjs"
   ],
   "exclude": [
     "node_modules",
