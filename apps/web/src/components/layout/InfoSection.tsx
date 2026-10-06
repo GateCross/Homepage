@@ -82,7 +82,7 @@ export function InfoSection({
             data-info-id={widget.infoId}
             data-info-type={widget.type}
             className={cn(
-              "homepage-rise relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/20 bg-card/48 text-card-foreground shadow-[0_14px_36px_-18px_rgba(0,0,0,0.48)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/60",
+              "homepage-rise relative flex h-full flex-col overflow-hidden rounded-lg border border-border/70 bg-card/48 text-card-foreground shadow-[0_14px_36px_-18px_rgba(0,0,0,0.48)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/60",
               "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[2.5px] before:content-['']",
               infoAccentClass(widget.type),
             )}

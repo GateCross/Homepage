@@ -149,6 +149,40 @@
   --status-neutral-bg: oklch(0.65 0.02 265 / 16%);
 }
 
+/*
+ * 浮层玻璃面板：对话框、下拉菜单、命令面板共用的表面配方。
+ * card 令牌 70% 透明 + 大半径模糊，ring 用 inset 阴影实现，明暗各一套投影。
+ * 必须裸写不进 @layer：LightningCSS 会把 @layer components 块改写成
+ * "@layer components .glass-panel" 扁平语法，浏览器解析失败整段丢弃。
+ */
+.glass-panel {
+  border: none;
+  background-color: var(--card);
+  color: var(--card-foreground);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 8%),
+    0 18px 48px -20px rgb(0 0 0 / 55%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+@supports (color: color-mix(in lab, red, red)) {
+  /* 亮色提到 78%：大面积亮色背景图下保住面板边界感；暗色维持 70% 原观感 */
+  .glass-panel {
+    background-color: color-mix(in oklab, var(--card) 78%, transparent);
+  }
+
+  .dark .glass-panel {
+    background-color: color-mix(in oklab, var(--card) 70%, transparent);
+  }
+}
+
+.dark .glass-panel {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 10%),
+    0 20px 52px -18px rgb(0 0 0 / 75%);
+}
+
 @layer base {
   * {
     @apply border-border;

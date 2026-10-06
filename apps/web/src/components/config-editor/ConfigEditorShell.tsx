@@ -348,9 +348,7 @@ export function ConfigEditorShell({
               <span className="text-destructive">{saveState.message}</span>
             ) : null}
             {saveState.status === "success" ? (
-              <span className="text-emerald-600 dark:text-emerald-400">
-                保存成功
-              </span>
+              <span className="text-status-online">保存成功</span>
             ) : null}
             {saveState.status === "saving" ? (
               <span className="text-muted-foreground">正在保存…</span>

@@ -58,7 +58,7 @@ export function BookmarkItem({
   );
 
   const shellClass = cn(
-    "group homepage-rise block rounded-[var(--radius-lg)] border border-border/70 bg-card/65 px-2.5 py-2 shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
+    "group homepage-rise block rounded-lg border border-border/70 bg-card/65 px-2.5 py-2 shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
     isNavigable &&
       "cursor-pointer hover:-translate-y-0.5 hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
     !isNavigable && "cursor-default",

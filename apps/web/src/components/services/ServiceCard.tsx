@@ -121,7 +121,7 @@ export function ServiceCard({
   );
 
   const shellClass = cn(
-    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border/70 bg-card/65 p-3 text-left shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
+    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-card/65 p-3 text-left shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
     accentClass &&
       "before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:content-['']",
     accentClass,

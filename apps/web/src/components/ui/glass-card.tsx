@@ -35,7 +35,7 @@ export function GlassCard({
       title={title}
       style={style}
       className={cn(
-        "group relative overflow-hidden rounded-[var(--radius-lg)] border border-border/70",
+        "group relative overflow-hidden rounded-lg border border-border/70",
         "bg-card/75 backdrop-blur-md text-card-foreground shadow-xs transition-all duration-200",
         "dark:bg-card/45 dark:border-white/10 dark:shadow-none",
         isInteractive && [

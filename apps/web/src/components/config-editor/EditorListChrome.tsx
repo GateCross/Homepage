@@ -205,7 +205,7 @@ export function EditorKeywordTags({
           className={cn(
             "max-w-[14rem] truncate rounded-md px-1.5 py-0.5 text-[11px] leading-none",
             tag === dangerTag
-              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+              ? "bg-status-warning-bg text-status-warning"
               : "bg-muted/80 text-muted-foreground",
           )}
           title={tag}

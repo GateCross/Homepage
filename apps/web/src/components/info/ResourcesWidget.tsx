@@ -192,15 +192,16 @@ function formatResourceLabel(
   return { text: last, title: t };
 }
 
+// 用量条与数值文案走全局状态令牌，明暗适配由令牌自身承担
 function barClass(percent: number): string {
-  if (percent >= 90) return "bg-rose-500/85";
-  if (percent >= 75) return "bg-amber-500/85";
-  return "bg-emerald-500/85";
+  if (percent >= 90) return "bg-status-danger";
+  if (percent >= 75) return "bg-status-warning";
+  return "bg-status-online";
 }
 
 function valueClass(percent: number): string {
-  if (percent >= 90) return "text-rose-600 dark:text-rose-400";
-  if (percent >= 75) return "text-amber-700 dark:text-amber-400";
+  if (percent >= 90) return "text-status-danger";
+  if (percent >= 75) return "text-status-warning";
   return "text-foreground/85";
 }
 

@@ -183,10 +183,7 @@ export function SearchDialog({
           <DialogTitle>{messages.search.label}</DialogTitle>
           <DialogDescription>{messages.search.hint}</DialogDescription>
         </DialogHeader>
-        <Command
-          shouldFilter={false}
-          className="rounded-lg border-0 shadow-none"
-        >
+        <Command shouldFilter={false}>
           <CommandInput
             ref={inputRef}
             value={query}

@@ -91,7 +91,7 @@ export function WeatherCityPicker({
               搜索并选择中国天气网城市，用于小米天气数据源
             </DialogDescription>
           </DialogHeader>
-          <Command shouldFilter={false} className="rounded-none border-0">
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="搜索城市名或编码…"
               value={query}

@@ -85,10 +85,7 @@ export function ThemeToggle({ className }: ThemeToggleProps): JSX.Element {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className={cn(
-          "min-w-[11.5rem] rounded-2xl border-0 bg-card/70 p-1.5 text-foreground shadow-[0_18px_48px_-20px_rgba(0,0,0,0.55)] backdrop-blur-xl ring-1 ring-black/5",
-          "dark:bg-card/70 dark:ring-white/10 dark:shadow-[0_20px_52px_-18px_rgba(0,0,0,0.75)]",
-        )}
+        className={cn("min-w-[11.5rem] p-1.5")}
       >
         {THEME_OPTIONS.map((mode) => {
           const selected = theme === mode;
@@ -99,7 +96,6 @@ export function ThemeToggle({ className }: ThemeToggleProps): JSX.Element {
               aria-checked={selected}
               className={cn(
                 "cursor-pointer gap-2.5 rounded-xl px-2 py-2 text-[13px] outline-none",
-                "focus:bg-foreground/[0.06] dark:focus:bg-white/[0.08]",
                 selected && "bg-foreground/[0.06] dark:bg-white/[0.08]",
               )}
               onSelect={() => {
