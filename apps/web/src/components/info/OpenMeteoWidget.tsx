@@ -116,8 +116,8 @@ function weatherVisual(code: number | undefined): {
   if (c === 0) {
     return {
       Icon: Sun,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(251,191,36,0.22),transparent_68%)]",
-      icon: "text-amber-500 dark:text-amber-300",
+      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(251,191,36,0.12),transparent_68%)] dark:bg-[radial-gradient(120%_90%_at_100%_0%,rgba(251,191,36,0.22),transparent_68%)]",
+      icon: "text-amber-600 dark:text-amber-300",
     };
   }
   // 多云
