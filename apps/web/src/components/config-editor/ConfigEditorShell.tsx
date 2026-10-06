@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   fetchEditableConfig,
+  isAbortError,
   isApiClientError,
   saveConfig,
 } from "@/lib/api";
@@ -94,10 +95,7 @@ export function ConfigEditorShell({
       });
     } catch (error) {
       if (signal.aborted) return;
-      if (
-        (error instanceof DOMException && error.name === "AbortError") ||
-        (error instanceof Error && error.name === "AbortError")
-      ) {
+      if (isAbortError(error)) {
         return;
       }
       let message = "无法加载可编辑配置";
@@ -166,27 +164,24 @@ export function ConfigEditorShell({
       if (onSaved) {
         await onSaved();
       }
+      // 保存成功并刷新仪表盘后关闭编辑器，直接回到服务列表
+      onOpenChange(false);
     } catch (error) {
+      // saveConfig 未传 signal 超时转为 ApiClientError，onSaved 自吞错误，
+      // 此处不会收到裸 AbortError
       let message = "保存失败，请稍后重试";
       if (isApiClientError(error)) {
         message = error.publicError
           ? formatPublicError(error.publicError, message)
           : error.message || message;
-      } else if (
-        !(error instanceof DOMException && error.name === "AbortError") &&
-        !(error instanceof Error && error.name === "AbortError")
-      ) {
-        message = formatUnknownError(error, message);
       } else {
-        savingRef.current = false;
-        setSaveState({ status: "idle" });
-        return;
+        message = formatUnknownError(error, message);
       }
       setSaveState({ status: "error", message });
     } finally {
       savingRef.current = false;
     }
-  }, [loadState, onSaved]);
+  }, [loadState, onSaved, onOpenChange]);
 
   const saving = saveState.status === "saving";
   const draft = loadState.status === "ready" ? loadState.draft : null;

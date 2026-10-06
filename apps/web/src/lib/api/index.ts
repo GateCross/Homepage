@@ -17,6 +17,7 @@ export {
   fetchVersion,
   fetchWidget,
   importSiteIcon,
+  isAbortError,
   resolveSiteIcons,
   saveConfig,
   uploadAsset,
