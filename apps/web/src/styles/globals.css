@@ -151,7 +151,9 @@
 
 /*
  * 浮层玻璃面板：对话框、下拉菜单、命令面板共用的表面配方。
- * card 令牌 70% 透明 + 大半径模糊，ring 用 inset 阴影实现，明暗各一套投影。
+ * card 令牌 88% 透明 + 大半径模糊，ring 用 inset 阴影实现，明暗各一套投影。
+ * 透明度必须压在 88%：backdrop-filter 在部分渲染环境不参与合成，
+ * 无模糊时靠不透明度兜底可读性，不允许调回低值。
  * 必须裸写不进 @layer：LightningCSS 会把 @layer components 块改写成
  * "@layer components .glass-panel" 扁平语法，浏览器解析失败整段丢弃。
  */
@@ -167,13 +169,8 @@
 }
 
 @supports (color: color-mix(in lab, red, red)) {
-  /* 亮色提到 78%：大面积亮色背景图下保住面板边界感；暗色维持 70% 原观感 */
   .glass-panel {
-    background-color: color-mix(in oklab, var(--card) 78%, transparent);
-  }
-
-  .dark .glass-panel {
-    background-color: color-mix(in oklab, var(--card) 70%, transparent);
+    background-color: color-mix(in oklab, var(--card) 88%, transparent);
   }
 }
 
