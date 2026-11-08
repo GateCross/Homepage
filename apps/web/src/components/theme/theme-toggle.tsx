@@ -95,7 +95,7 @@ export function ThemeToggle({ className }: ThemeToggleProps): JSX.Element {
               role="menuitemradio"
               aria-checked={selected}
               className={cn(
-                "cursor-pointer gap-2.5 rounded-xl px-2 py-2 text-[13px] outline-none",
+                "cursor-pointer gap-2.5 rounded-lg px-2 py-2 text-[13px] outline-none",
                 selected && "bg-foreground/[0.06] dark:bg-white/[0.08]",
               )}
               onSelect={() => {
@@ -110,7 +110,7 @@ export function ThemeToggle({ className }: ThemeToggleProps): JSX.Element {
               >
                 <ThemeModeIcon mode={mode} className="size-3.5" />
               </span>
-              <span className="flex-1 font-medium tracking-tight">
+              <span className="flex-1 font-medium">
                 {themeModeLabel(mode)}
               </span>
               <CheckIcon

@@ -13,8 +13,6 @@ import { cn } from "@/lib/utils";
 export type ServiceCardProps = {
   service: NormalizedService;
   className?: string;
-  /** 分组轻色点缀，叠加在玻璃底上 */
-  accentClass?: string;
   /** 入场 stagger 延迟（ms） */
   riseDelayMs?: number;
 };
@@ -22,7 +20,6 @@ export type ServiceCardProps = {
 export function ServiceCard({
   service,
   className,
-  accentClass,
   riseDelayMs,
 }: ServiceCardProps): JSX.Element {
   const link = resolveSafeHref(service.href, service.target);
@@ -50,7 +47,7 @@ export function ServiceCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-1.5">
             <h3
-              className="min-w-0 flex-1 truncate text-[0.9rem] font-semibold leading-snug tracking-tight text-foreground"
+              className="min-w-0 flex-1 truncate text-[0.9rem] font-semibold leading-snug text-foreground"
               title={service.name}
             >
               {service.name}
@@ -121,12 +118,9 @@ export function ServiceCard({
   );
 
   const shellClass = cn(
-    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-card/65 p-3 text-left shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-200 dark:border-white/10 dark:bg-card/50",
-    accentClass &&
-      "before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:content-['']",
-    accentClass,
+    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-card/65 p-3 text-left shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/50",
     isNavigable &&
-      "cursor-pointer hover:-translate-y-0.5 hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
+      "cursor-pointer hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
     !isNavigable && "cursor-default",
     className,
   );

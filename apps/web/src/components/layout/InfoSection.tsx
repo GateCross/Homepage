@@ -39,20 +39,6 @@ function renderWidget(widget: InfoWidgetConfig): JSX.Element {
   }
 }
 
-/** 信息卡顶边色，帮助三块玻璃在视觉上拉开类型。 */
-function infoAccentClass(type: InfoWidgetConfig["type"]): string {
-  switch (type) {
-    case "datetime":
-      return "before:bg-sky-400/75 dark:before:bg-sky-300/55";
-    case "openmeteo":
-      return "before:bg-amber-400/75 dark:before:bg-amber-300/50";
-    case "resources":
-      return "before:bg-emerald-400/75 dark:before:bg-emerald-300/50";
-    default:
-      return "before:bg-primary/55";
-  }
-}
-
 export function InfoSection({
   widgets,
   className,
@@ -83,8 +69,6 @@ export function InfoSection({
             data-info-type={widget.type}
             className={cn(
               "homepage-rise relative flex h-full flex-col overflow-hidden rounded-lg border border-border/70 bg-card/48 text-card-foreground shadow-[0_14px_36px_-18px_rgba(0,0,0,0.48)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/60",
-              "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[2.5px] before:content-['']",
-              infoAccentClass(widget.type),
             )}
             style={
               {

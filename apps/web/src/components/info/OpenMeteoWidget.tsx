@@ -560,7 +560,7 @@ function DailyForecastRow({
 }): JSX.Element {
   return (
     <ul
-      className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex gap-1 pb-0.5"
       aria-label="逐日预报"
     >
       {items.map((item, index) => {
@@ -577,22 +577,22 @@ function DailyForecastRow({
         return (
           <li
             key={item.date}
-            className="flex min-w-[2.95rem] shrink-0 flex-col items-center gap-0.5 rounded-md px-1 py-0.5"
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md px-0.5 py-0.5"
             title={condition}
           >
-            <span className="text-[10px] leading-none text-muted-foreground">
+            <span className="max-w-full truncate text-[10px] leading-none text-muted-foreground">
               {label}
             </span>
             <Icon
               aria-hidden="true"
-              className={cn("size-3.5 opacity-90", visual.icon)}
+              className={cn("size-3.5 shrink-0 opacity-90", visual.icon)}
               strokeWidth={1.6}
             />
             <span className="flex flex-col items-center leading-none">
-              <span className="text-[11px] font-medium tabular-nums text-foreground">
+              <span className="max-w-full truncate text-[11px] font-medium tabular-nums text-foreground">
                 {maxT.value}°
               </span>
-              <span className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
+              <span className="mt-0.5 max-w-full truncate text-[10px] tabular-nums text-muted-foreground">
                 {minT.value}°
               </span>
             </span>
@@ -889,7 +889,7 @@ export function OpenMeteoWidget({
 
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="text-[10px] font-medium text-muted-foreground">
             {title}
           </p>
           <div className="mt-0.5 flex items-end gap-2">
@@ -930,7 +930,7 @@ export function OpenMeteoWidget({
               key={chip.key}
               className="rounded-md border border-border/45 bg-background/35 px-1.5 py-0.5"
             >
-              <p className="text-[10px] leading-none tracking-wide text-muted-foreground">
+              <p className="text-[10px] leading-none text-muted-foreground">
                 {chip.label}
               </p>
               <p
@@ -951,7 +951,7 @@ export function OpenMeteoWidget({
           <div className="flex items-center justify-between gap-2">
             <p
               id={forecastHeadingId}
-              className="text-[10px] font-medium tracking-wide text-muted-foreground"
+              className="text-[10px] font-medium text-muted-foreground"
             >
               {activeMode === "hourly" ? "未来小时" : "未来几天"}
             </p>

@@ -67,9 +67,9 @@ export function IconImage({
   );
 }
 
-/** 服务/书签图标共用的磁贴底，统一尺寸与玻璃质感。 */
+/** 服务/书签图标共用的磁贴底，统一尺寸与平面质感。 */
 const ICON_TILE_CLASS =
-  "inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/35 bg-gradient-to-br from-white/55 to-white/20 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_4px_12px_-6px_rgba(0,0,0,0.35)] ring-1 ring-black/5 backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-150 dark:border-white/12 dark:from-white/12 dark:to-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_6px_14px_-8px_rgba(0,0,0,0.55)] dark:ring-white/5";
+  "inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-foreground/[0.04] text-muted-foreground dark:border-white/10 dark:bg-white/[0.05]";
 
 /** 无/坏 Icon 时的统一通用占位（书签与服务共用）。 */
 export function GenericIconPlaceholder({
@@ -133,11 +133,7 @@ export function ServiceIconView({
   return (
     <span
       data-slot="service-icon"
-      className={cn(
-        ICON_TILE_CLASS,
-        "group-hover:scale-[1.04] group-hover:border-white/50 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_8px_16px_-8px_rgba(0,0,0,0.4)] dark:group-hover:border-white/18",
-        className,
-      )}
+      className={cn(ICON_TILE_CLASS, className)}
       aria-hidden={name ? undefined : true}
     >
       <IconImage
@@ -179,11 +175,7 @@ export function BookmarkIconView({
     return (
       <span
         data-slot="bookmark-icon"
-        className={cn(
-          ICON_TILE_CLASS,
-          "group-hover:scale-[1.04] group-hover:border-white/50 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_8px_16px_-8px_rgba(0,0,0,0.4)] dark:group-hover:border-white/18",
-          className,
-        )}
+        className={cn(ICON_TILE_CLASS, className)}
         aria-hidden="true"
       >
         <IconImage

@@ -91,7 +91,7 @@ export function VersionLabel({ className }: VersionLabelProps): JSX.Element {
         data-slot="version-label"
         aria-live="polite"
         className={cn(
-          "shrink-0 text-[11px] tabular-nums text-foreground/55 [text-shadow:0_1px_2px_rgba(0,0,0,0.28)]",
+          "shrink-0 text-[11px] tabular-nums text-foreground/55",
           className,
         )}
       >
@@ -105,7 +105,7 @@ export function VersionLabel({ className }: VersionLabelProps): JSX.Element {
       <span
         data-slot="version-label"
         className={cn(
-          "shrink-0 text-[11px] tabular-nums text-foreground/55 [text-shadow:0_1px_2px_rgba(0,0,0,0.28)]",
+          "shrink-0 text-[11px] tabular-nums text-foreground/55",
           className,
         )}
       >
@@ -120,7 +120,7 @@ export function VersionLabel({ className }: VersionLabelProps): JSX.Element {
     <span
       data-slot="version-label"
       className={cn(
-        "inline-flex min-w-0 max-w-full shrink-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-none text-foreground/65 [text-shadow:0_1px_2px_rgba(0,0,0,0.28)]",
+        "inline-flex min-w-0 max-w-full shrink-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-none text-foreground/65",
         className,
       )}
     >
@@ -130,7 +130,7 @@ export function VersionLabel({ className }: VersionLabelProps): JSX.Element {
       {state.data.updateAvailable && state.data.latestVersion ? (
         <span className="inline-flex items-center gap-1">
           <span
-            className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-200"
+            className="font-medium text-amber-700 dark:text-amber-300"
             role="status"
           >
             {messages.version.updateAvailable}

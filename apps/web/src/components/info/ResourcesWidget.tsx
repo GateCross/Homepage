@@ -471,12 +471,7 @@ export function ResourcesWidget({
         className,
       )}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(16,185,129,0.14),transparent_70%)]"
-      />
-
-      <p className="relative text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+      <p className="relative text-[10px] font-medium text-muted-foreground">
         资源
       </p>
 

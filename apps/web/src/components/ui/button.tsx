@@ -20,7 +20,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         /** 顶栏操作按钮：轻量浮层，无描边 */
         toolbar:
-          "rounded-full border-0 bg-foreground/[0.06] text-[13px] font-medium text-foreground/85 shadow-none backdrop-blur-md hover:bg-foreground/[0.1] hover:text-foreground active:bg-foreground/[0.14] dark:bg-white/[0.08] dark:text-foreground/90 dark:hover:bg-white/[0.14] dark:active:bg-white/[0.18] [&_svg]:size-3.5 [&_svg]:opacity-75 hover:[&_svg]:opacity-100",
+          "rounded-md border-0 bg-foreground/[0.06] text-[13px] font-medium text-foreground/85 shadow-none backdrop-blur-md hover:bg-foreground/[0.1] hover:text-foreground active:bg-foreground/[0.14] dark:bg-white/[0.08] dark:text-foreground/90 dark:hover:bg-white/[0.14] dark:active:bg-white/[0.18] [&_svg]:size-3.5 [&_svg]:opacity-75 hover:[&_svg]:opacity-100",
       },
       size: {
         default: "h-9 px-4 py-2",

@@ -348,13 +348,8 @@ export function DateTimeWidget({
         className,
       )}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(56,189,248,0.18),transparent_70%)]"
-      />
-
       <div className="relative flex items-center justify-center">
-        <p className="text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+        <p className="text-[10px] font-medium text-muted-foreground">
           {label}
         </p>
       </div>
@@ -412,7 +407,7 @@ export function DateTimeWidget({
         <div className="relative mt-auto grid grid-cols-2 gap-1.5">
           {termCountdown !== null ? (
             <div className="rounded-lg border border-border/45 bg-background/40 px-2 py-1.5">
-              <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
+              <p className="text-[10px] font-medium text-muted-foreground">
                 下一节气
               </p>
               <p className="mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
@@ -427,7 +422,7 @@ export function DateTimeWidget({
           )}
           {holidayPanel !== null ? (
             <div className="rounded-lg border border-border/45 bg-background/40 px-2 py-1.5">
-              <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
+              <p className="text-[10px] font-medium text-muted-foreground">
                 下一节日
               </p>
               <p className="mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">

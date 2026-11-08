@@ -56,12 +56,12 @@ export function Header({
               width={28}
               height={28}
               decoding="async"
-              className="h-7 w-7 min-w-7 shrink-0 rounded-lg object-contain shadow-sm ring-1 ring-white/30 dark:ring-white/15"
+              className="h-7 w-7 min-w-7 shrink-0 rounded-lg object-contain ring-1 ring-black/10 dark:ring-white/15"
               onError={() => setIconFailed(true)}
             />
           ) : null}
           <div className="flex min-w-0 items-baseline gap-2 sm:gap-2.5">
-            <h1 className="truncate text-base font-semibold tracking-tight text-foreground [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] sm:text-lg">
+            <h1 className="truncate text-base font-semibold text-foreground sm:text-lg">
               {title}
             </h1>
             <VersionLabel />

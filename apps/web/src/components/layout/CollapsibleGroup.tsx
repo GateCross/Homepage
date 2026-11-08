@@ -75,7 +75,7 @@ export function CollapsibleGroup({
           }
           onClick={handleToggle}
           className={cn(
-            "group/title -ml-1.5 inline-flex max-w-full items-center gap-2 rounded-xl px-2 py-1",
+            "group/title -ml-1.5 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1",
             "text-left transition-colors duration-150",
             "hover:bg-white/12 dark:hover:bg-white/6",
             "active:bg-white/16 dark:active:bg-white/10",
@@ -84,27 +84,23 @@ export function CollapsibleGroup({
         >
           <span
             aria-hidden="true"
-            className="inline-flex size-4 shrink-0 items-center justify-center text-foreground/70 transition-transform duration-200 ease-out will-change-transform [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] group-hover/title:text-foreground"
+            className="inline-flex size-4 shrink-0 items-center justify-center text-foreground/70 transition-transform duration-200 ease-out will-change-transform group-hover/title:text-foreground"
             style={{
               transform: collapsed ? "rotate(0deg)" : "rotate(90deg)",
             }}
           >
-            <ChevronRight className="size-4" strokeWidth={2.4} />
+            <ChevronRight className="size-4" />
           </span>
           <span
             aria-hidden="true"
-            className="h-4 w-1 shrink-0 rounded-full bg-gradient-to-b from-primary to-primary/55 shadow-[0_0_8px_rgba(56,140,220,0.35)]"
-          />
-          <span
-            aria-hidden="true"
-            className="min-w-0 truncate text-[0.95rem] font-semibold tracking-tight text-foreground [text-shadow:0_1px_2px_rgba(0,0,0,0.28)] sm:text-base"
+            className="min-w-0 truncate text-[0.95rem] font-semibold text-foreground sm:text-base"
           >
             {name}
           </span>
           {typeof count === "number" ? (
             <span
               aria-hidden="true"
-              className="shrink-0 rounded-full border border-white/15 bg-black/12 px-2 py-0.5 text-[11px] font-semibold tabular-nums leading-none text-foreground/80 backdrop-blur-sm [text-shadow:0_1px_1px_rgba(0,0,0,0.18)] group-hover/title:border-white/25 group-hover/title:bg-black/18 group-hover/title:text-foreground dark:border-white/12 dark:bg-white/10 dark:group-hover/title:bg-white/16"
+              className="shrink-0 text-[11px] font-medium tabular-nums leading-none text-foreground/60"
             >
               {count}
             </span>
