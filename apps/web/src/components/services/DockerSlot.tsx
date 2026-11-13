@@ -18,9 +18,9 @@ import {
   useDockerStatusEntry,
   useOptionalDockerStatusStore,
 } from "@/hooks/docker-status-store";
+import { formatBytes, formatPercent, usageToneClass } from "@/lib/format";
 import { dockerStatusText, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
 
 export type DockerSlotMode = "full" | "badge" | "metrics";
 
@@ -137,36 +137,8 @@ function statusToneClass(
   }
 }
 
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "—";
-  }
-  const rounded = Math.round(value * 10) / 10;
-  if (Number.isInteger(rounded) || Math.abs(rounded % 1) < 1e-9) {
-    return `${Math.trunc(rounded)}%`;
-  }
-  return `${rounded.toFixed(1)}%`;
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) {
-    return "—";
-  }
-  const units = ["B", "KB", "MB", "GB", "TB"] as const;
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const digits = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(digits)} ${units[unitIndex]}`;
-}
-
 function valueClass(percent: number): string {
-  if (percent >= 90) return "text-rose-600 dark:text-rose-400";
-  if (percent >= 75) return "text-amber-700 dark:text-amber-400";
-  return "text-foreground";
+  return usageToneClass(percent);
 }
 
 function ResourceBlock({

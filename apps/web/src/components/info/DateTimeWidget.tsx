@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type JSX } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 
 import { nextStatutoryHolidayCountdown } from "@/lib/holidays";
 import { lunarFromDate } from "@/lib/lunar";
@@ -247,35 +247,22 @@ export function DateTimeWidget({
     }
   }, [now, parsed.timezone]);
 
-  // 仅在本地日历日变化时重算（故意不把 now 列入依赖）
-  const lunar = useMemo(
-    () => {
-      void localDateKey;
-      return lunarFromDate(now, parsed.timezone);
-    },
-    [localDateKey, now, parsed.timezone],
-  );
-  const solarTerm = useMemo(
-    () => {
-      void localDateKey;
-      return currentSolarTerm(now, parsed.timezone);
-    },
-    [localDateKey, now, parsed.timezone],
-  );
-  const upcomingTerm = useMemo(
-    () => {
-      void localDateKey;
-      return nextSolarTerm(now, parsed.timezone);
-    },
-    [localDateKey, now, parsed.timezone],
-  );
-  const holidayCountdown = useMemo(
-    () => {
-      void localDateKey;
-      return nextStatutoryHolidayCountdown(now, parsed.timezone);
-    },
-    [localDateKey, now, parsed.timezone],
-  );
+  // 仅在本地日历日变化时重算。now 每秒换引用，只作取值来源不进依赖数组，
+  // 靠 ref 在日界切换那一刻取到当下时刻，否则日界处农历/节气不会刷新。
+  const nowRef = useRef(now);
+  nowRef.current = now;
+
+  const calendar = useMemo(() => {
+    const anchor = nowRef.current;
+    return {
+      lunar: lunarFromDate(anchor, parsed.timezone),
+      solarTerm: currentSolarTerm(anchor, parsed.timezone),
+      upcomingTerm: nextSolarTerm(anchor, parsed.timezone),
+      holidayCountdown: nextStatutoryHolidayCountdown(anchor, parsed.timezone),
+    };
+  }, [localDateKey, parsed.timezone]);
+  const { lunar, solarTerm, upcomingTerm, holidayCountdown } = calendar;
+
   // 时辰约两小时一变，用整点桶避免每秒重算
   const hourBucket = useMemo(() => {
     try {
@@ -290,11 +277,8 @@ export function DateTimeWidget({
     }
   }, [now, parsed.timezone]);
   const shichen = useMemo(
-    () => {
-      void hourBucket;
-      return shichenFromDate(now, parsed.timezone);
-    },
-    [hourBucket, now, parsed.timezone],
+    () => shichenFromDate(nowRef.current, parsed.timezone),
+    [hourBucket, parsed.timezone],
   );
   const label = parsed.label ?? "本地时间";
 

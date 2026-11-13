@@ -10,30 +10,22 @@ import {
   type ReactNode,
 } from "react";
 
-import type { DockerStatusResponse } from "@/lib/contracts";
-
-import { fetchDockerBatch, isApiClientError } from "@/lib/api";
 import {
-  formatPublicError,
-  formatUnknownError,
-} from "@/lib/format-error";
+  dockerTargetKey,
+  GLOBAL_ERROR_KEY,
+  mapFromBatch,
+  mergeDockerMaps,
+  type DockerEntryState,
+  type DockerStatusMap,
+} from "@/lib/pure/docker-merge";
+import { fetchDockerBatch } from "@/lib/api";
+import { resolveErrorMessage } from "@/lib/format-error";
 import { messages } from "@/lib/messages";
 
 /** 批量 Docker 状态轮询间隔（两阶段：轻量状态 + 含 stats 指标） */
 const DOCKER_BATCH_POLL_INTERVAL_MS = 15_000;
 
-function dockerTargetKey(server: string, container: string): string {
-  return `${server}\0${container}`;
-}
-
-export type DockerEntryState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "success"; data: DockerStatusResponse };
-
-type DockerStatusMap = Map<string, DockerEntryState>;
-
-const GLOBAL_ERROR_KEY = "\0";
+export type { DockerEntryState };
 
 export type DockerStatusStoreValue = {
   get: (server: string, container: string) => DockerEntryState;
@@ -44,94 +36,6 @@ export type DockerStatusStoreValue = {
 };
 
 const DockerStatusContext = createContext<DockerStatusStoreValue | null>(null);
-
-function resolveErrorMessage(error: unknown): string {
-  if (isApiClientError(error)) {
-    if (error.publicError) {
-      return formatPublicError(error.publicError, messages.error.docker);
-    }
-    const msg = error.message?.trim();
-    return msg && msg.length > 0 ? msg : messages.error.docker;
-  }
-  return formatUnknownError(error, messages.error.docker);
-}
-
-function hasResourceMetrics(data: DockerStatusResponse): boolean {
-  if (data.status !== "running") return false;
-  return data.cpuPercent !== undefined || data.memoryPercent !== undefined;
-}
-
-/**
- * 合并 lite（状态）与 full（含 stats）：
- * - 新结果优先覆盖状态字段
- * - full 失败时不抹掉已有徽章
- * - lite 覆盖 full 时保留已有 metrics（避免轮询轻量阶段闪一下指标）
- */
-function mergeDockerMaps(
-  prev: DockerStatusMap,
-  incoming: DockerStatusMap,
-  mode: "lite" | "full",
-): DockerStatusMap {
-  const next = new Map(prev);
-  next.delete(GLOBAL_ERROR_KEY);
-
-  for (const [key, entry] of incoming) {
-    if (entry.status !== "success") {
-      next.set(key, entry);
-      continue;
-    }
-
-    const prevEntry = prev.get(key);
-    if (
-      mode === "lite" &&
-      prevEntry?.status === "success" &&
-      prevEntry.data.status === "running" &&
-      entry.data.status === "running" &&
-      hasResourceMetrics(prevEntry.data) &&
-      !hasResourceMetrics(entry.data)
-    ) {
-      next.set(key, {
-        status: "success",
-        data: {
-          ...entry.data,
-          ...(prevEntry.data.cpuPercent !== undefined
-            ? { cpuPercent: prevEntry.data.cpuPercent }
-            : {}),
-          ...(prevEntry.data.memoryPercent !== undefined
-            ? { memoryPercent: prevEntry.data.memoryPercent }
-            : {}),
-          ...(prevEntry.data.memoryUsageBytes !== undefined
-            ? { memoryUsageBytes: prevEntry.data.memoryUsageBytes }
-            : {}),
-          ...(prevEntry.data.memoryLimitBytes !== undefined
-            ? { memoryLimitBytes: prevEntry.data.memoryLimitBytes }
-            : {}),
-        },
-      });
-      continue;
-    }
-
-    next.set(key, entry);
-  }
-  return next;
-}
-
-function mapFromBatch(
-  results: ReadonlyArray<{
-    server: string;
-    container: string;
-    result: DockerStatusResponse;
-  }>,
-): DockerStatusMap {
-  const next: DockerStatusMap = new Map();
-  for (const item of results) {
-    next.set(dockerTargetKey(item.server, item.container), {
-      status: "success",
-      data: item.result,
-    });
-  }
-  return next;
-}
 
 export type DockerStatusProviderProps = {
   children: ReactNode;
@@ -224,7 +128,7 @@ export function DockerStatusProvider({
           return;
         }
         hasSuccessRef.current = false;
-        const message = resolveErrorMessage(error);
+        const message = resolveErrorMessage(error, messages.error.docker);
         setMap(new Map([[GLOBAL_ERROR_KEY, { status: "error", message }]]));
       }
     },

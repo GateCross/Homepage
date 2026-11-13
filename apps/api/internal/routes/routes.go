@@ -104,10 +104,10 @@ func handleWidget(deps Deps, w http.ResponseWriter, r *http.Request, rawID strin
 		// 失败只带中文原因；命中密钥时替换成固定文案，避免把凭据带出去
 		if containsSecret(result, allowList) {
 			logSecretHit("服务组件")
-			writeJSON(w, http.StatusOK, adapters.FailureResult(msgWidgetGeneric))
+			httpapi.WriteJSON(w, http.StatusOK, adapters.FailureResult(msgWidgetGeneric))
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		httpapi.WriteJSON(w, http.StatusOK, result)
 		return
 	}
 	writeScanned(w, result, allowList, "服务组件")
@@ -262,13 +262,21 @@ func numericCityID(cityID string) bool {
 }
 
 // 序列化后扫描敏感值；命中改发 INTERNAL，绝不下发原响应。
+// 序列化只做一次，扫描通过后直接写字节。
 func writeScanned(w http.ResponseWriter, payload any, allowList *config.AllowList, scope string) {
-	if containsSecret(payload, allowList) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		// 序列化失败说明结构自身有误，按需要拦截处理
 		logSecretHit(scope)
 		httpapi.Internal(msgInternal).Write(w)
 		return
 	}
-	writeJSON(w, http.StatusOK, payload)
+	if config.JSONContainsAnySecret(body, config.CollectSensitiveValues(allowList)) {
+		logSecretHit(scope)
+		httpapi.Internal(msgInternal).Write(w)
+		return
+	}
+	httpapi.WriteJSONBytes(w, http.StatusOK, body)
 }
 
 // 序列化后的响应是否含允许列表中的任一敏感值；空列表直接放行。
@@ -290,7 +298,3 @@ func logSecretHit(scope string) {
 	log.Printf("%s 响应疑似包含敏感值，已拒绝下发", scope)
 }
 
-// 输出成功响应，所有端点共用同一套缓存头。
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	httpapi.WriteJSON(w, status, body)
-}

@@ -163,6 +163,18 @@ func Do(ctx context.Context, rawURL string, opts RequestOptions) (*Response, err
 	}, nil
 }
 
+// GetJSON 在 Do 之后统一处理非 2xx 与非法 JSON；URL 拼接与请求头由调用方准备。
+func GetJSON(ctx context.Context, rawURL string, opts RequestOptions, failMessage, badJSON string) (any, error) {
+	response, err := Do(ctx, rawURL, opts)
+	if err != nil {
+		return nil, err
+	}
+	if !response.OK() {
+		return nil, NewError(failMessage)
+	}
+	return ReadJSONBody(response, badJSON)
+}
+
 // ReadJSONBody 把响应正文解析成 JSON 值；解析失败只回显给定的中文原因，不带原文。
 func ReadJSONBody(response *Response, invalidMessage string) (any, error) {
 	if response == nil {

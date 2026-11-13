@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"net/http"
-	"strings"
 )
 
 // Caddy 的指标标识、字段名与失败文案；文案可直接下发浏览器。
@@ -56,32 +55,7 @@ func parseCaddyOptions(options any) []string {
 	if !ok {
 		return nil
 	}
-
-	fields := make([]string, 0, len(caddyFieldDefs))
-	for _, field := range caddyStringList(doc["fields"]) {
-		trimmed := strings.ToLower(strings.TrimSpace(field))
-		if trimmed != "" {
-			fields = append(fields, trimmed)
-		}
-	}
-	return fields
-}
-
-// 读取字符串列表，兼容 []string 与 JSON 解出的 []any；其余形态返回空。
-func caddyStringList(raw any) []string {
-	switch list := raw.(type) {
-	case []string:
-		return list
-	case []any:
-		out := make([]string, 0, len(list))
-		for _, item := range list {
-			if text, ok := item.(string); ok {
-				out = append(out, text)
-			}
-		}
-		return out
-	}
-	return nil
+	return FieldList(doc["fields"])
 }
 
 // 把上游列表转成指标：非对象条目计入上游总数但跳过计数，空白名单或全被过滤时判为格式无效。
@@ -97,9 +71,9 @@ func convertCaddyUpstreams(data any, fields []string) ([]Metric, error) {
 		if !ok {
 			continue
 		}
-		requests += caddyNonNegNumber(caddyFirstValue(record,
+		requests += NonNegativeFloat(caddyFirstValue(record,
 			"num_requests", "numRequests", "requests"))
-		fails += caddyNonNegNumber(caddyFirstValue(record,
+		fails += NonNegativeFloat(caddyFirstValue(record,
 			"fails", "num_fails", "failures"))
 	}
 
@@ -144,18 +118,6 @@ func caddyFirstValue(record map[string]any, keys ...string) any {
 	return nil
 }
 
-// 计数只认数值与数字字符串，布尔、对象与无法解析的文本都按 0，负值夹到 0。
-func caddyNonNegNumber(value any) float64 {
-	if _, isBool := value.(bool); isBool {
-		return 0
-	}
-	number, ok := CoerceFiniteNumber(value)
-	if !ok || number < 0 {
-		return 0
-	}
-	return number
-}
-
 // 请求上游列表；非 2xx 与非法 JSON 都按失败处理，不把响应正文带进文案。
 func fetchCaddyUpstreams(ctx context.Context, baseURL string, fields []string) ([]Metric, error) {
 	target, err := JoinBaseURL(baseURL, "/reverse_proxy/upstreams")
@@ -163,20 +125,12 @@ func fetchCaddyUpstreams(ctx context.Context, baseURL string, fields []string) (
 		return nil, err
 	}
 
-	response, err := Do(ctx, target, RequestOptions{
+	payload, err := GetJSON(ctx, target, RequestOptions{
 		Method:         http.MethodGet,
 		Headers:        map[string]string{"Accept": "application/json"},
 		TimeoutMessage: caddyStatsTimeout,
 		NetworkMessage: caddyStatsNetwork,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !response.OK() {
-		return nil, NewError(caddyStatsFail)
-	}
-
-	payload, err := ReadJSONBody(response, caddyStatsBadJSON)
+	}, caddyStatsFail, caddyStatsBadJSON)
 	if err != nil {
 		return nil, err
 	}

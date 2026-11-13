@@ -11,6 +11,7 @@ import (
 
 	"github.com/gatecross/homepage/api/internal/config"
 	"github.com/gatecross/homepage/api/internal/domain"
+	"github.com/gatecross/homepage/api/internal/httpapi"
 )
 
 // 端点路径；批量状态按内容协商决定数组或流式，status.json 固定数组。
@@ -265,12 +266,8 @@ func (h *Handler) writePayload(w http.ResponseWriter, payload any, allowList *co
 		WriteInternalError(w)
 		return
 	}
-
-	header := w.Header()
-	header.Set("Content-Type", JSONContentType)
-	header.Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(body)
+	// 已序列化并扫描过，直接写字节，不再让公共层二次 Marshal
+	httpapi.WriteJSONBytes(w, http.StatusOK, body)
 }
 
 // 列表失败按可判定错误映射：超时 504，其余出站失败 502。
@@ -282,44 +279,27 @@ func writeListFailure(w http.ResponseWriter, err error) {
 	}
 	switch dockerErr.Kind {
 	case KindTimeout:
-		writeEnvelope(w, http.StatusGatewayTimeout, "EXTERNAL_TIMEOUT", msgTimeout)
+		httpapi.NewError(httpapi.CodeExternalTmo, msgTimeout).Write(w)
 	case KindUnreachable:
-		writeEnvelope(w, http.StatusBadGateway, "EXTERNAL_FAILURE", msgUnreachable)
+		httpapi.NewError(httpapi.CodeExternal, msgUnreachable).Write(w)
 	default:
-		writeEnvelope(w, http.StatusBadGateway, "EXTERNAL_FAILURE", dockerErr.Message)
+		httpapi.NewError(httpapi.CodeExternal, dockerErr.Message).Write(w)
 	}
 }
 
 // 失败时输出与 API 契约一致的错误信封。
 func WriteInternalError(w http.ResponseWriter) {
-	writeEnvelope(w, http.StatusInternalServerError, "INTERNAL", msgInternal)
+	httpapi.Internal(msgInternal).Write(w)
 }
 
 // 未登记或无权访问统一 403，调用方在此之前不得发起任何 Docker 请求。
 func WriteForbidden(w http.ResponseWriter) {
-	writeEnvelope(w, http.StatusForbidden, "FORBIDDEN", msgTargetForbidden)
+	httpapi.Forbidden(msgTargetForbidden).Write(w)
 }
 
 // 未实现或已登记前缀下的未知路径按 404 信封返回。
 func WriteNotFound(w http.ResponseWriter) {
-	writeEnvelope(w, http.StatusNotFound, "NOT_FOUND", msgAPINotFound)
-}
-
-// 输出错误信封；响应体极小，直接拼装不额外缓冲。
-func writeEnvelope(w http.ResponseWriter, status int, code, message string) {
-	body, err := json.Marshal(domain.ErrorEnvelope{
-		Ok:    false,
-		Error: domain.PublicError{Message: message, Code: &code},
-	})
-	if err != nil {
-		w.WriteHeader(status)
-		return
-	}
-	header := w.Header()
-	header.Set("Content-Type", JSONContentType)
-	header.Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_, _ = w.Write(body)
+	httpapi.NotFound(msgAPINotFound).Write(w)
 }
 
 // 严格校验列表查询：端点已在 docker.yaml 声明才放行。

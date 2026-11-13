@@ -106,6 +106,13 @@ func WriteJSON(w http.ResponseWriter, status int, body any) {
 		payload = []byte(`{"ok":false,"error":{"message":"响应序列化失败"}}`)
 		status = http.StatusInternalServerError
 	}
+	WriteJSONBytes(w, status, payload)
+}
+
+// WriteJSONBytes 输出已序列化好的 JSON 体。
+// 需要在下发前扫描敏感值的调用方先用 Marshal 得到字节，扫描通过后再走这里，
+// 避免「先 Marshal 扫描、再由 WriteJSON 二次 Marshal」的重复序列化。
+func WriteJSONBytes(w http.ResponseWriter, status int, payload []byte) {
 	header := w.Header()
 	header.Set("Content-Type", JSONContentType)
 	header.Set("Cache-Control", "no-store")

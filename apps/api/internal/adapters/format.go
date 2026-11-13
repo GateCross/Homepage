@@ -121,6 +121,33 @@ func CoerceFiniteNumber(value any) (float64, bool) {
 	return 0, false
 }
 
+// NonNegativeNumber 把取值转成非负数值：无法解析返回 false，负值按 0。
+// 用于计数类字段，布尔与对象同样按无法解析处理。
+func NonNegativeNumber(value any) (float64, bool) {
+	number, ok := CoerceFiniteNumber(value)
+	if !ok {
+		return 0, false
+	}
+	if number < 0 {
+		return 0, true
+	}
+	return number, true
+}
+
+// NonNegativeFloat 是 NonNegativeNumber 的降级形态：无法解析时返回 0 而不是 false。
+// 用于「取不到就按 0 计」的累计型计数。
+func NonNegativeFloat(value any) float64 {
+	if _, isBool := value.(bool); isBool {
+		// 累计型计数不接受布尔：true 不该被当成 1 计入
+		return 0
+	}
+	number, ok := NonNegativeNumber(value)
+	if !ok {
+		return 0
+	}
+	return number
+}
+
 // FormatPercentValue 把取值转成 0–100 的百分比；无法解析时返回 false，不伪造 0。
 func FormatPercentValue(value any) (float64, bool) {
 	number, ok := CoerceFiniteNumber(value)
@@ -151,6 +178,66 @@ func HasCJK(text string) bool {
 		}
 	}
 	return false
+}
+
+// StringList 读取字符串列表，兼容 []string 与 JSON 解出的 []any；其余形态返回空。
+// 非字符串项直接丢弃，不做转换。
+func StringList(raw any) []string {
+	switch list := raw.(type) {
+	case []string:
+		return list
+	case []any:
+		out := make([]string, 0, len(list))
+		for _, item := range list {
+			if text, ok := item.(string); ok {
+				out = append(out, text)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// FieldList 把展示字段统一小写、去首尾空白并丢掉空项；空列表表示不限字段。
+func FieldList(raw any) []string {
+	out := make([]string, 0, len(StringList(raw)))
+	for _, item := range StringList(raw) {
+		if field := strings.ToLower(strings.TrimSpace(item)); field != "" {
+			out = append(out, field)
+		}
+	}
+	return out
+}
+
+// CountMetric 生成数量指标：nil 表示取不到，其余按整数输出。
+func CountMetric(id, label string, count *int) Metric {
+	if count == nil {
+		return Metric{ID: id, Label: label, Value: "—", Status: MetricStatusUnavailable}
+	}
+	return Metric{ID: id, Label: label, Value: *count, Status: MetricStatusOK}
+}
+
+// FieldAllowed 判断字段是否落在白名单里；空白名单表示不限字段。
+func FieldAllowed(fields []string, name string) bool {
+	if len(fields) == 0 {
+		return true
+	}
+	for _, field := range fields {
+		if strings.EqualFold(field, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// FirstNonNegative 按候选键顺序取第一个可解析的非负数值；全都没有时返回 false。
+func FirstNonNegative(record map[string]any, keys []string) (float64, bool) {
+	for _, key := range keys {
+		if value, ok := NonNegativeNumber(record[key]); ok {
+			return value, true
+		}
+	}
+	return 0, false
 }
 
 // parseFiniteNumber 解析数字字符串；允许首尾空白，空串与非数字返回 false。

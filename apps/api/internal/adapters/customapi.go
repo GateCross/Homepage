@@ -457,20 +457,12 @@ func fetchCustomAPIMetrics(ctx context.Context, rawURL string, options customAPI
 		headers[name] = value
 	}
 
-	response, err := Do(ctx, rawURL, RequestOptions{
+	payload, err := GetJSON(ctx, rawURL, RequestOptions{
 		Method:         http.MethodGet,
 		Headers:        headers,
 		TimeoutMessage: customAPIRequestTimeout,
 		NetworkMessage: customAPIRequestNetwork,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !response.OK() {
-		return nil, NewError(customAPIRequestFail)
-	}
-
-	payload, err := ReadJSONBody(response, customAPIRequestBadJSON)
+	}, customAPIRequestFail, customAPIRequestBadJSON)
 	if err != nil {
 		return nil, err
 	}

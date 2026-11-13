@@ -1,20 +1,12 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type JSX,
-} from "react";
+import { useCallback, type JSX } from "react";
 import { CheckCircle2, CircleAlert, CircleX, LoaderCircle } from "lucide-react";
 
 import type { HttpProbeResponse } from "@/lib/contracts";
 
-import { fetchProbe, isApiClientError } from "@/lib/api";
-import {
-  formatPublicError,
-  formatUnknownError,
-} from "@/lib/format-error";
+import { fetchProbe } from "@/lib/api";
+import { resolveErrorMessage } from "@/lib/format-error";
 import { useGroupActive } from "@/hooks/group-active";
+import { usePolledResource } from "@/hooks/use-polled-resource";
 import { messages, probeStatusText } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -30,22 +22,6 @@ export type ProbeSlotProps = {
    */
   suppressOkIcon?: boolean;
 };
-
-type SlotState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "success"; data: HttpProbeResponse };
-
-function resolveErrorMessage(error: unknown): string {
-  if (isApiClientError(error)) {
-    if (error.publicError) {
-      return formatPublicError(error.publicError, messages.error.probe);
-    }
-    const msg = error.message?.trim();
-    return msg && msg.length > 0 ? msg : messages.error.probe;
-  }
-  return formatUnknownError(error, messages.error.probe);
-}
 
 function StatusIcon({
   state,
@@ -78,10 +54,7 @@ function StatusIcon({
     case "unreachable":
     case "error":
       return (
-        <CircleX
-          className={cn(className, "text-destructive")}
-          aria-hidden="true"
-        />
+        <CircleX className={cn(className, "text-destructive")} aria-hidden="true" />
       );
     default: {
       const _exhaustive: never = state;
@@ -96,133 +69,24 @@ export function ProbeSlot({
   suppressOkIcon = false,
 }: ProbeSlotProps): JSX.Element {
   const groupActive = useGroupActive();
-  const [state, setState] = useState<SlotState>({ status: "loading" });
-  const [reloadToken, setReloadToken] = useState(0);
-  const abortRef = useRef<AbortController | null>(null);
-  const hasSuccessRef = useRef(false);
-  const pageVisibleRef = useRef(
-    typeof document === "undefined"
-      ? true
-      : document.visibilityState !== "hidden",
-  );
-  const groupActiveRef = useRef(groupActive);
-  const wasGroupActiveRef = useRef(groupActive);
-  groupActiveRef.current = groupActive;
 
   const load = useCallback(
-    async (signal: AbortSignal, options?: { silent?: boolean }) => {
-      const silent = options?.silent === true;
-      if (!silent || !hasSuccessRef.current) {
-        setState({ status: "loading" });
-      }
-
-      try {
-        const data = await fetchProbe(probeId, { signal });
-        if (signal.aborted) {
-          return;
-        }
-        hasSuccessRef.current = true;
-        setState({ status: "success", data });
-      } catch (error) {
-        if (signal.aborted) {
-          return;
-        }
-        if (
-          (error instanceof DOMException && error.name === "AbortError") ||
-          (error instanceof Error && error.name === "AbortError")
-        ) {
-          return;
-        }
-        if (silent && hasSuccessRef.current) {
-          return;
-        }
-        hasSuccessRef.current = false;
-        setState({ status: "error", message: resolveErrorMessage(error) });
-      }
-    },
+    (signal: AbortSignal) => fetchProbe(probeId, { signal }),
     [probeId],
   );
+  const resolveError = useCallback(
+    (error: unknown) => resolveErrorMessage(error, messages.error.probe),
+    [],
+  );
 
-  useEffect(() => {
-    // probeId / 手动重试时清空成功态，避免沿用旧目标的 silent 短路
-    hasSuccessRef.current = false;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    void load(controller.signal);
-
-    let timerId: number | null = null;
-
-    const isActive = (): boolean =>
-      pageVisibleRef.current && groupActiveRef.current;
-
-    const clearTimer = (): void => {
-      if (timerId !== null) {
-        window.clearInterval(timerId);
-        timerId = null;
-      }
-    };
-
-    const tick = (): void => {
-      if (!isActive()) {
-        return;
-      }
-      abortRef.current?.abort();
-      const next = new AbortController();
-      abortRef.current = next;
-      void load(next.signal, { silent: true });
-    };
-
-    const startTimer = (): void => {
-      clearTimer();
-      timerId = window.setInterval(tick, PROBE_POLL_INTERVAL_MS);
-    };
-
-    const onVisibility = (): void => {
-      const visible = document.visibilityState !== "hidden";
-      pageVisibleRef.current = visible;
-      if (visible) {
-        if (groupActiveRef.current) {
-          tick();
-        }
-        startTimer();
-      } else {
-        clearTimer();
-      }
-    };
-
-    // 折叠时仍挂 timer，tick 内按 isActive 短路，避免展开后无轮询
-    if (pageVisibleRef.current) {
-      startTimer();
-    }
-
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      clearTimer();
-      document.removeEventListener("visibilitychange", onVisibility);
-      controller.abort();
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-  }, [load, reloadToken]);
-
-  // 分组从折叠展开时补一次静默刷新（首载由主 effect 负责）
-  useEffect(() => {
-    const wasActive = wasGroupActiveRef.current;
-    wasGroupActiveRef.current = groupActive;
-    if (!groupActive || wasActive || !pageVisibleRef.current) {
-      return;
-    }
-    abortRef.current?.abort();
-    const next = new AbortController();
-    abortRef.current = next;
-    void load(next.signal, { silent: true });
-  }, [groupActive, load]);
-
-  const handleRetry = useCallback(() => {
-    abortRef.current?.abort();
-    hasSuccessRef.current = false;
-    setReloadToken((n) => n + 1);
-  }, []);
+  const { state, retry } = usePolledResource<HttpProbeResponse>({
+    load,
+    resolveError,
+    fallbackMessage: messages.error.probe,
+    intervalMs: PROBE_POLL_INTERVAL_MS,
+    // 分组折叠时不轮询；展开时由 hook 的 paused 恢复逻辑补拉
+    paused: !groupActive,
+  });
 
   if (state.status === "loading") {
     const label = probeStatusText("loading");
@@ -278,7 +142,7 @@ export function ProbeSlot({
         <button
           type="button"
           className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={handleRetry}
+          onClick={retry}
         >
           {messages.common.retry}
         </button>
@@ -291,19 +155,34 @@ export function ProbeSlot({
     "latencyMs" in data && data.latencyMs !== undefined
       ? Math.round(data.latencyMs)
       : undefined;
+
   // 可达：图标 + 紧凑延迟；与 Docker 并排时可达态去掉第二颗勾
   let label: string;
   let ariaLabel: string;
   if (data.status === "unreachable") {
     label = probeStatusText("unreachable", data.reason);
     ariaLabel = label;
-  } else {
-    const statusLabel = probeStatusText(data.status);
-    label = latencyMs !== undefined ? `${latencyMs}ms` : statusLabel;
-    ariaLabel =
-      latencyMs !== undefined ? `${statusLabel} ${latencyMs}ms` : statusLabel;
+    return (
+      <div
+        data-slot="probe-slot"
+        data-state={data.status}
+        role="status"
+        aria-label={ariaLabel}
+        className={cn(
+          "inline-flex h-5 max-w-[7rem] items-center gap-1 text-[11px] leading-none text-destructive",
+          className,
+        )}
+        title={label}
+      >
+        <StatusIcon state={data.status} />
+        <span className="truncate">{label}</span>
+      </div>
+    );
   }
 
+  const statusLabel = probeStatusText(data.status);
+  label = latencyMs !== undefined ? `${latencyMs}ms` : statusLabel;
+  ariaLabel = latencyMs !== undefined ? `${statusLabel} ${latencyMs}ms` : statusLabel;
   const hideOkIcon = suppressOkIcon && data.status === "reachable";
 
   return (
@@ -313,8 +192,7 @@ export function ProbeSlot({
       role="status"
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex h-5 max-w-[5.5rem] items-center text-[11px] leading-none text-muted-foreground",
-        hideOkIcon ? "gap-0" : "gap-1",
+        "inline-flex h-5 max-w-[5.5rem] items-center gap-1 text-[11px] leading-none text-muted-foreground",
         className,
       )}
       title={ariaLabel}

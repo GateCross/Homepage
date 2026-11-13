@@ -57,47 +57,7 @@ func parseImmichOptions(options any) (int, []string) {
 	if !ok {
 		return 2, nil
 	}
-	return immichVersion(record["version"]), immichFieldList(record["fields"])
-}
-
-// 展示字段只认非空字符串并统一小写；非字符串项直接丢弃。空列表表示不限字段。
-func immichFieldList(value any) []string {
-	switch typed := value.(type) {
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if field := strings.ToLower(strings.TrimSpace(item)); field != "" {
-				out = append(out, field)
-			}
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			text, ok := item.(string)
-			if !ok {
-				continue
-			}
-			if field := strings.ToLower(strings.TrimSpace(text)); field != "" {
-				out = append(out, field)
-			}
-		}
-		return out
-	}
-	return nil
-}
-
-// 白名单为空表示不限字段，否则只放行列举项。
-func immichFieldAllowed(fields []string, name string) bool {
-	if len(fields) == 0 {
-		return true
-	}
-	for _, field := range fields {
-		if strings.EqualFold(field, name) {
-			return true
-		}
-	}
-	return false
+	return immichVersion(record["version"]), FieldList(record["fields"])
 }
 
 // 数字、浮点与字符串三种写法都接受，只识别 1，其余按 2 处理。
@@ -147,7 +107,7 @@ func fetchImmichStatistics(ctx context.Context, baseURL, apiKey string, version 
 
 	var storageBytes *float64
 	// 旧版没有独立存储接口，只认统计响应自带的用量
-	if version == 2 && immichFieldAllowed(fields, "storage") && !immichHasStorage(record) {
+	if version == 2 && FieldAllowed(fields, "storage") && !immichHasStorage(record) {
 		if bytes, ok := fetchImmichStorageBytes(ctx, baseURL, apiKey, immichStoragePathV2); ok {
 			storageBytes = &bytes
 		}
@@ -161,20 +121,12 @@ func immichGet(ctx context.Context, baseURL, apiKey, path string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	response, err := Do(ctx, target, RequestOptions{
+	return GetJSON(ctx, target, RequestOptions{
 		Method:         http.MethodGet,
 		Headers:        map[string]string{"X-API-Key": apiKey, "Accept": "application/json"},
 		TimeoutMessage: immichStatsTimeout,
 		NetworkMessage: immichStatsNetwork,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !response.OK() {
-		return nil, NewError(immichStatsFail)
-	}
-	return ReadJSONBody(response, immichStatsBadJSON)
+	}, immichStatsFail, immichStatsBadJSON)
 }
 
 // 存储用量接口的补充取值：逐块累加数字形式的已用量，取不到即返回 false。
@@ -198,7 +150,7 @@ func fetchImmichStorageBytes(ctx context.Context, baseURL, apiKey, path string) 
 			continue
 		}
 		for _, key := range []string{"diskUseRaw", "diskUse", "usage"} {
-			if used, ok := immichNonNegNumber(record[key]); ok {
+			if used, ok := NonNegativeNumber(record[key]); ok {
 				total += used
 				found = true
 				break
@@ -219,7 +171,7 @@ func convertImmichStatistics(record map[string]any, fields []string, storageByte
 	metrics := make([]Metric, 0, 4)
 	parsed := 0
 
-	if immichFieldAllowed(fields, "users") {
+	if FieldAllowed(fields, "users") {
 		if users, ok := immichReadUsers(record); ok {
 			parsed++
 			metrics = append(metrics, Metric{ID: immichUsersMetricID, Label: "用户", Value: int64(users), Status: MetricStatusOK})
@@ -238,10 +190,10 @@ func convertImmichStatistics(record map[string]any, fields []string, storageByte
 		{immichPhotosMetricID, "照片", "photos", []string{"photos", "photoCount", "images"}},
 		{immichVideosMetricID, "视频", "videos", []string{"videos", "videoCount"}},
 	} {
-		if !immichFieldAllowed(fields, def.name) {
+		if !FieldAllowed(fields, def.name) {
 			continue
 		}
-		if count, ok := immichReadCount(record, def.keys); ok {
+		if count, ok := FirstNonNegative(record, def.keys); ok {
 			parsed++
 			metrics = append(metrics, Metric{ID: def.id, Label: def.label, Value: int64(count), Status: MetricStatusOK})
 		} else {
@@ -249,7 +201,7 @@ func convertImmichStatistics(record map[string]any, fields []string, storageByte
 		}
 	}
 
-	if immichFieldAllowed(fields, "storage") {
+	if FieldAllowed(fields, "storage") {
 		bytes, ok := immichReadStorageBytes(record)
 		if !ok && storageBytes != nil {
 			bytes, ok = *storageBytes, true
@@ -280,25 +232,13 @@ func immichReadUsers(record map[string]any) (float64, bool) {
 	if byUser, ok := record["usageByUser"].([]any); ok {
 		return float64(len(byUser)), true
 	}
-	return immichReadCount(record, []string{"users", "userCount"})
-}
-
-// 按别名顺序取第一个可解析的非负数量。
-func immichReadCount(record map[string]any, keys []string) (float64, bool) {
-	for _, key := range keys {
-		if value, ok := immichNonNegNumber(record[key]); ok {
-			return value, true
-		}
-	}
-	return 0, false
+	return FirstNonNegative(record, []string{"users", "userCount"})
 }
 
 // 存储用量依次取 usage、usageRaw、storage、diskUsage；都没有时累加 usageByUser 各项的 usage。
 func immichReadStorageBytes(record map[string]any) (float64, bool) {
-	for _, key := range []string{"usage", "usageRaw", "storage", "diskUsage"} {
-		if value, ok := immichNonNegNumber(record[key]); ok {
-			return value, true
-		}
+	if value, ok := FirstNonNegative(record, []string{"usage", "usageRaw", "storage", "diskUsage"}); ok {
+		return value, true
 	}
 
 	byUser, ok := record["usageByUser"].([]any)
@@ -309,7 +249,7 @@ func immichReadStorageBytes(record map[string]any) (float64, bool) {
 	found := false
 	for _, entry := range byUser {
 		if item, ok := entry.(map[string]any); ok {
-			if usage, ok := immichNonNegNumber(item["usage"]); ok {
+			if usage, ok := NonNegativeNumber(item["usage"]); ok {
 				total += usage
 				found = true
 			}
@@ -318,14 +258,3 @@ func immichReadStorageBytes(record map[string]any) (float64, bool) {
 	return total, found
 }
 
-// 数量类字段可以是数字或数字字符串，负值按 0，无法解析时返回 false。
-func immichNonNegNumber(value any) (float64, bool) {
-	number, ok := CoerceFiniteNumber(value)
-	if !ok {
-		return 0, false
-	}
-	if number < 0 {
-		return 0, true
-	}
-	return number, true
-}

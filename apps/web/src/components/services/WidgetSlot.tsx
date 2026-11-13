@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type JSX,
-} from "react";
+import { useCallback, useEffect, useState, type JSX } from "react";
 
 import type {
   EmbySessionSummary,
@@ -18,12 +12,10 @@ import {
   LoadingStatus,
   UnsupportedStatus,
 } from "@/components/error";
-import { fetchWidget, isApiClientError } from "@/lib/api";
-import {
-  formatPublicError,
-  formatUnknownError,
-} from "@/lib/format-error";
+import { fetchWidget } from "@/lib/api";
+import { resolveErrorMessage } from "@/lib/format-error";
 import { useGroupActive } from "@/hooks/group-active";
+import { usePolledResource } from "@/hooks/use-polled-resource";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -57,26 +49,6 @@ export type WidgetSlotProps = {
   configError?: string | undefined;
   className?: string;
 };
-
-type SlotState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | {
-      status: "success";
-      data: Extract<ServiceWidgetResult, { ok: true }>;
-      fetchedAt: number;
-    };
-
-function resolveErrorMessage(error: unknown): string {
-  if (isApiClientError(error)) {
-    if (error.publicError) {
-      return formatPublicError(error.publicError, messages.error.widget);
-    }
-    const msg = error.message?.trim();
-    return msg && msg.length > 0 ? msg : messages.error.widget;
-  }
-  return formatUnknownError(error, messages.error.widget);
-}
 
 function formatMetricValue(metric: Metric): string {
   const unit =
@@ -116,10 +88,7 @@ function MetricsList({ metrics }: { metrics: readonly Metric[] }): JSX.Element {
   }
   return (
     <ul
-      className={cn(
-        "grid list-none gap-1",
-        metricsGridClass(metrics.length),
-      )}
+      className={cn("grid list-none gap-1", metricsGridClass(metrics.length))}
       data-slot="widget-metrics"
     >
       {metrics.map((metric) => {
@@ -225,6 +194,25 @@ function pollIntervalForType(widgetType: string | undefined): number | null {
   return WIDGET_POLL_INTERVAL_MS;
 }
 
+/**
+ * 适配器业务失败（ok:false）不是异常，但卡片语义上等同失败。
+ * 这里统一抛成 Error，交给 usePolledResource 走失败分支，
+ * 从而获得「轮询失败保留上次数据」的一致行为。
+ */
+async function fetchWidgetOrThrow(
+  widgetId: string,
+  signal: AbortSignal,
+): Promise<Extract<ServiceWidgetResult, { ok: true }>> {
+  const result = await fetchWidget(widgetId, {
+    signal,
+    timeoutMs: WIDGET_FETCH_TIMEOUT_MS,
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+  return result;
+}
+
 export function WidgetSlot({
   widgetId,
   widgetType,
@@ -233,19 +221,7 @@ export function WidgetSlot({
   className,
 }: WidgetSlotProps): JSX.Element | null {
   const groupActive = useGroupActive();
-  const [state, setState] = useState<SlotState>({ status: "loading" });
-  const [reloadToken, setReloadToken] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const abortRef = useRef<AbortController | null>(null);
-  const hasLoadedRef = useRef(false);
-  const pageVisibleRef = useRef(
-    typeof document === "undefined"
-      ? true
-      : document.visibilityState !== "hidden",
-  );
-  const groupActiveRef = useRef(groupActive);
-  const wasGroupActiveRef = useRef(groupActive);
-  groupActiveRef.current = groupActive;
 
   const shouldFetch =
     !unsupported &&
@@ -256,164 +232,45 @@ export function WidgetSlot({
   const pollIntervalMs = pollIntervalForType(widgetType);
 
   const load = useCallback(
-    async (signal: AbortSignal, options?: { silent?: boolean }) => {
+    (signal: AbortSignal) => {
+      // shouldFetch 为 false 时 hook 已停用，这里兜底不可达分支
       if (widgetId === undefined) {
-        return;
+        return Promise.reject(new Error(messages.error.widget));
       }
-      const silent = options?.silent === true;
-      if (!silent || !hasLoadedRef.current) {
-        setState({ status: "loading" });
-      }
-
-      try {
-        const result = await fetchWidget(widgetId, {
-          signal,
-          timeoutMs: WIDGET_FETCH_TIMEOUT_MS,
-        });
-        if (signal.aborted) {
-          return;
-        }
-        if (!result.ok) {
-          // 轮询失败时保留上次成功数据，仅首载/手动重试展示错误
-          if (!hasLoadedRef.current) {
-            setState({ status: "error", message: result.error });
-          }
-          return;
-        }
-        hasLoadedRef.current = true;
-        setState({
-          status: "success",
-          data: result,
-          fetchedAt: Date.now(),
-        });
-      } catch (error) {
-        if (signal.aborted) {
-          return;
-        }
-        if (
-          (error instanceof DOMException && error.name === "AbortError") ||
-          (error instanceof Error && error.name === "AbortError")
-        ) {
-          return;
-        }
-        if (silent && hasLoadedRef.current) {
-          return;
-        }
-        if (!hasLoadedRef.current) {
-          setState({ status: "error", message: resolveErrorMessage(error) });
-        }
-      }
+      return fetchWidgetOrThrow(widgetId, signal);
     },
     [widgetId],
   );
+  const resolveError = useCallback(
+    (error: unknown) => resolveErrorMessage(error, messages.error.widget),
+    [],
+  );
 
+  const { state, retry } = usePolledResource<
+    Extract<ServiceWidgetResult, { ok: true }>
+  >({
+    load,
+    resolveError,
+    fallbackMessage: messages.error.widget,
+    intervalMs: pollIntervalMs,
+    enabled: shouldFetch,
+    paused: !groupActive,
+  });
+
+  // 成功数据陈旧提示需要周期性刷新「最后更新」文案
   useEffect(() => {
-    if (!shouldFetch || widgetId === undefined) {
-      return;
-    }
-    // widgetId 等依赖变化时重置，避免复用实例时 silent 短路导致卡在 loading
-    hasLoadedRef.current = false;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    // 折叠组首次挂载仍拉一次数据，后续轮询由 groupActive 控制
-    void load(controller.signal);
-
-    let pollTimerId: number | null = null;
-    let staleTimerId: number | null = null;
-
-    const isActive = (): boolean =>
-      pageVisibleRef.current && groupActiveRef.current;
-
-    const clearPollTimer = (): void => {
-      if (pollTimerId !== null) {
-        window.clearInterval(pollTimerId);
-        pollTimerId = null;
-      }
-    };
-
-    const tick = (): void => {
-      if (!isActive()) {
-        return;
-      }
-      abortRef.current?.abort();
-      const next = new AbortController();
-      abortRef.current = next;
-      void load(next.signal, { silent: true });
-    };
-
-    const startPollTimer = (): void => {
-      clearPollTimer();
-      if (pollIntervalMs === null) {
-        return;
-      }
-      pollTimerId = window.setInterval(tick, pollIntervalMs);
-    };
-
-    const onVisibility = (): void => {
-      const visible = document.visibilityState !== "hidden";
-      pageVisibleRef.current = visible;
-      if (visible) {
-        if (pollIntervalMs !== null) {
-          // 折叠组不主动拉；timer 仍挂着，展开后由 tick 恢复
-          if (groupActiveRef.current) {
-            tick();
-          }
-          startPollTimer();
-        }
-        if (groupActiveRef.current) {
-          setNowMs(Date.now());
-        }
-      } else {
-        clearPollTimer();
-      }
-    };
-
-    // 即使分组折叠也挂 timer，tick 内按 isActive 短路，避免展开后无轮询
-    if (pageVisibleRef.current && pollIntervalMs !== null) {
-      startPollTimer();
-    }
-
-    // 成功数据陈旧提示需要周期性刷新「最后更新」文案
-    staleTimerId = window.setInterval(() => {
-      if (isActive()) {
-        setNowMs(Date.now());
-      }
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
     }, 15_000);
-
-    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearPollTimer();
-      if (staleTimerId !== null) {
-        window.clearInterval(staleTimerId);
-      }
-      document.removeEventListener("visibilitychange", onVisibility);
-      controller.abort();
-      abortRef.current?.abort();
-      abortRef.current = null;
+      window.clearInterval(timer);
     };
-  }, [shouldFetch, widgetId, reloadToken, pollIntervalMs, load]);
-
-  // 分组从折叠展开时补一次静默刷新（首载由主 effect 负责，避免双请求）
-  useEffect(() => {
-    const wasActive = wasGroupActiveRef.current;
-    wasGroupActiveRef.current = groupActive;
-    if (!shouldFetch || pollIntervalMs === null) {
-      return;
-    }
-    if (!groupActive || wasActive || !pageVisibleRef.current) {
-      return;
-    }
-    abortRef.current?.abort();
-    const next = new AbortController();
-    abortRef.current = next;
-    void load(next.signal, { silent: true });
-  }, [groupActive, shouldFetch, pollIntervalMs, load]);
-
-  const handleRetry = useCallback(() => {
-    abortRef.current?.abort();
-    hasLoadedRef.current = false;
-    setReloadToken((n) => n + 1);
   }, []);
+
+  // 分组展开时的补拉由 hook 的 paused 恢复逻辑负责，此处只驱动陈旧文案时钟
+  useEffect(() => {
+    setNowMs(Date.now());
+  }, [groupActive]);
 
   if (unsupported) {
     return (
@@ -446,7 +303,7 @@ export function WidgetSlot({
   if (state.status === "error") {
     return (
       <div data-slot="widget-slot" data-state="error" className={className}>
-        <ErrorStatus message={state.message} onRetry={handleRetry} />
+        <ErrorStatus message={state.message} onRetry={retry} />
       </div>
     );
   }

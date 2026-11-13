@@ -1,6 +1,7 @@
 import {
   useId,
   useRef,
+  useEffect,
   useState,
   type ChangeEvent,
   type JSX,
@@ -91,10 +92,17 @@ export function ImageAssetField({
   const id = idProp ?? autoId;
   const fileInputId = `${id}-file`;
   const fileRef = useRef<HTMLInputElement>(null);
+  // 上传、站点图标获取与导入共用：新动作废弃旧请求，卸载时一并中止
+  const abortRef = useRef<AbortController | null>(null);
   const [uploading, setUploading] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 组件卸载时中止在途请求，避免卸载后 setState
+  useEffect(() => () => {
+    abortRef.current?.abort();
+  }, []);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -130,19 +138,25 @@ export function ImageAssetField({
     e.target.value = "";
     if (!file) return;
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setUploading(true);
     setError(null);
     setPreviewFailed(false);
     try {
-      const result = await uploadAsset(file);
+      const result = await uploadAsset(file, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       onChange(result.path);
     } catch (err) {
+      if (controller.signal.aborted) return;
       const message = isApiClientError(err)
         ? err.message
         : "上传失败，请稍后重试";
       setError(message);
     } finally {
-      setUploading(false);
+      if (!controller.signal.aborted) setUploading(false);
     }
   };
 
@@ -161,22 +175,30 @@ export function ImageAssetField({
       return;
     }
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setResolving(true);
     setError(null);
     setPickerError(null);
     try {
-      const result = await resolveSiteIcons(source);
+      const result = await resolveSiteIcons(source, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       setSessionId(result.sessionId);
       setCandidates(result.candidates);
       setResolvedSource(result.sourceUrl);
       setPickerOpen(true);
     } catch (err) {
+      if (controller.signal.aborted) return;
       const message = isApiClientError(err)
         ? err.message
         : "获取站点图标失败，请稍后重试";
       setError(message);
     } finally {
-      setResolving(false);
+      if (!controller.signal.aborted) setResolving(false);
     }
   };
 
@@ -202,10 +224,18 @@ export function ImageAssetField({
       setPickerError("会话已失效，请重新获取");
       return;
     }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setImporting(true);
     setPickerError(null);
     try {
-      const result = await importSiteIcon({ sessionId, candidateId });
+      const result = await importSiteIcon(
+        { sessionId, candidateId },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
       onChange(result.path);
       setPreviewFailed(false);
       setError(null);
@@ -213,12 +243,13 @@ export function ImageAssetField({
       setCandidates([]);
       setSessionId(null);
     } catch (err) {
+      if (controller.signal.aborted) return;
       const message = isApiClientError(err)
         ? err.message
         : "导入图标失败，请重新获取";
       setPickerError(message);
     } finally {
-      setImporting(false);
+      if (!controller.signal.aborted) setImporting(false);
     }
   };
 

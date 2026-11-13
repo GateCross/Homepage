@@ -1,9 +1,7 @@
 import {
   useCallback,
-  useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
   type JSX,
 } from "react";
@@ -25,15 +23,10 @@ import type {
 } from "@/lib/contracts";
 
 import { ErrorStatus, LoadingStatus } from "@/components/error";
-import {
-  fetchInfo,
-  isApiClientError,
-} from "@/lib/api";
+import { fetchInfo } from "@/lib/api";
 import { chinaAqiInfo, chinaAqiTextClass } from "@/lib/aqi";
-import {
-  formatPublicError,
-  formatUnknownError,
-} from "@/lib/format-error";
+import { usePolledResource } from "@/hooks/use-polled-resource";
+import { resolveErrorMessage } from "@/lib/format-error";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { formatWindLabel } from "@/lib/wind";
@@ -50,11 +43,6 @@ export type OpenMeteoWidgetProps = {
   infoId: string;
   className?: string;
 };
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "success"; data: OpenMeteoInfoResponse };
 
 /** 小米天气状况码 → 中文 */
 export function weatherCodeToConditionText(code: number): string {
@@ -378,17 +366,6 @@ function formatClockHm(iso: string | undefined): string | null {
   }
 }
 
-function resolveErrorMessage(error: unknown): string {
-  if (isApiClientError(error)) {
-    if (error.publicError) {
-      return formatPublicError(error.publicError, messages.error.info);
-    }
-    const msg = error.message?.trim();
-    return msg && msg.length > 0 ? msg : messages.error.info;
-  }
-  return formatUnknownError(error, messages.error.info);
-}
-
 function resolveConditionText(data: OpenMeteoInfoResponse): string {
   const text = data.conditionText?.trim();
   if (text && text.length > 0) {
@@ -607,90 +584,30 @@ export function OpenMeteoWidget({
   infoId,
   className,
 }: OpenMeteoWidgetProps): JSX.Element {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [reloadToken, setReloadToken] = useState(0);
   const [forecastMode, setForecastMode] = useState<ForecastMode>("hourly");
-  const abortRef = useRef<AbortController | null>(null);
-  const hasSuccessRef = useRef(false);
   const forecastHeadingId = useId();
 
-  const load = useCallback(
-    async (signal: AbortSignal, options?: { silent?: boolean }) => {
-      const silent = options?.silent === true;
-      if (!silent || !hasSuccessRef.current) {
-        setState({ status: "loading" });
-      }
+  const load = useCallback(async (signal: AbortSignal) => {
+    const body = await fetchInfo(infoId, { signal });
+    const data = asOpenMeteoInfo(body);
+    if (data === null) {
+      // 解析失败按错误处理，交由 hook 决定是否保留上一次成功数据
+      throw new Error(messages.error.invalidResponse);
+    }
+    return data;
+  }, [infoId]);
 
-      try {
-        const body = await fetchInfo(infoId, { signal });
-        if (signal.aborted) {
-          return;
-        }
-
-        const data = asOpenMeteoInfo(body);
-        if (data === null) {
-          // 静默刷新解析失败：保留上次成功数据，避免卡片闪错
-          if (silent && hasSuccessRef.current) {
-            return;
-          }
-          hasSuccessRef.current = false;
-          setState({
-            status: "error",
-            message: messages.error.invalidResponse,
-          });
-          return;
-        }
-
-        hasSuccessRef.current = true;
-        setState({ status: "success", data });
-      } catch (error) {
-        if (signal.aborted) {
-          return;
-        }
-        if (
-          (error instanceof DOMException && error.name === "AbortError") ||
-          (error instanceof Error && error.name === "AbortError")
-        ) {
-          return;
-        }
-        if (silent && hasSuccessRef.current) {
-          return;
-        }
-        hasSuccessRef.current = false;
-        setState({
-          status: "error",
-          message: resolveErrorMessage(error),
-        });
-      }
-    },
-    [infoId],
+  const resolveError = useCallback(
+    (error: unknown) => resolveErrorMessage(error, messages.error.info),
+    [],
   );
 
-  useEffect(() => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-    void load(controller.signal);
-
-    const timerId = window.setInterval(() => {
-      abortRef.current?.abort();
-      const next = new AbortController();
-      abortRef.current = next;
-      void load(next.signal, { silent: true });
-    }, OPEN_METEO_REVALIDATE_MS);
-
-    return () => {
-      window.clearInterval(timerId);
-      controller.abort();
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-  }, [load, reloadToken]);
-
-  const handleRetry = useCallback(() => {
-    abortRef.current?.abort();
-    hasSuccessRef.current = false;
-    setReloadToken((n) => n + 1);
-  }, []);
+  const { state, retry } = usePolledResource<OpenMeteoInfoResponse>({
+    load,
+    resolveError,
+    fallbackMessage: messages.error.info,
+    intervalMs: OPEN_METEO_REVALIDATE_MS,
+  });
 
   const hourlyItems = useMemo(() => {
     if (state.status !== "success") {
@@ -853,7 +770,7 @@ export function OpenMeteoWidget({
         data-state="error"
         className={cn("min-h-0 p-3", className)}
       >
-        <ErrorStatus message={state.message} onRetry={handleRetry} />
+        <ErrorStatus message={state.message} onRetry={retry} />
       </div>
     );
   }

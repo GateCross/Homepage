@@ -1,6 +1,22 @@
 import type { PublicError } from "@/lib/contracts";
 
+import { isApiClientError } from "./api/errors";
 import { messages } from "./messages";
+
+/**
+ * 把任意错误收敛成一句可展示的中文。带 publicError 时优先用它拼出定位信息，
+ * fallback 是该场景的固定兜底文案。
+ */
+export function resolveErrorMessage(error: unknown, fallback: string): string {
+  if (isApiClientError(error)) {
+    if (error.publicError) {
+      return formatPublicError(error.publicError, fallback);
+    }
+    const msg = error.message?.trim();
+    return msg && msg.length > 0 ? msg : fallback;
+  }
+  return formatUnknownError(error, fallback);
+}
 
 export function formatPublicError(
   error: PublicError | null | undefined,

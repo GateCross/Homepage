@@ -189,12 +189,13 @@ export function validateEditableDraft(draft: ClientDraft): FieldErrors | null {
           false,
         );
       }
+      // 组件 url 可选：与后端 payload.go 的 stringField("url", false) 一致
       if (item.widget?.url) {
         requireHttpUrl(
           item.widget.url,
           `services.${gi}.items.${ii}.widget.url`,
           errors,
-          true,
+          false,
         );
       }
     }

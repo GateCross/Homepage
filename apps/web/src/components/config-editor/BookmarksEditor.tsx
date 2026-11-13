@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  groupHasItemErrors,
+  itemHasErrors,
+  summarizeHref,
+} from "@/lib/editor-paths";
 
 export type BookmarksEditorProps = {
   value: EditableBookmarkGroup[];
@@ -47,16 +52,6 @@ function cloneItem(item: EditableBookmarkItem): EditableBookmarkItem {
   return structuredClone(item);
 }
 
-function summarizeHref(href: string | undefined): string | null {
-  if (!href?.trim()) return null;
-  try {
-    const u = new URL(href);
-    return u.host || href;
-  } catch {
-    return href.length > 36 ? `${href.slice(0, 36)}…` : href;
-  }
-}
-
 function bookmarkKeywords(item: EditableBookmarkItem): string[] {
   const tags: string[] = [];
   const host = summarizeHref(item.href);
@@ -64,27 +59,6 @@ function bookmarkKeywords(item: EditableBookmarkItem): string[] {
   if (item.abbr?.trim()) tags.push(item.abbr.trim());
   if (item.description?.trim()) tags.push(item.description.trim());
   return tags;
-}
-
-function groupHasItemErrors(
-  errors: Record<string, string> | undefined,
-  gi: number,
-): boolean {
-  if (!errors) return false;
-  const prefix = `bookmarks.${gi}.`;
-  return Object.keys(errors).some(
-    (k) => k.startsWith(prefix) && k !== `bookmarks.${gi}.name`,
-  );
-}
-
-function itemHasErrors(
-  errors: Record<string, string> | undefined,
-  gi: number,
-  ii: number,
-): boolean {
-  if (!errors) return false;
-  const prefix = `bookmarks.${gi}.items.${ii}.`;
-  return Object.keys(errors).some((k) => k.startsWith(prefix));
 }
 
 function BookmarkItemForm({
@@ -223,7 +197,7 @@ function BookmarkGroupBlock({
       countLabel={`${group.items.length} 项`}
       hasError={
         Boolean(errors?.[`bookmarks.${gi}.name`]) ||
-        groupHasItemErrors(errors, gi)
+        groupHasItemErrors(errors, "bookmarks", gi)
       }
       errorText={errors?.[`bookmarks.${gi}.name`]}
       disabled={disabled}
@@ -252,7 +226,7 @@ function BookmarkGroupBlock({
           }
           title={item.name || "未命名书签"}
           tags={bookmarkKeywords(item)}
-          hasError={itemHasErrors(errors, gi, ii)}
+          hasError={itemHasErrors(errors, "bookmarks", gi, ii)}
           disabled={disabled}
           dragHandleProps={itemDrag.getHandleProps(ii)}
           rowProps={itemDrag.getRowProps(ii)}

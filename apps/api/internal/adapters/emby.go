@@ -79,7 +79,7 @@ func parseEmbyOptions(options any) embyWidgetOptions {
 	opts.enableNowPlaying = embyBoolOption(record["enableNowPlaying"], true)
 	opts.enableUser = embyBoolOption(record["enableUser"], false)
 	opts.showEpisodeNumber = embyBoolOption(record["showEpisodeNumber"], false)
-	opts.fields = embyFieldList(record["fields"])
+	opts.fields = FieldList(record["fields"])
 	return opts
 }
 
@@ -89,33 +89,6 @@ func embyBoolOption(value any, fallback bool) bool {
 		return flag
 	}
 	return fallback
-}
-
-// 展示字段只认非空字符串并统一小写；非字符串项直接丢弃。空列表表示不限字段。
-func embyFieldList(value any) []string {
-	switch typed := value.(type) {
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if field := strings.ToLower(strings.TrimSpace(item)); field != "" {
-				out = append(out, field)
-			}
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			text, ok := item.(string)
-			if !ok {
-				continue
-			}
-			if field := strings.ToLower(strings.TrimSpace(text)); field != "" {
-				out = append(out, field)
-			}
-		}
-		return out
-	}
-	return nil
 }
 
 // 密钥取 key，其次 token；去空白后为空即视为未配置。
@@ -232,20 +205,12 @@ func embyGet(ctx context.Context, baseURL, apiKey string, endpoint embyEndpoint)
 	if err != nil {
 		return nil, err
 	}
-
-	response, err := Do(ctx, target, RequestOptions{
+	return GetJSON(ctx, target, RequestOptions{
 		Method:         http.MethodGet,
 		Headers:        map[string]string{"X-Emby-Token": apiKey, "Accept": "application/json"},
 		TimeoutMessage: endpoint.timeout,
 		NetworkMessage: endpoint.network,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !response.OK() {
-		return nil, NewError(endpoint.fail)
-	}
-	return ReadJSONBody(response, endpoint.invalid)
+	}, endpoint.fail, endpoint.invalid)
 }
 
 // 只统计 NowPlayingItem 为对象的会话；总数取过滤后的条数，摘要不超过五条。
@@ -298,16 +263,10 @@ func convertEmbyCounts(payload any, fields []string) ([]Metric, error) {
 
 	metrics := make([]Metric, 0, len(embyCountFields))
 	for _, def := range embyCountFields {
-		if !embyFieldAllowed(fields, def.name) {
+		if !FieldAllowed(fields, def.name) {
 			continue
 		}
-		count := 0.0
-		for _, key := range def.keys {
-			if value, ok := embyNonNegNumber(record[key]); ok {
-				count = value
-				break
-			}
-		}
+		count, _ := FirstNonNegative(record, def.keys)
 		metrics = append(metrics, Metric{
 			ID:     def.id,
 			Label:  def.label,
@@ -319,19 +278,6 @@ func convertEmbyCounts(payload any, fields []string) ([]Metric, error) {
 		return nil, NewError(embyCountsBadFields)
 	}
 	return metrics, nil
-}
-
-// 白名单为空表示不限字段，否则只放行列举项。
-func embyFieldAllowed(fields []string, name string) bool {
-	if len(fields) == 0 {
-		return true
-	}
-	for _, field := range fields {
-		if strings.EqualFold(field, name) {
-			return true
-		}
-	}
-	return false
 }
 
 // 只有 NowPlayingItem 是对象的条目才算正在播放。
@@ -422,18 +368,18 @@ func embyTwoDigits(value float64) string {
 
 // 进度按播放位置与时长换算成 0–100，缺时长时退到当前节目时长；分母不为正即判缺失。
 func embyProgress(playState, nowPlaying map[string]any) (float64, bool) {
-	position, ok := embyNonNegNumber(playState["PositionTicks"])
+	position, ok := NonNegativeNumber(playState["PositionTicks"])
 	if !ok {
 		return 0, false
 	}
 
-	runtime, ok := embyNonNegNumber(nowPlaying["RunTimeTicks"])
+	runtime, ok := NonNegativeNumber(nowPlaying["RunTimeTicks"])
 	if !ok || runtime == 0 {
 		program, isObject := nowPlaying["CurrentProgram"].(map[string]any)
 		if !isObject {
 			return 0, false
 		}
-		if runtime, ok = embyNonNegNumber(program["RunTimeTicks"]); !ok {
+		if runtime, ok = NonNegativeNumber(program["RunTimeTicks"]); !ok {
 			return 0, false
 		}
 	}
@@ -462,14 +408,3 @@ func embyFirstText(values ...any) string {
 	return ""
 }
 
-// 数量类字段可以是数字或数字字符串，负值按 0，无法解析时返回 false。
-func embyNonNegNumber(value any) (float64, bool) {
-	number, ok := CoerceFiniteNumber(value)
-	if !ok {
-		return 0, false
-	}
-	if number < 0 {
-		return 0, true
-	}
-	return number, true
-}

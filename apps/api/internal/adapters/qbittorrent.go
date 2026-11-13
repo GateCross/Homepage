@@ -236,27 +236,15 @@ func parseQbittorrentRates(payload any) (float64, float64, error) {
 		return 0, 0, NewError(qbittorrentTransferBadFields)
 	}
 
-	download, ok := qbittorrentRate(object["dl_info_speed"])
+	download, ok := NonNegativeNumber(object["dl_info_speed"])
 	if !ok {
 		return 0, 0, NewError(qbittorrentTransferBadFields)
 	}
-	upload, ok := qbittorrentRate(object["up_info_speed"])
+	upload, ok := NonNegativeNumber(object["up_info_speed"])
 	if !ok {
 		return 0, 0, NewError(qbittorrentTransferBadFields)
 	}
 	return download, upload, nil
-}
-
-// 速率可以是数字或数字字符串，负值按 0，无法解析时返回 false。
-func qbittorrentRate(value any) (float64, bool) {
-	rate, ok := CoerceFiniteNumber(value)
-	if !ok {
-		return 0, false
-	}
-	if rate < 0 {
-		return 0, true
-	}
-	return rate, true
 }
 
 // 401/403 视为登录态失效，需要重登。
@@ -271,15 +259,7 @@ func buildQbittorrentMetrics(snapshot qbittorrentSnapshot) []Metric {
 	return []Metric{
 		{ID: qbittorrentDownloadMetricID, Label: "下载", Value: download.Value, Unit: download.Unit, Status: MetricStatusOK},
 		{ID: qbittorrentUploadMetricID, Label: "上传", Value: upload.Value, Unit: upload.Unit, Status: MetricStatusOK},
-		qbittorrentCountMetric(qbittorrentDownloadingMetricID, "下载中", snapshot.downloading),
-		qbittorrentCountMetric(qbittorrentSeedingMetricID, "做种中", snapshot.seeding),
+		CountMetric(qbittorrentDownloadingMetricID, "下载中", snapshot.downloading),
+		CountMetric(qbittorrentSeedingMetricID, "做种中", snapshot.seeding),
 	}
-}
-
-// 数量指标：nil 表示取不到，其余按整数输出。
-func qbittorrentCountMetric(id, label string, count *int) Metric {
-	if count == nil {
-		return Metric{ID: id, Label: label, Value: "—", Status: MetricStatusUnavailable}
-	}
-	return Metric{ID: id, Label: label, Value: *count, Status: MetricStatusOK}
 }

@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type JSX,
-} from "react";
+import { useCallback, type JSX } from "react";
 
 import type {
   ResourceItem,
@@ -12,11 +6,10 @@ import type {
 } from "@/lib/contracts";
 
 import { ErrorStatus, LoadingStatus } from "@/components/error";
-import { fetchInfo, isApiClientError } from "@/lib/api";
-import {
-  formatPublicError,
-  formatUnknownError,
-} from "@/lib/format-error";
+import { usePolledResource } from "@/hooks/use-polled-resource";
+import { fetchInfo } from "@/lib/api";
+import { resolveErrorMessage } from "@/lib/format-error";
+import { formatBytes, formatPercent, usageBarClass, usageToneClass } from "@/lib/format";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -26,22 +19,6 @@ export type ResourcesWidgetProps = {
   infoId: string;
   className?: string;
 };
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "success"; data: ResourcesInfoResponse };
-
-function resolveErrorMessage(error: unknown): string {
-  if (isApiClientError(error)) {
-    if (error.publicError) {
-      return formatPublicError(error.publicError, messages.error.info);
-    }
-    const msg = error.message?.trim();
-    return msg && msg.length > 0 ? msg : messages.error.info;
-  }
-  return formatUnknownError(error, messages.error.info);
-}
 
 export function asResourcesInfo(body: unknown): ResourcesInfoResponse | null {
   if (body === null || typeof body !== "object") {
@@ -111,32 +88,6 @@ export function asResourcesInfo(body: unknown): ResourcesInfoResponse | null {
   return { items };
 }
 
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "—";
-  }
-  const rounded = Math.round(value * 10) / 10;
-  if (Number.isInteger(rounded) || Math.abs(rounded % 1) < 1e-9) {
-    return `${Math.trunc(rounded)}%`;
-  }
-  return `${rounded.toFixed(1)}%`;
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) {
-    return "—";
-  }
-  const units = ["B", "KB", "MB", "GB", "TB"] as const;
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const digits = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(digits)} ${units[unitIndex]}`;
-}
-
 function formatUsageDetail(
   usedBytes: number | undefined,
   totalBytes: number | undefined,
@@ -196,18 +147,6 @@ function formatResourceLabel(
 }
 
 // 用量条与数值文案走全局状态令牌，明暗适配由令牌自身承担
-function barClass(percent: number): string {
-  if (percent >= 90) return "bg-status-danger";
-  if (percent >= 75) return "bg-status-warning";
-  return "bg-status-online";
-}
-
-function valueClass(percent: number): string {
-  if (percent >= 90) return "text-status-danger";
-  if (percent >= 75) return "text-status-warning";
-  return "text-foreground/85";
-}
-
 function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
   const { text: labelText, title: labelTitle } = formatResourceLabel(
     item.label,
@@ -272,7 +211,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         <span
           className={cn(
             "shrink-0 text-[11px] font-semibold tabular-nums leading-none",
-            valueClass(percent),
+            usageToneClass(percent),
           )}
         >
           {formatPercent(percent)}
@@ -289,7 +228,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         <div
           className={cn(
             "h-full rounded-full transition-[width] duration-500 ease-out",
-            barClass(percent),
+            usageBarClass(percent),
           )}
           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
         />
@@ -302,127 +241,27 @@ export function ResourcesWidget({
   infoId,
   className,
 }: ResourcesWidgetProps): JSX.Element {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [reloadToken, setReloadToken] = useState(0);
-  const abortRef = useRef<AbortController | null>(null);
-  const hasSuccessRef = useRef(false);
-  const visibleRef = useRef(
-    typeof document === "undefined"
-      ? true
-      : document.visibilityState !== "hidden",
-  );
-
-  const load = useCallback(
-    async (signal: AbortSignal, options?: { silent?: boolean }) => {
-      const silent = options?.silent === true;
-      if (!silent || !hasSuccessRef.current) {
-        setState({ status: "loading" });
-      }
-
-      try {
-        const body = await fetchInfo(infoId, { signal });
-        if (signal.aborted) {
-          return;
-        }
-        const data = asResourcesInfo(body);
-        if (data === null) {
-          // 静默刷新解析失败：保留上次成功数据，避免卡片闪错
-          if (silent && hasSuccessRef.current) {
-            return;
-          }
-          hasSuccessRef.current = false;
-          setState({
-            status: "error",
-            message: messages.error.invalidResponse,
-          });
-          return;
-        }
-        hasSuccessRef.current = true;
-        setState({ status: "success", data });
-      } catch (error) {
-        if (signal.aborted) {
-          return;
-        }
-        if (
-          (error instanceof DOMException && error.name === "AbortError") ||
-          (error instanceof Error && error.name === "AbortError")
-        ) {
-          return;
-        }
-        if (silent && hasSuccessRef.current) {
-          return;
-        }
-        hasSuccessRef.current = false;
-        setState({
-          status: "error",
-          message: resolveErrorMessage(error),
-        });
-      }
-    },
-    [infoId],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-    void load(controller.signal);
-
-    let timerId: number | null = null;
-
-    const clearTimer = (): void => {
-      if (timerId !== null) {
-        window.clearInterval(timerId);
-        timerId = null;
-      }
-    };
-
-    const startTimer = (): void => {
-      clearTimer();
-      timerId = window.setInterval(() => {
-        if (!visibleRef.current) {
-          return;
-        }
-        abortRef.current?.abort();
-        const next = new AbortController();
-        abortRef.current = next;
-        void load(next.signal, { silent: true });
-      }, RESOURCES_POLL_INTERVAL_MS);
-    };
-
-    const onVisibility = (): void => {
-      const visible = document.visibilityState !== "hidden";
-      visibleRef.current = visible;
-      if (visible) {
-        abortRef.current?.abort();
-        const next = new AbortController();
-        abortRef.current = next;
-        void load(next.signal, { silent: true });
-        startTimer();
-      } else {
-        clearTimer();
-      }
-    };
-
-    if (visibleRef.current) {
-      startTimer();
+  const load = useCallback(async (signal: AbortSignal) => {
+    const body = await fetchInfo(infoId, { signal });
+    const data = asResourcesInfo(body);
+    if (data === null) {
+      // 解析失败按错误处理，交由 hook 决定是否保留上一次成功数据
+      throw new Error(messages.error.invalidResponse);
     }
+    return data;
+  }, [infoId]);
 
-    document.addEventListener("visibilitychange", onVisibility);
+  const resolveError = useCallback(
+    (error: unknown) => resolveErrorMessage(error, messages.error.info),
+    [],
+  );
 
-    return () => {
-      clearTimer();
-      document.removeEventListener("visibilitychange", onVisibility);
-      controller.abort();
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-  }, [load, reloadToken]);
-
-  const handleRetry = useCallback(() => {
-    abortRef.current?.abort();
-    hasSuccessRef.current = false;
-    setReloadToken((n) => n + 1);
-  }, []);
+  const { state, retry } = usePolledResource<ResourcesInfoResponse>({
+    load,
+    resolveError,
+    fallbackMessage: messages.error.info,
+    intervalMs: RESOURCES_POLL_INTERVAL_MS,
+  });
 
   if (state.status === "loading") {
     return (
@@ -443,7 +282,7 @@ export function ResourcesWidget({
         data-state="error"
         className={cn("min-h-0 p-3", className)}
       >
-        <ErrorStatus message={state.message} onRetry={handleRetry} />
+        <ErrorStatus message={state.message} onRetry={retry} />
       </div>
     );
   }

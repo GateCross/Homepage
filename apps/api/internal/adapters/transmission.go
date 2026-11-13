@@ -197,11 +197,11 @@ func parseTransmissionSessionStats(payload any) (float64, float64, error) {
 		return 0, 0, NewError(transmissionRPCBadFields)
 	}
 
-	download, ok := transmissionNonNegNumber(args["downloadSpeed"])
+	download, ok := NonNegativeNumber(args["downloadSpeed"])
 	if !ok {
 		return 0, 0, NewError(transmissionRPCBadFields)
 	}
-	upload, ok := transmissionNonNegNumber(args["uploadSpeed"])
+	upload, ok := NonNegativeNumber(args["uploadSpeed"])
 	if !ok {
 		return 0, 0, NewError(transmissionRPCBadFields)
 	}
@@ -227,7 +227,7 @@ func countTransmissionTorrents(payload any) (int, int, bool) {
 		if !ok {
 			continue
 		}
-		status, ok := transmissionNonNegNumber(object["status"])
+		status, ok := NonNegativeNumber(object["status"])
 		if !ok {
 			continue
 		}
@@ -254,16 +254,6 @@ func transmissionRPCArguments(payload any) (map[string]any, bool) {
 }
 
 // 状态码与速率既可能是数字也可能是数字字符串；负值按 0，无法解析时返回 false。
-func transmissionNonNegNumber(value any) (float64, bool) {
-	number, ok := CoerceFiniteNumber(value)
-	if !ok {
-		return 0, false
-	}
-	if number < 0 {
-		return 0, true
-	}
-	return number, true
-}
 
 // 组装四项指标；数量取不到时以占位符与不可用状态呈现，不伪造 0。
 func buildTransmissionMetrics(snapshot transmissionSnapshot) []Metric {
@@ -272,15 +262,7 @@ func buildTransmissionMetrics(snapshot transmissionSnapshot) []Metric {
 	return []Metric{
 		{ID: transmissionDownloadMetricID, Label: "下载", Value: download.Value, Unit: download.Unit, Status: MetricStatusOK},
 		{ID: transmissionUploadMetricID, Label: "上传", Value: upload.Value, Unit: upload.Unit, Status: MetricStatusOK},
-		transmissionCountMetric(transmissionDownloadingMetricID, "下载中", snapshot.downloading),
-		transmissionCountMetric(transmissionSeedingMetricID, "做种中", snapshot.seeding),
+		CountMetric(transmissionDownloadingMetricID, "下载中", snapshot.downloading),
+		CountMetric(transmissionSeedingMetricID, "做种中", snapshot.seeding),
 	}
-}
-
-// 数量指标：nil 表示取不到，其余按整数输出。
-func transmissionCountMetric(id, label string, count *int) Metric {
-	if count == nil {
-		return Metric{ID: id, Label: label, Value: "—", Status: MetricStatusUnavailable}
-	}
-	return Metric{ID: id, Label: label, Value: *count, Status: MetricStatusOK}
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/gatecross/homepage/api/internal/httpapi"
 )
@@ -80,7 +79,7 @@ func (h *Handler) ServeConfig(w http.ResponseWriter, _ *http.Request) {
 		httpapi.Internal(configLeakMessage).Write(w)
 		return
 	}
-	writeJSONBytes(w, payload)
+	httpapi.WriteJSONBytes(w, http.StatusOK, payload)
 }
 
 // 输出可编辑视图；投影失败按配置无效处理，命中密钥同样不下发。
@@ -107,7 +106,7 @@ func (h *Handler) ServeEditable(w http.ResponseWriter, _ *http.Request) {
 		httpapi.Internal(configLeakMessage).Write(w)
 		return
 	}
-	writeJSONBytes(w, payload)
+	httpapi.WriteJSONBytes(w, http.StatusOK, payload)
 }
 
 // 当前快照；未注入 Store 时返回空快照，读取方无需判空。
@@ -148,16 +147,6 @@ func httpapiErrorFor(configErr *EditableConfigError) *httpapi.Error {
 		apiErr = apiErr.WithPath(configErr.Path)
 	}
 	return apiErr
-}
-
-// 输出已序列化的 JSON；缓存头与错误信封保持同一套约定。
-func writeJSONBytes(w http.ResponseWriter, payload []byte) {
-	header := w.Header()
-	header.Set("Content-Type", httpapi.JSONContentType)
-	header.Set("Cache-Control", "no-store")
-	header.Set("Content-Length", strconv.Itoa(len(payload)))
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(payload)
 }
 
 // 未预期的内部失败统一回落到固定文案，不暴露细节。

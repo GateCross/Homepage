@@ -8,14 +8,16 @@ export default tseslint.config(
       "**/dist/**",
       // 前端产物同步进嵌入目录后是构建输出，不参与 lint
       "apps/api/internal/httpx/webdist/**",
-      // 本地设计草稿，不入库
-      "docs/demos/**",
+      // 本地草稿目录，不入库；ESLint 不读 .gitignore，须显式排除
+      ".scratch/**",
       "**/build/**",
       "**/coverage/**",
       "**/node_modules/**",
       "**/*.tsbuildinfo",
+      // 测试与测试配置不参与 lint
       "**/*.test.ts",
-      "vitest.config.ts",
+      "**/*.test.tsx",
+      "**/vitest.config.ts",
     ],
   },
   js.configs.recommended,
