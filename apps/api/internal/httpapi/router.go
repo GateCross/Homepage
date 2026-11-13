@@ -17,6 +17,8 @@ type Mounts struct {
 	Assets http.Handler
 	// Icons 处理 /api/icons/resolve 与 /api/icons/import
 	Icons http.Handler
+	// Iconify 处理 /api/icons/iconify/{prefix}/{name} 的 CDN 代理
+	Iconify http.Handler
 	// Data 处理 /api/probe/:probeId、/api/widgets/:widgetId 与 /api/info/:infoId
 	Data http.Handler
 }
@@ -64,6 +66,10 @@ func registerAPI(mux *http.ServeMux, mounts Mounts) {
 	if mounts.Icons != nil {
 		mux.Handle("POST /api/icons/resolve", mounts.Icons)
 		mux.Handle("POST /api/icons/import", mounts.Icons)
+	}
+	if mounts.Iconify != nil {
+		// Iconify 代理：前端 mdi-* / si-* 图标经本站转发，浏览器不直连 CDN
+		mux.Handle("GET /api/icons/iconify/{prefix}/{name}", mounts.Iconify)
 	}
 	if mounts.Data != nil {
 		mux.Handle("GET /api/probe/{probeId}", mounts.Data)

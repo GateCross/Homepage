@@ -1,6 +1,9 @@
 import type { JSX } from "react";
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
-import { parseThemeMode, type ThemeMode } from "@homepage/domain";
+import {
+  parseThemeMode,
+  type ThemeMode,
+} from "@/lib/pure";
 
 import { Button } from "@/components/ui/button";
 import {

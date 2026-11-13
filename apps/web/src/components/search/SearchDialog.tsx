@@ -7,15 +7,17 @@ import {
   type JSX,
 } from "react";
 
+import type {
+  BookmarkGroupItem,
+  NormalizedBookmark,
+  NormalizedConfig,
+  NormalizedService,
+  ServiceGroupItem,
+} from "@/lib/contracts";
 import {
   matchSearch,
-  type BookmarkGroupItem,
-  type NormalizedBookmark,
-  type NormalizedConfig,
-  type NormalizedService,
   type SearchableItem,
-  type ServiceGroupItem,
-} from "@homepage/domain";
+} from "@/lib/pure";
 
 import {
   Command,

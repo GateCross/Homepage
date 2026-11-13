@@ -1,8 +1,8 @@
-import {
-  BOOKMARK_MIN_ITEM_WIDTH_PX,
-  type BookmarkGroupItem,
-  type NormalizedConfig,
-} from "@homepage/domain";
+import type {
+  BookmarkGroupItem,
+  NormalizedConfig,
+} from "@/lib/contracts";
+import { BOOKMARK_MIN_ITEM_WIDTH_PX } from "@/lib/pure";
 import type { JSX } from "react";
 
 import { BookmarkItem } from "@/components/bookmarks/BookmarkItem";

@@ -1,8 +1,8 @@
-import {
-  SERVICE_MIN_ITEM_WIDTH_PX,
-  type NormalizedConfig,
-  type ServiceGroupItem,
-} from "@homepage/domain";
+import type {
+  NormalizedConfig,
+  ServiceGroupItem,
+} from "@/lib/contracts";
+import { SERVICE_MIN_ITEM_WIDTH_PX } from "@/lib/pure";
 import type { JSX } from "react";
 
 import { EmptyStatus } from "@/components/error";

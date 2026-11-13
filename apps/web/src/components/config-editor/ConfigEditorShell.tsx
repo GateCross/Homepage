@@ -6,7 +6,7 @@ import {
   type JSX,
 } from "react";
 
-import type { EditableConfigWrite } from "@homepage/domain";
+import type { EditableConfigWrite } from "@/lib/contracts";
 
 import { BookmarksEditor } from "@/components/config-editor/BookmarksEditor";
 import {

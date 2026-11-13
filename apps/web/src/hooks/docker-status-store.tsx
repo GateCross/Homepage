@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type { DockerStatusResponse } from "@homepage/domain";
+import type { DockerStatusResponse } from "@/lib/contracts";
 
 import { fetchDockerBatch, isApiClientError } from "@/lib/api";
 import {
@@ -20,9 +20,9 @@ import {
 import { messages } from "@/lib/messages";
 
 /** 批量 Docker 状态轮询间隔（两阶段：轻量状态 + 含 stats 指标） */
-export const DOCKER_BATCH_POLL_INTERVAL_MS = 15_000;
+const DOCKER_BATCH_POLL_INTERVAL_MS = 15_000;
 
-export function dockerTargetKey(server: string, container: string): string {
+function dockerTargetKey(server: string, container: string): string {
   return `${server}\0${container}`;
 }
 
@@ -338,14 +338,6 @@ export function DockerStatusProvider({
       {children}
     </DockerStatusContext.Provider>
   );
-}
-
-export function useDockerStatusStore(): DockerStatusStoreValue {
-  const ctx = useContext(DockerStatusContext);
-  if (ctx === null) {
-    throw new Error("useDockerStatusStore 必须在 DockerStatusProvider 内使用");
-  }
-  return ctx;
 }
 
 /** 无 Provider 时返回 null（供 DockerSlot 降级） */

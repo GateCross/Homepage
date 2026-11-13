@@ -6,7 +6,10 @@ import {
   type JSX,
 } from "react";
 
-import type { ResourceItem, ResourcesInfoResponse } from "@homepage/domain";
+import type {
+  ResourceItem,
+  ResourcesInfoResponse,
+} from "@/lib/contracts";
 
 import { ErrorStatus, LoadingStatus } from "@/components/error";
 import { fetchInfo, isApiClientError } from "@/lib/api";

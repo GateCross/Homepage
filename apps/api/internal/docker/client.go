@@ -250,7 +250,8 @@ func endpointKey(endpoint config.DockerEndpoint) string {
 
 // 只接受容器详情、一次性 stats 与容器列表三种只读路径。
 func isAllowedReadPath(path string) bool {
-	if path == "/containers/json" {
+	// 列表路径可带 all=true 查询；只放行这一种查询，其它参数一律拒绝
+	if path == "/containers/json" || path == listAllPath {
 		return true
 	}
 	if !strings.HasPrefix(path, containersPrefix) {

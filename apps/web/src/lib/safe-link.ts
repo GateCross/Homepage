@@ -1,6 +1,6 @@
-import { normalizeAbsoluteHttpUrl } from "@homepage/domain";
+import { normalizeAbsoluteHttpUrl } from "@/lib/pure";
 
-export const SAFE_LINK_TARGETS = ["_blank", "_self"] as const;
+const SAFE_LINK_TARGETS = ["_blank", "_self"] as const;
 
 export type SafeLinkTarget = (typeof SAFE_LINK_TARGETS)[number];
 
@@ -10,7 +10,7 @@ export type ResolvedSafeHref =
 
 const SAFE_TARGET_SET = new Set<string>(SAFE_LINK_TARGETS);
 
-export function isSafeLinkTarget(value: string | null | undefined): value is SafeLinkTarget {
+function isSafeLinkTarget(value: string | null | undefined): value is SafeLinkTarget {
   if (value === null || value === undefined) {
     return false;
   }

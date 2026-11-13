@@ -21,9 +21,6 @@ func NewRegistry() *Registry {
 // 进程默认注册表：六个业务适配器装配期各自登记，运行期只读。
 var defaultRegistry = NewRegistry()
 
-// DefaultRegistry 返回进程默认注册表。
-func DefaultRegistry() *Registry { return defaultRegistry }
-
 // Register 在默认注册表登记一个适配器；类型为空或与已登记者冲突时返回错误。
 func Register(adapter Adapter) error { return defaultRegistry.Register(adapter) }
 

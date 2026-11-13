@@ -135,15 +135,23 @@ func parseCustomAPIHeaders(raw any) (map[string]string, error) {
 }
 
 // 映射列表只接受数组；条目形态交给响应映射阶段逐条隔离，非法项跳过而非整卡失败。
+// 兼容两种来源：配置加载放的是 []map[string]any，JSON 解码得到的是 []any。
 func parseCustomAPIMappings(raw any) ([]any, error) {
 	if raw == nil {
 		return nil, nil
 	}
-	list, ok := raw.([]any)
-	if !ok {
+	switch list := raw.(type) {
+	case []any:
+		return list, nil
+	case []map[string]any:
+		out := make([]any, len(list))
+		for i, entry := range list {
+			out[i] = entry
+		}
+		return out, nil
+	default:
 		return nil, NewError("Custom API 的 mappings 必须为数组")
 	}
-	return list, nil
 }
 
 // 单条映射只保留字符串字段，其余类型直接丢弃。

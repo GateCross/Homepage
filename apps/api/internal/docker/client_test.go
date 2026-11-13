@@ -178,6 +178,8 @@ func TestClientRejectsNonWhitelistedPaths(t *testing.T) {
 		"/containers/web/json",
 		"/containers/web/stats?stream=0&one-shot=1",
 		"/containers/json",
+		// 列表接口实际请求的是带 all=true 的形态，必须放行
+		listAllPath,
 	}
 	for _, path := range allowed {
 		if !isAllowedReadPath(path) {
@@ -194,6 +196,9 @@ func TestClientRejectsNonWhitelistedPaths(t *testing.T) {
 		"/containers/../json",
 		"/images/json",
 		"/containers/web/json/",
+		// 列表查询只允许 all=true，其它参数不得放行
+		"/containers/json?all=false",
+		"/containers/json?all=true&size=1",
 	}
 	for _, path := range rejected {
 		if isAllowedReadPath(path) {

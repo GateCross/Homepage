@@ -1,4 +1,4 @@
-import { isAbsoluteHttpUrl } from "@homepage/domain";
+import { isAbsoluteHttpUrl } from "@/lib/pure";
 
 export type ResolvedIcon =
   | {
@@ -62,7 +62,7 @@ function isUnsafeHttpUrl(href: string): boolean {
   }
 }
 
-export function resolveIconIdentifier(
+function resolveIconIdentifier(
   raw: string | null | undefined,
 ): IconResolveResult {
   if (raw === null || raw === undefined) {

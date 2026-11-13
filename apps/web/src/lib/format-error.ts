@@ -1,4 +1,4 @@
-import type { PublicError } from "@homepage/domain";
+import type { PublicError } from "@/lib/contracts";
 
 import { messages } from "./messages";
 

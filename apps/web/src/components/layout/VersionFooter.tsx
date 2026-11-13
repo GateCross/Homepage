@@ -1,5 +1,5 @@
 import { useEffect, useState, type JSX } from "react";
-import type { VersionSuccessResponse } from "@homepage/domain";
+import type { VersionSuccessResponse } from "@/lib/contracts";
 
 import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import { fetchVersion } from "@/lib/api";

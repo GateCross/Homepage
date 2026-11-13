@@ -2,6 +2,9 @@
 
 本文件只记录领域词汇与不变式，不含实现细节。
 
+> 运行时由 Go 单一二进制提供：API 与前端静态产物同源，前端产物在构建期嵌入。
+> 术语中的「服务端」即 `apps/api`，「仪表盘」即 `apps/web` 的构建产物。
+
 ## Icon（图标标识）
 
 书签或服务条目上可选的图标引用字符串。合法形态包括：
@@ -102,7 +105,15 @@ Config Root 下仅用于可公开读取的静态资产子目录：
 - `CONFIG_DIR/images` → URL 前缀 `/images/`
 - `CONFIG_DIR/icons` → URL 前缀 `/icons/`
 
-提供文件时 join 根必须是对应 Asset Root，而不是 Config Root。路径不变式见 [ADR 0002](./docs/adr/0002-config-asset-roots-and-lan-trust.md)。
+提供文件时 join 根必须是对应 Asset Root，而不是 Config Root。
+
+路径不变式（实现须逐条守住）：
+
+- `/images/<rel>` 的 join 根必须是 `images` 子目录，`/icons/` 同理；不得回退到 Config Root。
+- URL 解码失败 → 404，不提供文件。
+- 解码后的路径段不得含 `..`；解析后仍须落在对应 Asset Root 内。编码变形（`%2e%2e%2f` 等）同样按穿越处理。
+- Asset Root 下不存在的文件返回 404，**不得**回落到 SPA 的 `index.html`。
+- `.svg` 经静态提供时须带 `Content-Disposition: attachment` 与 `X-Content-Type-Options: nosniff`。
 
 ## Control Plane（控制面）
 
@@ -111,8 +122,8 @@ Config Root 下仅用于可公开读取的静态资产子目录：
 
 ## Caller Auth vs Target AllowList
 
-- **Caller Auth**：鉴别「谁在调用 HTTP API」。当前产品信任模型为局域网可达即管理员，**不**做 Caller Auth（见 ADR 0002）。
-- **Target AllowList**：鉴别「服务端被允许出站访问哪些目标」（probeId / widgetId / Docker server+container 等）。每请求由 `loadConfig()` 重建，不得跨请求缓存为鉴权真相。
+- **Caller Auth**：鉴别「谁在调用 HTTP API」。当前产品信任模型为局域网可达即管理员，**不**做 Caller Auth。
+- **Target AllowList**：鉴别「服务端被允许出站访问哪些目标」（probeId / widgetId / Docker server+container 等）。每请求由配置快照重建，不得跨请求缓存为鉴权真相。
 
 ## LAN Trust Model A（局域网管理员模型）
 

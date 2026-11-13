@@ -158,6 +158,9 @@ func main() {
 	fmt.Println("\n数据端点（夹具未登记目标，应全部 403）")
 	checkDataEndpointsForbidden(c, client, baseURL)
 
+	fmt.Println("\nIconify 代理（拦截前置校验，不出网）")
+	checkIconifyGuards(c, client, baseURL)
+
 	fmt.Println("\n路由兜底")
 	checkNotFound(c, client, baseURL)
 
@@ -600,6 +603,40 @@ func checkDataEndpointsForbidden(c *checker, client *http.Client, baseURL string
 		c.expect(strings.HasPrefix(observed.contentType, "application/json"),
 			"GET %s 返回 JSON：%q", path, observed.contentType)
 	}
+}
+
+// Iconify 代理的前置校验：不支持的集合 404、非法名 422、非 GET 404。
+// 这三条都在出站之前判定，所以无网络也能跑。
+func checkIconifyGuards(c *checker, client *http.Client, baseURL string) {
+	cases := []struct {
+		path   string
+		status int
+	}{
+		{"/api/icons/iconify/tabler/home.svg", http.StatusNotFound},
+		{"/api/icons/iconify/mdi/-bad-name.svg", http.StatusUnprocessableEntity},
+		{"/api/icons/iconify/mdi/..%2f..%2fetc.svg", http.StatusUnprocessableEntity},
+	}
+	for _, testCase := range cases {
+		observed, err := get(client, baseURL+testCase.path)
+		if err != nil {
+			c.fail("GET %s 请求失败：%v", testCase.path, err)
+			continue
+		}
+		c.expect(observed.status == testCase.status,
+			"GET %s 状态 %d（期望 %d）", testCase.path, observed.status, testCase.status)
+		c.expect(strings.HasPrefix(observed.contentType, "application/json"),
+			"GET %s 返回 JSON：%q", testCase.path, observed.contentType)
+	}
+
+	// 非 GET 一律 404，不得穿透到代理
+	response, err := client.Post(baseURL+"/api/icons/iconify/mdi/home.svg", "application/json", nil)
+	if err != nil {
+		c.fail("POST iconify 请求失败：%v", err)
+		return
+	}
+	_ = response.Body.Close()
+	c.expect(response.StatusCode == http.StatusNotFound,
+		"POST /api/icons/iconify/mdi/home.svg 状态 %d", response.StatusCode)
 }
 
 // API 未实现路径必须回 JSON 404，非 API 路径回退静态入口，两者不得混淆。

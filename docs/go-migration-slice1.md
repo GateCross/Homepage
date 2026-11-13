@@ -4,6 +4,7 @@
 - 目录：`apps/api`
 - 模块：`github.com/gatecross/homepage/api`
 - 定位：Node/Hono 后端向 Go 迁移的**第一条垂直切片**，只覆盖性能最关键的读路径，不追求功能完整对等。
+- 后续：全部端点与部署改造已在 [go-migration-complete.md](./go-migration-complete.md) 收尾。
 
 ## 一、本切片实现了什么
 
@@ -111,7 +112,7 @@ go run scripts/smoke-reload.go   # 热加载冒烟
 
 冒烟脚本自建临时配置目录，把 Docker 端点指向必然拒绝连接的本机端口，用来模拟**无 Docker 环境**：此时两个批量端点都应返回 `unavailable` 而不是崩溃或 500。
 
-## 六、下一步切片建议
+## 六、下一步切片建议（已在后续切片完成）
 
 按收益与依赖顺序：
 

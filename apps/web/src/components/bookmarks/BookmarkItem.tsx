@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent, JSX } from "react";
 
-import type { NormalizedBookmark } from "@homepage/domain";
+import type { NormalizedBookmark } from "@/lib/contracts";
 
 import { BookmarkIconView } from "@/components/shared/ResolvedIconView";
 import { SafeExternalLink } from "@/components/ui/safe-external-link";

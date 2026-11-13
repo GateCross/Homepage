@@ -116,7 +116,7 @@ function findLunarInSolarRange(
 const holidayYearCache = new Map<string, StatutoryHoliday[]>();
 
 /** 指定公历年的全部法定节日当天（按日期升序）。 */
-export function statutoryHolidaysForYear(
+function statutoryHolidaysForYear(
   year: number,
   timeZone: string = "UTC",
 ): StatutoryHoliday[] {

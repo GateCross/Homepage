@@ -22,7 +22,7 @@ import type {
   OpenMeteoInfoResponse,
   WeatherDailyItem,
   WeatherHourlyItem,
-} from "@homepage/domain";
+} from "@/lib/contracts";
 
 import { ErrorStatus, LoadingStatus } from "@/components/error";
 import {

@@ -1,12 +1,12 @@
 # 性能相关词汇（补充）
 
 与 [CONTEXT.md](../CONTEXT.md) 领域词并列；本文件只记性能/传输层概念，避免污染配置领域模型。  
-安全与信任模型术语见 CONTEXT（Config Root / Asset Root / Control Plane / LAN Trust Model A）与 [ADR 0002](./adr/0002-config-asset-roots-and-lan-trust.md)。
+安全与信任模型术语见 CONTEXT（Config Root / Asset Root / Control Plane / LAN Trust Model A）。
 
 ## Config Open Latency（配置打开延迟）
 
 从用户点击「配置」到编辑器离开「正在加载配置」并呈现可编辑表单的时间。  
-目标见 [ADR 0001](./adr/0001-config-open-latency-and-docker-fanout.md)：**< 1s**（现网同级规模、局域网）。
+目标：**< 1s**（现网同级规模、局域网）。
 
 ## Docker Fan-out（Docker 状态扇出）
 

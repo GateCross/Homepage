@@ -1,6 +1,6 @@
 import { useEffect, useState, type JSX } from "react";
 
-import type { IconCandidate } from "@homepage/domain";
+import type { IconCandidate } from "@/lib/contracts";
 
 import { Button } from "@/components/ui/button";
 import {

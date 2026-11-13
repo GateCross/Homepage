@@ -12,7 +12,7 @@ import {
   parseThemeMode,
   type ResolvedTheme,
   type ThemeMode,
-} from "@homepage/domain";
+} from "@/lib/pure";
 
 export const THEME_STORAGE_KEY = "homepage-theme";
 

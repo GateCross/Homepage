@@ -138,7 +138,7 @@ export type Messages = typeof messages;
 
 export type ProbeUnreachableReasonKey = keyof typeof messages.probe.reason;
 
-export function probeUnreachableReasonText(
+function probeUnreachableReasonText(
   reason: string | undefined,
 ): string {
   if (reason && reason in messages.probe.reason) {

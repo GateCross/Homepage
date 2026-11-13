@@ -9,7 +9,10 @@ import {
   RotateCw,
 } from "lucide-react";
 
-import type { DockerHealth, DockerStatusResponse } from "@homepage/domain";
+import type {
+  DockerHealth,
+  DockerStatusResponse,
+} from "@/lib/contracts";
 
 import {
   useDockerStatusEntry,

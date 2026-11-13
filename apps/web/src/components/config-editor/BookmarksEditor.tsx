@@ -3,7 +3,7 @@ import { useMemo, useState, type JSX } from "react";
 import type {
   EditableBookmarkGroup,
   EditableBookmarkItem,
-} from "@homepage/domain";
+} from "@/lib/contracts";
 
 import {
   EditorGroupCard,

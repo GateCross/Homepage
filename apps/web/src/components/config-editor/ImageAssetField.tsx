@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Globe, ImagePlus, Trash2 } from "lucide-react";
 
-import type { IconCandidate } from "@homepage/domain";
+import type { IconCandidate } from "@/lib/contracts";
 
 import { SiteIconPickerDialog } from "@/components/config-editor/SiteIconPickerDialog";
 import { Button } from "@/components/ui/button";

@@ -40,7 +40,7 @@ export type IconImageProps = {
   onFailed?: () => void;
 };
 
-export function IconImage({
+function IconImage({
   icon,
   alt = "",
   className,
@@ -72,7 +72,7 @@ const ICON_TILE_CLASS =
   "inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-foreground/[0.04] text-muted-foreground dark:border-white/10 dark:bg-white/[0.05]";
 
 /** 无/坏 Icon 时的统一通用占位（书签与服务共用）。 */
-export function GenericIconPlaceholder({
+function GenericIconPlaceholder({
   className,
 }: {
   className?: string | undefined;

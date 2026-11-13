@@ -8,6 +8,12 @@ build/
 *.tsbuildinfo
 .turbo/
 
+# Go 构建产物（go build 默认输出，勿提交）
+apps/api/homepage-api
+*.exe
+*.test
+*.out
+
 # 测试与覆盖率
 coverage/
 .vitest/
@@ -45,7 +51,6 @@ Desktop.ini
 
 # 可选本地覆盖
 *.local
-docs/adr/*
 .scratch/*
 .claude/*
 

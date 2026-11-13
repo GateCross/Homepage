@@ -11,7 +11,7 @@ const DIRS = [
   "西北",
 ] as const;
 
-export function windDirectionText(deg: number): string | null {
+function windDirectionText(deg: number): string | null {
   if (!Number.isFinite(deg)) {
     return null;
   }

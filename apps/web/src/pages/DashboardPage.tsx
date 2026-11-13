@@ -8,10 +8,8 @@ import {
   type JSX,
 } from "react";
 
-import {
-  DEFAULT_DASHBOARD_TITLE,
-  type NormalizedConfig,
-} from "@homepage/domain";
+import type { NormalizedConfig } from "@/lib/contracts";
+import { DEFAULT_DASHBOARD_TITLE } from "@/lib/pure";
 
 const ConfigEditorShell = lazy(() =>
   import("@/components/config-editor/ConfigEditorShell").then((m) => ({

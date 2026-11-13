@@ -1,4 +1,4 @@
-import type { InfoWidgetConfig } from "@homepage/domain";
+import type { InfoWidgetConfig } from "@/lib/contracts";
 import type { CSSProperties, JSX } from "react";
 
 import {

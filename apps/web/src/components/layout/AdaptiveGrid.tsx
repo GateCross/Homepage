@@ -1,4 +1,4 @@
-import { resolveColumns } from "@homepage/domain";
+import { resolveColumns } from "@/lib/pure";
 import {
   useEffect,
   useMemo,

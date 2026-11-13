@@ -185,7 +185,7 @@ function clampSolarParts(
   return { year, month, day };
 }
 
-export function ganZhiYear(lunarYear: number): string {
+function ganZhiYear(lunarYear: number): string {
   // 1984 为甲子年
   const offset = lunarYear - 1984;
   const gan = GAN[((offset % 10) + 10) % 10]!;
@@ -193,7 +193,7 @@ export function ganZhiYear(lunarYear: number): string {
   return `${gan}${zhi}`;
 }
 
-export function zodiacAnimal(lunarYear: number): string {
+function zodiacAnimal(lunarYear: number): string {
   // 1984 甲子 = 鼠
   return ANIMALS[(((lunarYear - 1984) % 12) + 12) % 12]!;
 }

@@ -365,6 +365,62 @@ func TestCustomAPIRejectsInvalidOptions(t *testing.T) {
 	}
 }
 
+// 配置加载产出的是 []map[string]any，与 JSON 解码的 []any 形态不同，两者都必须接受。
+func TestCustomAPIAcceptsMappingsFromConfigLoader(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  any
+		want int
+	}{
+		{"loader 形态 []map[string]any", []map[string]any{{"field": "online"}, {"field": "count"}}, 2},
+		{"JSON 形态 []any", []any{map[string]any{"field": "online"}}, 1},
+		{"空数组", []map[string]any{}, 0},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			list, err := parseCustomAPIMappings(testCase.raw)
+			if err != nil {
+				t.Fatalf("不应报错：%v", err)
+			}
+			if len(list) != testCase.want {
+				t.Fatalf("条目数应为 %d，实得 %d", testCase.want, len(list))
+			}
+		})
+	}
+
+	// 非数组仍按契约拒绝
+	if _, err := parseCustomAPIMappings("not-a-list"); err == nil {
+		t.Fatal("非数组必须报错")
+	}
+}
+
+// 端到端：loader 形态的 mappings 必须真的抽出指标，而不是整卡失败。
+func TestCustomAPIRunsWithConfigLoaderMappings(t *testing.T) {
+	url := startCustomAPI(t, &fakeCustomAPI{
+		handler: func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"stats":{"online":7}}`))
+		},
+	})
+
+	out := runCustomAPI(t, RunInput{
+		URL: url,
+		Options: map[string]any{
+			"method": "GET",
+			"mappings": []map[string]any{
+				{"id": "online", "label": "在线", "path": "stats.online"},
+			},
+		},
+	})
+	if !out.Ok {
+		t.Fatalf("loader 形态的 mappings 不应导致失败：%q", out.Error)
+	}
+	if len(out.Metrics) != 1 || out.Metrics[0].Label != "在线" {
+		t.Fatalf("应抽出 1 项指标，实得 %+v", out.Metrics)
+	}
+}
+
 func TestCustomAPIAcceptsMissingOptions(t *testing.T) {
 	// 选项缺省时按 GET 与空映射继续，返回空指标数组而非失败
 	url := startCustomAPI(t, &fakeCustomAPI{})

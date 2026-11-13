@@ -6,13 +6,16 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
+      // 前端产物同步进嵌入目录后是构建输出，不参与 lint
+      "apps/api/internal/httpx/webdist/**",
+      // 本地设计草稿，不入库
+      "docs/demos/**",
       "**/build/**",
       "**/coverage/**",
       "**/node_modules/**",
       "**/*.tsbuildinfo",
       "**/*.test.ts",
       "vitest.config.ts",
-      "packages/domain/scripts/**",
     ],
   },
   js.configs.recommended,

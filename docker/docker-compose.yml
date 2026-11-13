@@ -1,6 +1,12 @@
 services:
   app:
     image: sereindusk/homepage:latest
+    build:
+      context: ..
+      dockerfile: docker/runtime.Dockerfile
+      args:
+        # 与根 package.json 的 version 保持一致，供 /api/version 返回
+        VERSION: "0.1.1"
     container_name: homepage
     ports:
       - "3000:3000"
@@ -13,10 +19,9 @@ services:
       # EMBY_API_KEY: ""
     volumes:
       # 将本机配置目录挂进容器（五文件 + images/icons）
-      # 注意：容器以非 root 用户 homepage 运行，宿主机 ./config 需可写，
-      # 否则图标导入/图片上传会失败。示例：
+      # 容器以非 root 用户 homepage（uid/gid 由镜像创建）运行，
+      # 宿主机 ./config 需可写，否则图标导入/图片上传会失败。示例：
       #   mkdir -p ./config/images && chmod -R a+rwX ./config
-      # 或：sudo chown -R $(docker compose exec -T app id -u):$(docker compose exec -T app id -g) ./config
       - ./config:/app/config
       # 需要 Docker 容器状态时，只读挂载 socket（可选）
       # - /var/run/docker.sock:/var/run/docker.sock:ro

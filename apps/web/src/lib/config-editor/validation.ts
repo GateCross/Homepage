@@ -1,16 +1,17 @@
+import type {
+  EditableConfig,
+  EditableConfigWrite,
+  SecretFieldView,
+  SecretFieldWrite,
+} from "@/lib/contracts";
 import {
   DEFAULT_DASHBOARD_TITLE,
   isAbsoluteHttpUrl,
   normalizeTitle,
-  type EditableConfig,
-  type EditableConfigWrite,
-  type EditableInfoWidget,
-  type SecretFieldView,
-  type SecretFieldWrite,
-} from "@homepage/domain";
+} from "@/lib/pure";
 
 /** Docker 含 userinfo 时的固定中文提示，不回显原串 */
-export const DOCKER_USERINFO_CLIENT_MESSAGE =
+const DOCKER_USERINFO_CLIENT_MESSAGE =
   "Docker 连接串不得包含用户名或密码等内嵌凭据，请改用环境变量或安全的服务端配置方式" as const;
 
 export type FieldErrors = Record<string, string>;
@@ -85,7 +86,7 @@ export type NormalizedDiskEntry =
  * - 对象 { path, label }
  * - 逗号分隔多条
  */
-export function normalizeDiskDraft(
+function normalizeDiskDraft(
   disk:
     | string
     | Array<string | { path: string; label?: string | undefined }>
@@ -217,7 +218,7 @@ export function validateEditableDraft(draft: ClientDraft): FieldErrors | null {
   }
 
   for (let i = 0; i < draft.infoWidgets.length; i += 1) {
-    const w = draft.infoWidgets[i] as EditableInfoWidget | undefined;
+    const w = draft.infoWidgets[i];
     if (!w) continue;
     if (w.type === "openmeteo") {
       const cityId = w.cityId.trim().replace(/^weathercn:/i, "");

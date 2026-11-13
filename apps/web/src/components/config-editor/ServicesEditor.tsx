@@ -6,7 +6,7 @@ import type {
   EditableServiceGroupWrite,
   EditableServiceItemWrite,
   SecretFieldWrite,
-} from "@homepage/domain";
+} from "@/lib/contracts";
 
 import {
   EditorGroupCard,

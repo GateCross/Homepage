@@ -3,7 +3,7 @@ import {
   parseApiSuccess,
   parseErrorEnvelope,
   type ApiSuccessRoute,
-  type ApiSuccessSchemas,
+  type ApiSuccessResponses,
   type AssetUploadSuccessResponse,
   type ConfigSuccessResponse,
   type ConfigWriteSuccessResponse,
@@ -18,7 +18,7 @@ import {
   type InfoSuccessResponse,
   type ServiceWidgetResult,
   type VersionSuccessResponse,
-} from "@homepage/domain";
+} from "@/lib/contracts";
 
 import {
   API_CLIENT_MESSAGES,
@@ -154,7 +154,7 @@ async function requestAndParseSuccess<R extends ApiSuccessRoute>(
   route: R,
   path: string,
   options: RequestSuccessOptions = {},
-): Promise<(typeof ApiSuccessSchemas)[R]["_output"]> {
+): Promise<ApiSuccessResponses[R]> {
   const fetchImpl = resolveFetch(options);
   const { signal, cleanup } = withTimeoutSignal(
     options.signal,
@@ -422,7 +422,7 @@ async function postJsonAndParseSuccess<R extends "iconResolve" | "iconImport">(
   path: string,
   payload: unknown,
   options?: ApiRequestOptions,
-): Promise<(typeof ApiSuccessSchemas)[R]["_output"]> {
+): Promise<ApiSuccessResponses[R]> {
   return requestAndParseSuccess(route, path, {
     ...options,
     method: "POST",

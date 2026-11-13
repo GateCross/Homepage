@@ -9,19 +9,25 @@
     "allowJs": true,
     "checkJs": false,
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "vite/client"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["apps/web/src/*"]
+      "@/*": [
+        "apps/web/src/*"
+      ]
     }
   },
   "include": [
-    "apps/**/*.ts",
-    "apps/**/*.tsx",
-    "packages/**/*.ts",
-    "packages/**/*.tsx",
-    "packages/**/*.mjs",
+    "apps/web/src/**/*.ts",
+    "apps/web/src/**/*.tsx",
     "*.ts",
     "*.js"
   ],

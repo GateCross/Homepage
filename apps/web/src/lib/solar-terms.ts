@@ -61,7 +61,7 @@ export type SolarTermOccurrence = {
 
 
 /** 指定公历年的第 n 个节气交节时刻（n: 0=小寒 … 23=冬至）。 */
-export function solarTermInstantMs(year: number, index: number): number | null {
+function solarTermInstantMs(year: number, index: number): number | null {
   if (
     !Number.isInteger(year) ||
     year < MIN_YEAR ||
@@ -207,4 +207,3 @@ export function nextSolarTerm(
   return null;
 }
 
-export { TERM_NAMES };

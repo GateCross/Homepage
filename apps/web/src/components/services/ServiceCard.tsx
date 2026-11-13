@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent, JSX } from "react";
 
-import type { NormalizedService } from "@homepage/domain";
+import type { NormalizedService } from "@/lib/contracts";
 
 import { DockerSlot } from "@/components/services/DockerSlot";
 import { ProbeSlot } from "@/components/services/ProbeSlot";

@@ -17,6 +17,7 @@ import (
 	"github.com/gatecross/homepage/api/internal/assets"
 	"github.com/gatecross/homepage/api/internal/config"
 	"github.com/gatecross/homepage/api/internal/docker"
+	"github.com/gatecross/homepage/api/internal/healthcheck"
 	"github.com/gatecross/homepage/api/internal/httpapi"
 	"github.com/gatecross/homepage/api/internal/httpx"
 	"github.com/gatecross/homepage/api/internal/icons"
@@ -38,6 +39,11 @@ const (
 )
 
 func main() {
+	// 容器健康检查复用同一份二进制，不额外安装 curl/wget
+	if len(os.Args) > 1 && os.Args[1] == "-healthcheck" {
+		os.Exit(healthcheck.Run(envOrDefault(envPort, defaultPort)))
+	}
+
 	if err := run(); err != nil {
 		log.Printf("服务异常退出：%v", err)
 		os.Exit(1)
@@ -81,6 +87,8 @@ func run() error {
 			Icons: icons.NewHandler(icons.NewService(icons.Options{
 				ImagesDir: filepath.Join(configDir, "images"),
 			})),
+			// mdi-* / si-* 图标经本站代理 Iconify，浏览器不直连 CDN
+			Iconify: icons.NewIconifyHandler(),
 			Data: routes.NewHandler(routes.Deps{
 				AllowList:        currentAllowList(store),
 				Probe:            probe.Run,

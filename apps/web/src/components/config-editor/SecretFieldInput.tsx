@@ -1,6 +1,9 @@
 import { useCallback, type JSX } from "react";
 
-import type { SecretFieldView, SecretFieldWrite } from "@homepage/domain";
+import type {
+  SecretFieldView,
+  SecretFieldWrite,
+} from "@/lib/contracts";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

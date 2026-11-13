@@ -10,7 +10,7 @@ import type {
   EmbySessionSummary,
   Metric,
   ServiceWidgetResult,
-} from "@homepage/domain";
+} from "@/lib/contracts";
 
 import {
   EmptyStatus,

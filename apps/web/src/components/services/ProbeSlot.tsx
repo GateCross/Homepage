@@ -7,7 +7,7 @@ import {
 } from "react";
 import { CheckCircle2, CircleAlert, CircleX, LoaderCircle } from "lucide-react";
 
-import type { HttpProbeResponse } from "@homepage/domain";
+import type { HttpProbeResponse } from "@/lib/contracts";
 
 import { fetchProbe, isApiClientError } from "@/lib/api";
 import {
@@ -19,7 +19,7 @@ import { messages, probeStatusText } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 /** HTTP 探测静默轮询间隔 */
-export const PROBE_POLL_INTERVAL_MS = 30_000;
+const PROBE_POLL_INTERVAL_MS = 30_000;
 
 export type ProbeSlotProps = {
   probeId: string;

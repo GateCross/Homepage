@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import type {
   EditableDockerEndpoint,
   EditableInfoWidget,
-} from "@homepage/domain";
+} from "@/lib/contracts";
 
 import { WeatherCityPicker } from "@/components/config-editor/WeatherCityPicker";
 import { Button } from "@/components/ui/button";

@@ -105,7 +105,7 @@ export function useReorderDrag<T>({
   return { drag, getHandleProps, getRowProps };
 }
 
-export function IconActionButton({
+function IconActionButton({
   label,
   onClick,
   disabled,
@@ -144,7 +144,7 @@ export function IconActionButton({
   );
 }
 
-export function DragHandle({
+function DragHandle({
   disabled,
   ...props
 }: {
@@ -189,7 +189,7 @@ export function DragHandle({
   );
 }
 
-export function EditorKeywordTags({
+function EditorKeywordTags({
   tags,
   dangerTag,
 }: {

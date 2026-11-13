@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 
-import type { EditableSettings } from "@homepage/domain";
+import type { EditableSettings } from "@/lib/contracts";
 
 import { ImageAssetField } from "@/components/config-editor/ImageAssetField";
 import { Button } from "@/components/ui/button";
