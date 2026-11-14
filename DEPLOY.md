@@ -204,7 +204,7 @@ curl -I http://localhost:3000/favicon.svg
 - 镜像：`sereindusk/homepage`；`docker compose build` 可从源码本地构建
 - 对外端口：`3000:80`；Go 服务只绑容器内 `127.0.0.1:8080`，由同容器 nginx 反代，不额外暴露端口
 - 必挂：`./config:/app/config`（`CONFIG_DIR` 默认为 `/app/config`）
-- 可选：只读挂载 `/var/run/docker.sock` 查询容器状态；只读挂载宿主机根分区到 `/host` 供 `resources` 磁盘监控
+- 可选：只读挂载 `/var/run/docker.sock` 查询容器状态（需同时设置 `API_GID` 为宿主机 docker 组的 gid，使 Go 进程带该组）；只读挂载宿主机根分区到 `/host` 供 `resources` 磁盘监控
 - 容器内双进程：nginx 前台 + Go 后台（`homepage` 用户），任一退出即整体退出；健康检查经 nginx 全链路探测 `/api/version`
 - 密钥环境变量（如 `QBIT_PASSWORD`、`EMBY_API_KEY`）在服务 `environment` 中注入，配置 YAML 用 `${ENV_VAR}` 引用
 

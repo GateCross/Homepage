@@ -16,6 +16,8 @@ services:
       HOST: "127.0.0.1"
       PORT: "8080"
       CONFIG_DIR: /app/config
+      # 需要容器内访问挂载的 docker.sock 时，把 API_GID 设为宿主机 docker 组的 gid（宿主机上 `getent group docker` 查看）
+      # API_GID: "999"
       # 密钥类变量按需注入（配置 YAML 中用 ${ENV_VAR} 引用）
       # QBIT_PASSWORD: ""
       # EMBY_API_KEY: ""

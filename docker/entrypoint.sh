@@ -6,7 +6,12 @@ set -u
 # 清理异常退出残留的 pid，避免 nginx 拒绝启动
 rm -f /var/run/nginx.pid 2>/dev/null || true
 
-su-exec homepage /app/homepage-api &
+# 设了 API_GID 时把 Go 进程主组换成它（如宿主 docker 组），用于访问挂载的 docker.sock
+if [ -n "${API_GID:-}" ]; then
+  su-exec "homepage:${API_GID}" /app/homepage-api &
+else
+  su-exec homepage /app/homepage-api &
+fi
 API_PID=$!
 nginx -g "daemon off;" &
 NGINX_PID=$!
