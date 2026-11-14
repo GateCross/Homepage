@@ -1,10 +1,10 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as holidays from "@/lib/holidays";
-import * as lunar from "@/lib/lunar";
-import * as shichen from "@/lib/shichen";
-import * as solarTerms from "@/lib/solar-terms";
+import * as holidays from "@/lib/calendar/holidays";
+import * as lunar from "@/lib/calendar/lunar";
+import * as shichen from "@/lib/calendar/shichen";
+import * as solarTerms from "@/lib/calendar/solar-terms";
 
 import { DateTimeWidget } from "./DateTimeWidget";
 

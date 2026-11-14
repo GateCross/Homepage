@@ -3,8 +3,8 @@
  * 固定公历：元旦、劳动节、国庆；农历：春节、端午、中秋；节气：清明。
  */
 
-import { solarToLunar } from "@/lib/lunar";
-import { solarTermsForYear } from "@/lib/solar-terms";
+import { solarToLunar } from "@/lib/calendar/lunar";
+import { solarTermsForYear } from "@/lib/calendar/solar-terms";
 
 export type StatutoryHolidayId =
   | "new-year"

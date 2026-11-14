@@ -56,6 +56,8 @@ func run() error {
 	addr := net.JoinHostPort(envOrDefault(envHost, ""), envOrDefault(envPort, defaultPort))
 
 	store := config.NewStore()
+	// 清理历史进程崩溃残留的写回临时文件，避免配置目录无限累积
+	config.CleanupStaleTempFiles(configDir)
 	if err := store.Load(configDir); err != nil {
 		// 首次加载失败不阻断启动：保持空快照，等待配置目录修复后热加载
 		log.Printf("配置加载失败，暂以空配置启动：%v", err)
@@ -87,8 +89,6 @@ func run() error {
 			Icons: icons.NewHandler(icons.NewService(icons.Options{
 				ImagesDir: filepath.Join(configDir, "images"),
 			})),
-			// mdi-* / si-* 图标经本站代理 Iconify，浏览器不直连 CDN
-			Iconify: icons.NewIconifyHandler(),
 			Data: routes.NewHandler(routes.Deps{
 				AllowList:        currentAllowList(store),
 				Probe:            probe.Run,
@@ -98,7 +98,7 @@ func run() error {
 			}),
 		},
 		// 配置目录下的 images 与 icons 两个资产根直接映射到前端引用路径
-		Static: httpx.NewStaticForConfig(configDir),
+		Assets: httpx.NewAssets(configDir),
 	})
 
 	server := &http.Server{

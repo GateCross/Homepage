@@ -17,7 +17,7 @@ import type {
 import {
   useDockerStatusEntry,
   useOptionalDockerStatusStore,
-} from "@/hooks/docker-status-store";
+} from "@/hooks/use-docker-status";
 import { formatBytes, formatPercent, usageToneClass } from "@/lib/format";
 import { dockerStatusText, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";

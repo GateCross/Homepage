@@ -2,8 +2,10 @@
 
 本文件只记录领域词汇与不变式，不含实现细节。
 
-> 运行时由 Go 单一二进制提供：API 与前端静态产物同源，前端产物在构建期嵌入。
+> 运行时 API 与前端静态产物同源（`/api`、`/images`、`/icons` 经 nginx 反代到 Go 服务）；前端产物由 nginx 托管、不进 Go 二进制；Go 服务托管 `/api` 与配置资产根。
 > 术语中的「服务端」即 `apps/api`，「仪表盘」即 `apps/web` 的构建产物。
+
+性能与传输层词汇单独记录在 [docs/glossary-perf.md](docs/glossary-perf.md)，与本表互补不重叠。
 
 ## Icon（图标标识）
 

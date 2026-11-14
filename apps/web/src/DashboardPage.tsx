@@ -28,7 +28,10 @@ import {
   InfoSection,
   ServiceSections,
 } from "@/components/layout";
-import { SearchDialog } from "@/components/search";
+// cmdk 仅搜索弹窗使用：首次打开才拉取对应 chunk，主包不为其付体积
+const LazySearchDialog = lazy(() =>
+  import("@/components/search").then((m) => ({ default: m.SearchDialog })),
+);
 import {
   fetchConfig,
   isApiClientError,
@@ -42,7 +45,7 @@ import { resolveDocumentTitle } from "@/lib/config-editor/validation";
 import {
   DockerStatusProvider,
   useOptionalDockerStatusStore,
-} from "@/hooks/docker-status-store";
+} from "@/hooks/use-docker-status";
 import {
   formatPublicError,
   formatUnknownError,
@@ -138,6 +141,8 @@ export function DashboardPage(): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
+  // 首次打开后才挂载懒加载的搜索弹窗，之后保持挂载以保留关闭动画
+  const [searchEverOpened, setSearchEverOpened] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -249,13 +254,16 @@ export function DashboardPage(): JSX.Element {
     };
   }, [load, reloadToken]);
 
+  // 只取需要的两个原始值作依赖，silent 刷新产生的新 config 引用不再触发 favicon 重建
+  const successSettings = state.status === "success" ? state.config.settings : null;
+
   useEffect(() => {
-    if (state.status !== "success") {
+    if (!successSettings) {
       return;
     }
-    document.title = resolveDocumentTitle(state.config.settings.title);
-    applyDocumentFavicon(state.config.settings.favicon);
-  }, [state]);
+    document.title = resolveDocumentTitle(successSettings.title);
+    applyDocumentFavicon(successSettings.favicon);
+  }, [successSettings?.title, successSettings?.favicon]);
 
   const handleRetry = useCallback(() => {
     abortRef.current?.abort();
@@ -269,6 +277,7 @@ export function DashboardPage(): JSX.Element {
     if (active instanceof HTMLElement) {
       searchTriggerRef.current = active;
     }
+    setSearchEverOpened(true);
     setSearchOpen(true);
   }, []);
 
@@ -458,12 +467,16 @@ export function DashboardPage(): JSX.Element {
           </main>
         </div>
 
-        <SearchDialog
-          open={searchOpen}
-          onOpenChange={handleSearchOpenChange}
-          services={services}
-          bookmarks={bookmarks}
-        />
+        {searchEverOpened && (
+          <Suspense fallback={null}>
+            <LazySearchDialog
+              open={searchOpen}
+              onOpenChange={handleSearchOpenChange}
+              services={services}
+              bookmarks={bookmarks}
+            />
+          </Suspense>
+        )}
 
         <ConfigEditorWithDockerPause
           open={configOpen}

@@ -191,7 +191,7 @@
 
 **虚拟化** —— 服务分组超过 10 个或书签超过 200 条（当前远未触及）。届时优先试 CSS `content-visibility`，多数情况够用且零依赖。
 
-**不做**：`docs/rewrite-plan.md` 与 `docs/go-migration-slice1.md` 不动——前者是未跟踪的本地草稿且架构设想已与实现脱节，后者是历史切片记录。
+**不做**：`docs/rewrite-plan.md` 与 `docs/go-migration-slice1.md` 不动——前者是历史草稿且架构设想已与实现脱节（已随 c698fe6 入库，仅作存档），后者是历史切片记录。
 
 ## 八、完工判定
 
@@ -205,3 +205,26 @@
 6. 主包体积以重跑 `pnpm build` 后的 gzip 实测值重新标定，不沿用 425 KB 未压缩口径
 
 批次验收只要求该批次自身条目通过；上述六条是整体口径，用于判断何时停止本计划。
+
+## 九、完工复核（2026-11-14）
+
+批次 1–6 已全部落地（批次 2–5 随 c698fe6 提交，批次 6 本日补齐），按第八节六条逐项复核：
+
+| # | 判定项 | 结果 |
+|---|---|---|
+| 1 | 双端 lint / typecheck / test + build / vet / test | ✅ 全绿，前端 153 用例 |
+| 2 | 前端测试 ≥ 80，validation 与历法四文件有测试 | ✅ 153 用例；validation 31 例，历法四文件 46 例 |
+| 3 | `ServicesEditor.tsx` ≤ 450 行 | ✅ 364 行 |
+| 4 | layout 非空合并语义、iconify 上游失败三分类有测试 | ✅ `merge_test.go` 3 例；`iconify_test.go` 覆盖上游 404 / 超时 / 超限 / 异常状态 |
+| 5 | 单套信封实现，routes 序列化 1 次 | ✅ `writeEnvelope` 已并入 `errors.go`，routes Marshal 一次后走 `WriteJSONBytes` |
+| 6 | 主包 gzip 口径重标定 | ✅ 321 KB / **gzip 99.84 KB**（基线 425.9 KB / 125.5 KB） |
+
+本日（批次 6）改动：
+
+- **P0 回归修复**：`@testing-library/react` / `@testing-library/dom` 移入 `apps/web` devDependencies——此前只装在根 package.json，pnpm 依赖隔离下 `tsc` 与 eslint projectService 在 `apps/web` 内解析不到，typecheck / lint 双挂（测试从根跑所以未暴露）
+- **P2-1 写回加固**：`WriteConfig` 在替换磁盘前增加第二个 ctx 取消点（此后取消只能靠回滚）；新增 `CleanupStaleTempFiles` 于启动时清理崩溃残留的 `.<file>.<pid>.tmp` / `.rollback.tmp`，含测试。`ConfigFileNames` 中 docker.yaml 本就排末位，替换顺序无需改动
+- **P2-3 体积**：重跑 build 实测——weather-cities.json 已不再双打（编辑器拆分后仅存于懒加载的 ConfigEditorShell chunk；主包中的 `101020100` 只是 validation 报错文案里的示例城市码）；SearchDialog 改为首次打开才懒加载（cmdk 移出主包：raw −18.3 KB / gzip −6 KB）；vendor-radix 是弹窗、tooltip 等多组件共享的 vendor chunk，按组件拆懒加载收益有限，跳过
+- **P2-4 零风险部分**：`DashboardPage` favicon effect 依赖数组由 `[state]` 改为具体字段，silent 刷新不再每次重建 `<link>`；`memo` 与 Context 拆分按计划留待实测需要
+- **测试补强 4**：safe-link 窗口目标对齐后端四值契约（`_parent` / `_top` 不再判 `unsafe_target`），新增 3 例回归测试
+
+批次 7（P2-2 config 三分）按计划保留为条件项：六条整体口径已全部满足，本计划到此完成；包方向重构待实际需要时再做。

@@ -18,13 +18,15 @@ apps/api/homepage-api
 coverage/
 .vitest/
 *.lcov
+# go test -coverprofile 常以无扩展名的 cover 落在包目录，一并忽略
+apps/api/cover
 
 # 环境与本地密钥（运行时 config 可挂载，但不得提交密钥）
 .env
 .env.*
 !.env.example
 
-# 运行时配置与本地资产（仅仓库根目录，由部署挂载；勿写成 config/ 以免误伤 packages/config）
+# 运行时配置与本地资产（部署时挂载，不入库；根目录锚定，避免同名子目录误伤）
 /config/
 
 # 日志与临时文件

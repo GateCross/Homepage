@@ -14,7 +14,7 @@ import {
 } from "@/components/error";
 import { fetchWidget } from "@/lib/api";
 import { resolveErrorMessage } from "@/lib/format-error";
-import { useGroupActive } from "@/hooks/group-active";
+import { useGroupActive } from "@/hooks/use-group-active";
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";

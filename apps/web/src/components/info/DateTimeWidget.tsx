@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 
-import { nextStatutoryHolidayCountdown } from "@/lib/holidays";
-import { lunarFromDate } from "@/lib/lunar";
-import { shichenFromDate } from "@/lib/shichen";
-import { currentSolarTerm, nextSolarTerm } from "@/lib/solar-terms";
+import { nextStatutoryHolidayCountdown } from "@/lib/calendar/holidays";
+import { lunarFromDate } from "@/lib/calendar/lunar";
+import { shichenFromDate } from "@/lib/calendar/shichen";
+import { currentSolarTerm, nextSolarTerm } from "@/lib/calendar/solar-terms";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_TIMEZONE = "UTC" as const;

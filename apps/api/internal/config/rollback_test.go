@@ -201,3 +201,28 @@ func mustRead(t *testing.T, path string) []byte {
 	}
 	return content
 }
+
+// 崩溃残留的写回临时文件在启动清理时删除，正常配置文件不受影响。
+func TestCleanupStaleTempFiles(t *testing.T) {
+	dir := t.TempDir()
+	stale := filepath.Join(dir, "."+FileSettings+".12345.tmp")
+	staleRollback := filepath.Join(dir, "."+FileDocker+".12345.rollback.tmp")
+	normal := filepath.Join(dir, FileSettings)
+	for _, path := range []string{stale, staleRollback, normal} {
+		if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	CleanupStaleTempFiles(dir)
+
+	if _, err := os.Stat(stale); err == nil {
+		t.Fatal("写回残留 tmp 应被清理")
+	}
+	if _, err := os.Stat(staleRollback); err == nil {
+		t.Fatal("回滚残留 tmp 应被清理")
+	}
+	if _, err := os.Stat(normal); err != nil {
+		t.Fatalf("正常配置文件不应被清理：%v", err)
+	}
+}

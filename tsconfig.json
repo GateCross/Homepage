@@ -20,7 +20,8 @@
   },
   "include": [
     "eslint.config.js",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "apps/web/vitest.projects.ts"
   ],
   "exclude": [
     "node_modules",

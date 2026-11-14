@@ -1,6 +1,7 @@
 import { normalizeAbsoluteHttpUrl } from "@/lib/pure";
 
-const SAFE_LINK_TARGETS = ["_blank", "_self"] as const;
+// 四值与后端 config.normalizeTarget 的 safeTargets 契约一致；未知目标仍由调用方判 unsafe
+const SAFE_LINK_TARGETS = ["_blank", "_self", "_parent", "_top"] as const;
 
 export type SafeLinkTarget = (typeof SAFE_LINK_TARGETS)[number];
 
@@ -44,7 +45,7 @@ export function resolveSafeHref(
       rel: "noopener noreferrer",
     };
   }
-  return { ok: true, href: normalizedHref, target: "_self" };
+  return { ok: true, href: normalizedHref, target: rawTarget };
 }
 
 export function openSafeHref(

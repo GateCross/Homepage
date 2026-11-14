@@ -1,18 +1,17 @@
+# 双镜像拆分：web 容器由 nginx 同源托管前端产物，并把 /api /images /icons 反代到 api 容器；
+# 对外仅暴露 web 的 3000 → 80，api 只在内部网络监听 8080。
 services:
-  app:
-    image: sereindusk/homepage:latest
+  api:
+    image: sereindusk/homepage-api:latest
     build:
       context: ..
-      dockerfile: docker/runtime.Dockerfile
+      dockerfile: docker/api.Dockerfile
       args:
         # 与根 package.json 的 version 保持一致，供 /api/version 返回
         VERSION: "0.1.1"
-    container_name: homepage
-    ports:
-      - "3000:3000"
     environment:
       HOST: "0.0.0.0"
-      PORT: "3000"
+      PORT: "8080"
       CONFIG_DIR: /app/config
       # 密钥类变量按需注入（配置 YAML 中用 ${ENV_VAR} 引用）
       # QBIT_PASSWORD: ""
@@ -28,3 +27,28 @@ services:
       # 监控宿主机磁盘时，只读挂载根分区，并在 widgets.yaml 中写 disk: /host（可选）
       # - /:/host:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/app/homepage-api", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    image: sereindusk/homepage-web:latest
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # nginx:alpine 自带 busybox wget，静默探测本机 80 端口
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

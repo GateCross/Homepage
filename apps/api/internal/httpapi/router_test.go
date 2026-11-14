@@ -4,26 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
-
-	"github.com/gatecross/homepage/api/internal/httpx"
 )
 
-// 构造带入口 HTML 与一个静态资源的最小产物。
-func testStatic() *httpx.Static {
-	return httpx.NewStaticForTest(fstest.MapFS{
-		"index.html":        {Data: []byte("<!doctype html><div id=root></div>")},
-		"favicon.svg":       {Data: []byte("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>")},
-		"assets/app-abc.js": {Data: []byte("console.log(1)")},
-	})
-}
-
-// 未注册的 /api 路径必须返回 JSON 而不是回退到 SPA 的 HTML。
+// 未注册的 /api 路径必须返回 JSON 404。
 func TestUnknownAPIReturnsJSON(t *testing.T) {
-	server := httptest.NewServer(NewRouter(Options{Static: testStatic()}))
+	server := httptest.NewServer(NewRouter(Options{}))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/api/does-not-exist")
@@ -59,7 +46,7 @@ func TestUnknownAPIReturnsJSON(t *testing.T) {
 
 // /api 根路径同样按 API 处理。
 func TestAPIRootReturnsJSON(t *testing.T) {
-	server := httptest.NewServer(NewRouter(Options{Static: testStatic()}))
+	server := httptest.NewServer(NewRouter(Options{}))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/api")
@@ -73,9 +60,9 @@ func TestAPIRootReturnsJSON(t *testing.T) {
 	}
 }
 
-// 非 API 路径的未知地址回退入口 HTML。
-func TestNonAPIPathFallsBackToSPA(t *testing.T) {
-	server := httptest.NewServer(NewRouter(Options{Static: testStatic()}))
+// 非 API 路径没有静态托管，统一 404。
+func TestNonAPIPathReturns404(t *testing.T) {
+	server := httptest.NewServer(NewRouter(Options{}))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/some/deep/route")
@@ -84,46 +71,15 @@ func TestNonAPIPathFallsBackToSPA(t *testing.T) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("状态码 = %d，期望 %d", response.StatusCode, http.StatusOK)
-	}
-	if got := response.Header.Get("Cache-Control"); got != "no-cache" {
-		t.Fatalf("入口 HTML 的 Cache-Control = %q，期望 no-cache", got)
-	}
-	body := make([]byte, 64)
-	read, _ := response.Body.Read(body)
-	if !strings.Contains(string(body[:read]), "<div id=root>") {
-		t.Fatalf("未回退到入口 HTML：%s", body[:read])
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("状态码 = %d，期望 %d", response.StatusCode, http.StatusNotFound)
 	}
 }
 
-// 命中真实产物文件时按扩展名给 MIME 与长缓存。
-func TestServeExistingAsset(t *testing.T) {
-	server := httptest.NewServer(NewRouter(Options{Static: testStatic()}))
-	defer server.Close()
-
-	response, err := http.Get(server.URL + "/assets/app-abc.js")
-	if err != nil {
-		t.Fatalf("请求失败：%v", err)
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("状态码 = %d，期望 %d", response.StatusCode, http.StatusOK)
-	}
-	if got := response.Header.Get("Content-Type"); got != "text/javascript; charset=utf-8" {
-		t.Fatalf("Content-Type = %q", got)
-	}
-	if got := response.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
-		t.Fatalf("带哈希资源的 Cache-Control = %q", got)
-	}
-}
-
-// /api 之外的未知后缀仍走 SPA，不受 API 命名空间影响。
 func TestVersionEndpoint(t *testing.T) {
 	// 用桩替换远端检查，避免单元测试真的打 GitHub；远端同版本时不应标记更新
 	restoreVersionCheck(t, newStubbedChecker(releaseTransport("v"+Version, "https://example.com/r"), time.Now))
-	server := httptest.NewServer(NewRouter(Options{Static: testStatic()}))
+	server := httptest.NewServer(NewRouter(Options{}))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/api/version")
@@ -159,7 +115,7 @@ func TestMountsAreInjectable(t *testing.T) {
 	docker := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "results": []any{}})
 	})
-	server := httptest.NewServer(NewRouter(Options{Mounts: Mounts{Docker: docker}, Static: testStatic()}))
+	server := httptest.NewServer(NewRouter(Options{Mounts: Mounts{Docker: docker}}))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/api/docker/status")
@@ -190,7 +146,6 @@ func TestRouterRecoversPanic(t *testing.T) {
 		Mounts: Mounts{Config: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			panic("配置写回失败")
 		})},
-		Static: testStatic(),
 	})
 	server := httptest.NewServer(router)
 	defer server.Close()

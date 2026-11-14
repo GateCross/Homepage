@@ -17,8 +17,6 @@ type Mounts struct {
 	Assets http.Handler
 	// Icons 处理 /api/icons/resolve 与 /api/icons/import
 	Icons http.Handler
-	// Iconify 处理 /api/icons/iconify/{prefix}/{name} 的 CDN 代理
-	Iconify http.Handler
 	// Data 处理 /api/probe/:probeId、/api/widgets/:widgetId 与 /api/info/:infoId
 	Data http.Handler
 }
@@ -26,23 +24,24 @@ type Mounts struct {
 // Options 是路由组装的输入。
 type Options struct {
 	Mounts Mounts
-	// Static 为 nil 时使用内嵌产物；非 /api 路径全部走它
-	Static *httpx.Static
+	// Assets 托管 /images/ 与 /icons/ 两个配置资产前缀；为 nil 时这两个前缀按未匹配路径处理
+	Assets *httpx.Assets
 }
 
 // 组装路由与中间件。
 // 中间件顺序：panic 恢复在最外，其次请求日志，gzip 最内贴近业务。
 func NewRouter(options Options) http.Handler {
-	static := options.Static
-	if static == nil {
-		static = httpx.NewStatic()
-	}
-
 	mux := http.NewServeMux()
 	registerAPI(mux, options.Mounts)
 
-	// 未匹配的 /api 路径返回 JSON；其余交给静态托管
-	mux.Handle("/", notFoundHandler{static: static})
+	// 配置资产前缀任意方法都接受，缺失文件直接 404，不回退 HTML
+	if options.Assets != nil {
+		mux.Handle("/images/", options.Assets)
+		mux.Handle("/icons/", options.Assets)
+	}
+
+	// 未匹配的 /api 路径返回 JSON；其余路径一律 404
+	mux.Handle("/", notFoundHandler{})
 
 	return Chain(mux, RecoverPanics, LogRequests, Gzip)
 }
@@ -67,10 +66,6 @@ func registerAPI(mux *http.ServeMux, mounts Mounts) {
 		mux.Handle("POST /api/icons/resolve", mounts.Icons)
 		mux.Handle("POST /api/icons/import", mounts.Icons)
 	}
-	if mounts.Iconify != nil {
-		// Iconify 代理：前端 mdi-* / si-* 图标经本站转发，浏览器不直连 CDN
-		mux.Handle("GET /api/icons/iconify/{prefix}/{name}", mounts.Iconify)
-	}
 	if mounts.Data != nil {
 		mux.Handle("GET /api/probe/{probeId}", mounts.Data)
 		mux.Handle("GET /api/widgets/{widgetId}", mounts.Data)
@@ -82,7 +77,7 @@ func registerAPI(mux *http.ServeMux, mounts Mounts) {
 		mux.Handle("GET /api/docker/status.json", mounts.Docker)
 		mux.Handle("GET /api/docker/{server}/containers", mounts.Docker)
 		mux.Handle("GET /api/docker/{server}/{container}", mounts.Docker)
-		// 未登记的子路径与非常规方法统一回 JSON 404，而不是回退到 SPA
+		// 未登记的子路径与非常规方法统一回 JSON 404，而不是回退到 HTML
 		mux.Handle("/api/docker/", mounts.Docker)
 	}
 }
@@ -93,18 +88,16 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 // notFoundHandler 兜住所有未匹配路径。
-// /api 前缀必须先于静态托管处理：API 路径不得回退到 SPA，否则前端拿到 HTML 解析失败。
+// /api 前缀必须先按 API 处理：API 路径不得回退 HTML，否则前端拿到 HTML 解析失败。
 // 路径已注册但方法不匹配时，标准库在进入这里之前就会返回 405。
-type notFoundHandler struct {
-	static *httpx.Static
-}
+type notFoundHandler struct{}
 
-func (h notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if isAPIPath(r.URL.Path) {
 		WriteError(w, NotFound("未找到请求的 API 接口"))
 		return
 	}
-	h.static.ServeSPA(w, r)
+	http.NotFound(w, r)
 }
 
 // 是否属于 /api 命名空间；/apix 之类的相似前缀不算。

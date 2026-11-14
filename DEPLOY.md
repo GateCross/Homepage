@@ -1,10 +1,10 @@
 # 部署说明（运行进程 / 容器视角）
 
-架构：**Go 单一二进制**提供 API 与前端静态资源，前端产物在构建期嵌入二进制。
+架构：**双镜像部署**。Go 服务（api 容器）监听内部 `:8080`，提供 `/api` 与 `/images`、`/icons` 配置资产根；nginx（web 容器）同源托管前端构建产物，并把 `/api`、`/images`、`/icons` 反代到 api 容器；compose 仅对外暴露 web 的 `3000 → 80`。
 
 ```
-apps/api   Go 后端（cmd/homepage-api）
-apps/web   React 前端（构建产物由 go:embed 打进二进制）
+apps/api   Go 后端（cmd/homepage-api），api 镜像只含 Go 静态二进制
+apps/web   React 前端，构建产物由 web 镜像的 nginx 托管（不进 Go 二进制）
 ```
 
 ## 本地开发调试
@@ -31,29 +31,22 @@ cd apps/api
 CONFIG_DIR=../../config PORT=3000 go run ./cmd/homepage-api
 ```
 
-改完前端想让 Go 服务托管新产物时，先 `pnpm build` 再同步：
-
-```bash
-pnpm --filter @homepage/web build
-cd apps/api && go generate ./internal/httpx
-```
-
-`go generate` 把 `apps/web/dist` 复制进 `internal/httpx/webdist/`，随后编译即嵌入。该目录是构建输出，不进入版本库。
+后端不再托管前端：直接访问 Go 端口只会得到 API 与配置资产响应，没有 UI 页面。要看 UI，请在 `apps/web` 启动 Vite dev server（5173），`/api`、`/images`、`/icons` 已由 dev 代理转发到上例的 `127.0.0.1:3000`。
 
 ## 构建与启动（生产）
 
+生产形态为两镜像 + compose 编排：api 容器只跑 Go 二进制，web 容器由 nginx 托管前端产物并反代。
+
 ```bash
-pnpm install
-pnpm build          # 前端 → apps/web/dist
-cd apps/api
-go generate ./internal/httpx
-go build -trimpath -ldflags="-s -w -X github.com/gatecross/homepage/api/internal/httpapi.Version=0.1.1" \
-  -o homepage-api ./cmd/homepage-api
-./homepage-api
+# 两镜像本地构建（也可直接 docker compose build）
+docker build -f docker/api.Dockerfile -t sereindusk/homepage-api:latest .
+docker build -f docker/web.Dockerfile -t sereindusk/homepage-web:latest .
+
+docker compose up -d
 ```
 
-- 未执行 `go generate` 时二进制仍可编译，但所有静态请求返回 404（产物目录只有占位文件）。
-- 版本号通过 `-ldflags -X` 注入，未注入时 `/api/version` 返回 `0.0.0`。
+- 前端依赖安装与 `vite build` 在 web 镜像构建阶段内完成，宿主机无需 Node / pnpm 环境。
+- 版本号通过 api 镜像的 `VERSION` build-arg 注入（compose 与 CI 均取自根 package.json），未注入时 `/api/version` 返回 `0.0.0`。
 
 ### 校验
 
@@ -75,7 +68,7 @@ go run scripts/smoke-reload.go   # 热加载冒烟
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `CONFIG_DIR` | `/app/config` | 五文件配置目录 |
-| `PORT` | `3000` | HTTP 端口 |
+| `PORT` | `8080` | api 容器内部监听端口；对外端口由 web 服务 `ports` 映射（`3000:80`） |
 | `HOST` | 空（全部网卡） | 监听地址 |
 
 默认值面向容器；本地运行时请显式设置 `CONFIG_DIR` 与 `HOST`。
@@ -84,12 +77,20 @@ go run scripts/smoke-reload.go   # 热加载冒烟
 
 ## 静态托管与路由顺序
 
-1. 全部 `/api/*` 路由（含 API JSON 404）优先于 SPA。
-2. 配置目录下的本地图标：`CONFIG_DIR/images/*`、`CONFIG_DIR/icons/*` 分别映射为 `/images/*`、`/icons/*`。编辑器中「选择本地图片」上传到 `CONFIG_DIR/images/`，返回 `/images/<filename>` 写入配置。
-3. 存在的前端静态资源按正确 Content-Type 返回；带内容哈希的文件用 `immutable` 长缓存，`index.html` 用 `no-cache`。
-4. 其余非 API 路径回退到内嵌的 `index.html`（SPA fallback）。
+静态托管分两层：nginx（web 容器）托管前端产物，Go（api 容器）服务 `/api` 与 `/images`、`/icons` 配置资产根；`/api`、`/images`、`/icons` 三个前缀由 nginx 反代到 `api:8080`（反代规则位于所有静态扩展名规则之前，且 `proxy_buffering off`，NDJSON/SSE 逐条推送不被缓冲）。
 
-gzip 在中间件层统一协商，小于 512 字节不压缩；NDJSON 与 SSE 端点跳过压缩。
+nginx 层职责（`docker/nginx.conf`）：
+
+1. 前端静态资源按正确 Content-Type 返回；`/assets/` 下带内容哈希的产物用 `immutable` 长缓存，`index.html` 用 `no-cache`。
+2. gzip 统一协商（对齐原 Go 中间件参数），小于 512 字节不压缩；流式类型（NDJSON/SSE）不进压缩列表。
+3. 其余非反代路径回退到 `index.html`（SPA fallback）。
+4. 上传与图标导入入口放宽 `client_max_body_size` 为 20m。
+
+Go 侧语义与安全不变式保留：
+
+1. 全部 `/api/*` 路由（含 API JSON 404）优先于静态回退。
+2. 配置目录下的本地图标：`CONFIG_DIR/images/*`、`CONFIG_DIR/icons/*` 分别映射为 `/images/*`、`/icons/*`。编辑器中「选择本地图片」上传到 `CONFIG_DIR/images/`，返回 `/images/<filename>` 写入配置。
+3. `.svg` 响应带 `Content-Disposition: attachment` 与 `X-Content-Type-Options: nosniff`，由 Go 资产服务保证；nginx 对 `/assets` 与自有静态文件同样带 nosniff，`.svg`（如 `favicon.svg`）按附件处理。
 
 **安全边界**：`/images/` 前缀下不存在的文件返回 404 而不是回落到 `index.html`；`..` 路径穿越与编码变形一律 404，配置文件本身无法通过这些 URL 读到。
 
@@ -101,12 +102,13 @@ gzip 在中间件层统一协商，小于 512 字节不压缩；NDJSON 与 SSE �
 - **内存 / 磁盘**：读取容器可见的 `/proc/meminfo` 与 `statfs(path)`。
 - 非 Linux 平台（如开发机的 macOS）走降级分支，返回 `unavailable` 与中文说明，不影响其它组件。
 
-若需监控宿主机磁盘，请由部署者以只读方式把宿主机目录挂载到容器内路径，并在 `widgets.yaml` 中配置对应容器内路径：
+若需监控宿主机磁盘，请由部署者以只读方式把宿主机目录挂载到 **api 服务**（`resources` 由 Go 进程采集），并在 `widgets.yaml` 中配置对应容器内路径：
 
 ```yaml
-# docker-compose 示例片段
-volumes:
-  - /:/host:ro
+# docker-compose 示例片段（挂载加在 api 服务下）
+api:
+  volumes:
+    - /:/host:ro
 ```
 
 ```yaml
@@ -143,19 +145,20 @@ volumes:
 
 ## Docker 部署
 
-镜像发布到 Docker Hub：[`sereindusk/homepage`](https://hub.docker.com/repository/docker/sereindusk/homepage)。
+镜像发布到 Docker Hub：[`sereindusk/homepage-api`](https://hub.docker.com/repository/docker/sereindusk/homepage-api) 与 [`sereindusk/homepage-web`](https://hub.docker.com/repository/docker/sereindusk/homepage-web)。
 
-`main` 推送或打 `v*` 标签后，GitHub Actions（`.github/workflows/build-and-push.yml`）先跑 `go build/vet/test -race` 与前端 `typecheck/test/lint`，再构建 `linux/amd64` + `linux/arm64` 并推送。
+`main` 推送或打 `v*` 标签后，GitHub Actions（`.github/workflows/build-and-push.yml`）先跑 `go build/vet/test -race` 与前端 `typecheck/test/lint`，再构建两个镜像的 `linux/amd64` + `linux/arm64` 并推送。
 
-镜像采用三阶段构建：
+镜像拆分为两个，各自职责单一：
 
-| 阶段 | 基础镜像 | 作用 |
-|---|---|---|
-| `web` | `node:22-alpine` | 装前端依赖并 `vite build` |
-| `api` | `golang:1.27-alpine` | 同步产物、`go generate`、静态编译 |
-| `runtime` | `alpine:3.22` | 仅放二进制 + ca 证书，非 root 运行 |
+| 镜像 | 阶段 | 基础镜像 | 作用 |
+|---|---|---|---|
+| api | `build` | `golang:1.27-alpine` | 静态编译 Go 二进制（`VERSION` build-arg 注入版本号） |
+| api | 运行时 | `alpine:3.22` | 仅二进制 + ca 证书，非 root 运行，监听内部 `:8080` |
+| web | `web` | `node:22-alpine` | 装前端依赖并 `vite build` |
+| web | 运行时 | `nginx:1.27-alpine` | 托管前端产物，反代 `/api`、`/images`、`/icons` |
 
-最终镜像不含 Node、pnpm 与 Go 工具链。健康检查复用二进制自身的 `-healthcheck` 模式，镜像内无需 curl/wget。
+api 运行时镜像不含 Node、pnpm 与 Go 工具链；web 运行时镜像不含 Node 构建链。健康检查：api 复用二进制自身的 `-healthcheck` 模式（镜像内无需 curl/wget），web 用 `nginx:alpine` 自带的 busybox wget 探测本机 80。
 
 ### 快速启动
 
@@ -168,13 +171,50 @@ docker compose up -d
 
 默认访问：`http://localhost:3000`
 
+### 部署机首次验证清单
+
+`docker compose up -d` 后在部署机上逐条确认（端口按实际映射替换）：
+
+```bash
+# 1. 健康检查：返回 JSON，含 "ok":true
+curl -s http://localhost:3000/api/health
+
+# 2. 入口页：200 且 Content-Type 为 text/html
+curl -I http://localhost:3000/
+
+# 3. SPA 回退：任意未匹配路径返回 index.html 内容（200）
+curl -s http://localhost:3000/some/deep/route
+
+# 4. Docker 批量状态：NDJSON 流式逐条推送
+curl -s -H "Accept: application/x-ndjson" http://localhost:3000/api/docker/status
+
+# 5. 上传体积限制：大于 20m 的文件应被 413 拒绝
+curl -F file=@bigfile.bin http://localhost:3000/api/assets/upload
+
+# 6. 带哈希产物：immutable 长缓存 + gzip（需显式带 Accept-Encoding）
+curl -sI -H "Accept-Encoding: gzip" http://localhost:3000/assets/<构建产物 js 文件名>
+
+# 7. 入口 HTML：no-cache
+curl -I http://localhost:3000/index.html
+
+# 8. SVG 按附件下载
+curl -I http://localhost:3000/favicon.svg
+```
+
 ### compose 要点
 
-- 镜像：`sereindusk/homepage:latest`；`docker compose build` 可从源码本地构建
-- 端口：`3000:3000`
-- 必挂：`./config:/app/config`（`CONFIG_DIR` 默认为 `/app/config`）
-- 可选：只读挂载 `/var/run/docker.sock` 查询容器状态；只读挂载宿主机根分区到 `/host` 供 `resources` 磁盘监控
-- 密钥环境变量（如 `QBIT_PASSWORD`、`EMBY_API_KEY`）在 compose `environment` 中注入，配置 YAML 用 `${ENV_VAR}` 引用
+- 镜像：`sereindusk/homepage-api` 与 `sereindusk/homepage-web`；`docker compose build` 可从源码本地构建
+- 对外端口：仅 web 服务 `3000:80`；api 不映射端口，只在 compose 内部网络监听 `8080`（nginx 以 `http://api:8080` 反代）
+- 必挂（api 服务）：`./config:/app/config`（`CONFIG_DIR` 默认为 `/app/config`）
+- 可选（api 服务）：只读挂载 `/var/run/docker.sock` 查询容器状态；只读挂载宿主机根分区到 `/host` 供 `resources` 磁盘监控
+- 启动顺序：web `depends_on` api `service_healthy`，api 未通过健康检查前 web 不启动
+- 密钥环境变量（如 `QBIT_PASSWORD`、`EMBY_API_KEY`）在 api 服务 `environment` 中注入，配置 YAML 用 `${ENV_VAR}` 引用
+
+### 从单镜像版迁移
+
+- 镜像名变化：旧单镜像 `sereindusk/homepage` 冻结不再更新；现为 `homepage-api` 与 `homepage-web` 两个镜像（CI 中由 `DOCKERHUB_IMAGE_NAME` 加 `-api` / `-web` 后缀派生）。
+- compose 结构变化：原单服务拆为 `api` + `web` 双服务，请改用仓库内新版 `docker/docker-compose.yml`。
+- 配置数据无需迁移：`./config` 挂载方式与容器内路径（`/app/config`）不变，原有五文件与 `images/`、`icons/` 原样可用。
 
 ### 配置目录写权限（图标导入 / 图片上传）
 
@@ -191,7 +231,7 @@ mkdir -p ./config/images ./config/icons
 chmod -R a+rwX ./config
 
 # 方式 B：改属主为容器内 homepage 用户（更稳妥）
-# 先查 UID：docker compose exec app id homepage
+# 先查 UID：docker compose exec api id homepage
 sudo chown -R 100:100 ./config
 ```
 
@@ -199,9 +239,7 @@ sudo chown -R 100:100 ./config
 
 ### 本地构建镜像（可选）
 
-```bash
-docker build -f docker/runtime.Dockerfile -t sereindusk/homepage:local .
-```
+见上文「构建与启动（生产）」：分别执行 `docker build -f docker/api.Dockerfile` 与 `docker build -f docker/web.Dockerfile` 产出两个镜像。
 
 ### CI 密钥
 
@@ -212,4 +250,4 @@ docker build -f docker/runtime.Dockerfile -t sereindusk/homepage:local .
 | `DOCKERHUB_USERNAME` | Docker Hub 用户名（如 `sereindusk`） |
 | `DOCKERHUB_TOKEN` | Docker Hub Access Token |
 
-可选 Variables：`DOCKERHUB_IMAGE_NAME`（默认 `homepage`）。
+可选 Variables：`DOCKERHUB_IMAGE_NAME`（默认 `homepage`），CI 据此推送 `<IMAGE_NAME>-api` 与 `<IMAGE_NAME>-web` 两个镜像。

@@ -1,5 +1,6 @@
 import { useEffect, useState, type JSX } from "react";
 
+import { lookupIconifySvg, type IconifyKind, type IconifySvg } from "@/lib/iconify";
 import {
   resolveBookmarkIconDisplay,
   resolveServiceIconDisplay,
@@ -9,28 +10,50 @@ import {
 } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
-/** 经本站代理拉取 Iconify，避免前端纯 CDN 在离线/阻断时全挂 */
-function iconifyUrl(icon: Extract<ResolvedIcon, { kind: "mdi" | "si" }>): string {
-  if (icon.kind === "mdi") {
-    return `/api/icons/iconify/mdi/${encodeURIComponent(icon.name)}.svg`;
-  }
-  return `/api/icons/iconify/simple-icons/${encodeURIComponent(icon.name)}.svg`;
-}
+type IconifyGlyphProps = {
+  kind: IconifyKind;
+  name: string;
+  className?: string | undefined;
+  onFailed?: (() => void) | undefined;
+};
 
-function resolvedIconSrc(icon: ResolvedIcon): string | null {
-  switch (icon.kind) {
-    case "url":
-      return icon.href;
-    case "file":
-      return `/icons/${encodeURIComponent(icon.filename)}`;
-    case "mdi":
-    case "si":
-      return iconifyUrl(icon);
-    default: {
-      const _exhaustive: never = icon;
-      return _exhaustive;
-    }
+/** 内置图标集渲染：懒加载整包 JSON 后内联 SVG，名称不存在时回报失败交给上层占位 */
+function IconifyGlyph({
+  kind,
+  name,
+  className,
+  onFailed,
+}: IconifyGlyphProps): JSX.Element | null {
+  const [svg, setSvg] = useState<IconifySvg | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setSvg(null);
+    void lookupIconifySvg(kind, name).then((result) => {
+      if (!alive) {
+        return;
+      }
+      if (result === null) {
+        onFailed?.();
+        return;
+      }
+      setSvg(result);
+    });
+    return () => {
+      alive = false;
+    };
+    // onFailed 每次渲染都是新的箭头函数，依赖它会导致反复重新查询
+  }, [kind, name]);
+  if (svg === null) {
+    return null;
   }
+  return (
+    <svg
+      viewBox={svg.viewBox}
+      aria-hidden="true"
+      className={cn("size-5 shrink-0", className)}
+      dangerouslySetInnerHTML={{ __html: svg.body }}
+    />
+  );
 }
 
 export type IconImageProps = {
@@ -46,10 +69,21 @@ function IconImage({
   className,
   onFailed,
 }: IconImageProps): JSX.Element | null {
-  const src = resolvedIconSrc(icon);
-  if (src === null) {
-    return null;
+  // mdi/si 图标来自内置图标集，直接内联 SVG；其余按 URL 渲染
+  if (icon.kind === "mdi" || icon.kind === "si") {
+    return (
+      <IconifyGlyph
+        kind={icon.kind}
+        name={icon.name}
+        className={className}
+        onFailed={onFailed}
+      />
+    );
   }
+  const src =
+    icon.kind === "url"
+      ? icon.href
+      : `/icons/${encodeURIComponent(icon.filename)}`;
   return (
     <img
       key={src}

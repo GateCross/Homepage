@@ -171,33 +171,61 @@ jobs:
         id: version
         run: echo "value=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push by digest
-        id: build
+      - name: Build and push api image by digest
+        id: build_api
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/runtime.Dockerfile
+          file: docker/api.Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           provenance: false
           sbom: false
           build-args: |
             VERSION=${{ steps.version.outputs.value }}
-          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=build-${{ matrix.platform_id }}
-          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}
+          outputs: type=image,name=${{ steps.image.outputs.name }}-api,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ matrix.platform_id }}-api
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}-api
 
-      - name: Export digest
+      - name: Export api digest
         run: |
-          mkdir -p "${{ runner.temp }}/digests"
-          digest="${{ steps.build.outputs.digest }}"
-          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+          mkdir -p "${{ runner.temp }}/digests-api"
+          digest="${{ steps.build_api.outputs.digest }}"
+          touch "${{ runner.temp }}/digests-api/${digest#sha256:}"
 
-      - name: Upload digest
+      - name: Upload api digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ matrix.platform_id }}
-          path: ${{ runner.temp }}/digests/*
+          name: digests-${{ matrix.platform_id }}-api
+          path: ${{ runner.temp }}/digests-api/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Build and push web image by digest
+        id: build_web
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/web.Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: false
+          sbom: false
+          outputs: type=image,name=${{ steps.image.outputs.name }}-web,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ matrix.platform_id }}-web
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}-web
+
+      - name: Export web digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests-web"
+          digest="${{ steps.build_web.outputs.digest }}"
+          touch "${{ runner.temp }}/digests-web/${digest#sha256:}"
+
+      - name: Upload web digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.platform_id }}-web
+          path: ${{ runner.temp }}/digests-web/*
           if-no-files-found: error
           retention-days: 1
 
@@ -211,11 +239,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download digests
+      - name: Download api digests
         uses: actions/download-artifact@v8
         with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-*
+          path: ${{ runner.temp }}/digests-api
+          pattern: digests-*-api
+          merge-multiple: true
+
+      - name: Download web digests
+        uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests-web
+          pattern: digests-*-web
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -227,25 +262,48 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
+      - name: Extract api metadata (tags, labels)
+        id: meta_api
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-api
           tags: |
             type=raw,value=latest
             type=raw,value=${{ needs.tag-and-release.outputs.tag }},enable=${{ needs.tag-and-release.outputs.tag != '' }}
             type=ref,event=tag
 
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
+      - name: Create api manifest list and push
+        working-directory: ${{ runner.temp }}/digests-api
         run: |
-          image="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
+          image="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-api"
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf "${image}@sha256:%s " *)
 
-      - name: Inspect image
+      - name: Inspect api image
         run: |
           docker buildx imagetools inspect \
-            "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
+            "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-api:${{ steps.meta_api.outputs.version }}"
+
+      - name: Extract web metadata (tags, labels)
+        id: meta_web
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-web
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.tag-and-release.outputs.tag }},enable=${{ needs.tag-and-release.outputs.tag != '' }}
+            type=ref,event=tag
+
+      - name: Create web manifest list and push
+        working-directory: ${{ runner.temp }}/digests-web
+        run: |
+          image="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-web"
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${image}@sha256:%s " *)
+
+      - name: Inspect web image
+        run: |
+          docker buildx imagetools inspect \
+            "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-web:${{ steps.meta_web.outputs.version }}"

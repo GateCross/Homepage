@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -121,6 +122,11 @@ func WriteConfig(ctx context.Context, dir string, payload EditableConfigWrite) (
 		return nil, err
 	}
 	defer cleanupPrepared(prepared)
+
+	// 替换磁盘前的最后一个取消点：从此刻起磁盘开始改变，再取消只能靠回滚
+	if err := ctx.Err(); err != nil {
+		return nil, &EditableConfigError{Message: "配置保存已取消"}
+	}
 
 	snapshot, err := snapshotFiveFiles(dir)
 	if err != nil {
@@ -258,6 +264,24 @@ func replaceFiveFiles(dir string, prepared *preparedFiveFiles) ([]string, error)
 // 同目录临时文件名：带上进程号与文件名，避免并发或残留互相覆盖。
 func replaceTempName(name string) string {
 	return fmt.Sprintf(".%s.%d.tmp", name, os.Getpid())
+}
+
+// CleanupStaleTempFiles 清理进程被杀留下的写回临时文件
+// （.<配置文件>.<进程号>.tmp 与对应 .rollback.tmp）。
+// 崩溃残留以点前缀隐藏文件形态留在配置目录，不影响加载，但会无限累积；
+// 启动时调用一次即可，清理失败静默忽略。
+func CleanupStaleTempFiles(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".tmp") {
+			continue
+		}
+		_ = os.Remove(filepath.Join(dir, name))
+	}
 }
 
 // 写入并尽量落盘；同步失败不阻断写回。

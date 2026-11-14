@@ -17,7 +17,6 @@ func TestConfigMountAcceptsPut(t *testing.T) {
 	})
 	server := httptest.NewServer(NewRouter(Options{
 		Mounts: Mounts{Config: configMount},
-		Static: testStatic(),
 	}))
 	defer server.Close()
 
@@ -46,7 +45,6 @@ func TestConfigMountRejectsOtherMethods(t *testing.T) {
 	})
 	server := httptest.NewServer(NewRouter(Options{
 		Mounts: Mounts{Config: configMount},
-		Static: testStatic(),
 	}))
 	defer server.Close()
 

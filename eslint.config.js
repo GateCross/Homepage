@@ -6,8 +6,6 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
-      // 前端产物同步进嵌入目录后是构建输出，不参与 lint
-      "apps/api/internal/httpx/webdist/**",
       // 本地草稿目录，不入库；ESLint 不读 .gitignore，须显式排除
       ".scratch/**",
       "**/build/**",

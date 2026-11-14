@@ -1,5 +1,0 @@
-# 前端产物：由 go generate 从 apps/web/dist 同步，构建输出不入库，
-# 目录内只保留占位文件以保证干净工作区可编译。
-*
-!.gitignore
-!placeholder.go

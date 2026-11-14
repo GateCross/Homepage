@@ -15,11 +15,10 @@
 **/dist
 **/*.tsbuildinfo
 
-# Go 构建产物与嵌入产物（镜像内由 go generate 重新同步）
+# Go 构建产物
 apps/api/homepage-api
 **/*.exe
 **/*.test
-apps/api/internal/httpx/webdist
 coverage
 .turbo
 .cache
