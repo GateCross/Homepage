@@ -38,14 +38,25 @@ func TestStoreWatchReloadsAndKeepsOldOnError(t *testing.T) {
 		t.Fatal("等待配置热加载超时")
 	}
 
-	// 非法变更：重新加载失败，旧快照保持不变
-	if err := os.WriteFile(filepath.Join(dir, FileDocker), []byte("other: [坏掉的\n"), 0o600); err != nil {
+	// 非法变更：重新加载失败，旧快照保持不变。
+	// 必须走临时文件 + rename 的原子写：直接截断写入会让监听读到空文件的窗口，
+	// 空文件能成功解析成空配置，旧快照反而被合法替换，测试就会偶发失败。
+	if err := atomicWriteFile(filepath.Join(dir, FileDocker), "other: [坏掉的\n"); err != nil {
 		t.Fatalf("写入配置失败：%v", err)
 	}
 	time.Sleep(3 * reloadDebounce)
 	if _, ok := store.Snapshot().AllowList.DockerEndpoints["other"]; !ok {
 		t.Error("重新加载失败时必须保留旧快照")
 	}
+}
+
+// 原子写入：与生产写回一致（临时文件 + rename），监听方要么看到旧内容要么看到新内容。
+func atomicWriteFile(path, content string) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(content), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // 反复写入并检查条件，覆盖监听尚未就绪的窗口。
