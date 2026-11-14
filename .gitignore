@@ -13,6 +13,8 @@ apps/api/homepage-api
 *.exe
 *.test
 *.out
+# 前端产物同步目录：镜像内由 go generate 重新同步，不入库
+apps/api/internal/httpx/webdist/
 
 # 测试与覆盖率
 coverage/
