@@ -147,7 +147,7 @@ api:
 
 镜像发布到 Docker Hub：[`sereindusk/homepage-api`](https://hub.docker.com/repository/docker/sereindusk/homepage-api) 与 [`sereindusk/homepage-web`](https://hub.docker.com/repository/docker/sereindusk/homepage-web)。
 
-`main` 推送或打 `v*` 标签后，GitHub Actions（`.github/workflows/build-and-push.yml`）先跑 `go build/vet/test -race` 与前端 `typecheck/test/lint`，再构建两个镜像的 `linux/amd64` + `linux/arm64` 并推送。
+`main` 推送或打 `v*` 标签后，GitHub Actions（`.github/workflows/build-and-push.yml`）并行跑 Go（`go build/vet/test -race`）与前端（`typecheck/test/lint`）两路校验，随后 `linux/amd64` + `linux/arm64` × api/web 共 4 个 job 并行构建镜像并推送。package.json 版本号未变时跳过打 tag 与 Release，仅更新 `latest`。
 
 镜像拆分为两个，各自职责单一：
 

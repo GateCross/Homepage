@@ -13,7 +13,9 @@ RUN go mod download
 
 COPY apps/api ./
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/gatecross/homepage/api/internal/httpapi.Version=${VERSION}" -o /out/homepage-api ./cmd/homepage-api
+# go-build 缓存挂载：同一 builder 上的重复构建（本地反复 compose build）可复用编译缓存
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/gatecross/homepage/api/internal/httpapi.Version=${VERSION}" -o /out/homepage-api ./cmd/homepage-api
 
 FROM alpine:3.22
 

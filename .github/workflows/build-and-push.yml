@@ -40,8 +40,8 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  # PR 与推送都先跑一遍静态检查与单测，失败则不产出镜像
-  verify:
+  # PR 与推送都先跑静态检查与单测，失败则不产出镜像；Go 与前端互不依赖，拆两个 job 并行
+  verify-go:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -64,6 +64,12 @@ jobs:
       - name: Go test
         working-directory: apps/api
         run: go test -race ./...
+
+  verify-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -88,10 +94,10 @@ jobs:
       - name: Frontend lint
         run: pnpm lint
 
-  # 推送到 main 时自动打 tag 并发 Release
+  # 推送到 main 时自动打 tag 并发 Release；版本号未变（tag 已存在）则跳过，只让 merge 更新 latest
   tag-and-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [verify]
+    needs: [verify-go, verify-web]
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.create_tag.outputs.tag }}
@@ -106,15 +112,17 @@ jobs:
         run: |
           VERSION=$(jq -r .version package.json)
           TAG_NAME="v${VERSION}"
-          # 版本号必须与 package.json 一一对应；tag 已存在说明忘升版本，直接失败提醒
+          # 版本号必须与 package.json 一一对应，绝不生成日期后缀变体
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "::error::Tag ${TAG_NAME} 已存在，请先升级 package.json 中的 version 再推送发布"
-            exit 1
+            echo "Tag ${TAG_NAME} 已存在，本次推送不发新版本，仅更新 latest 镜像"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+            echo "Resolved Tag: $TAG_NAME"
           fi
-          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
-          echo "Resolved Tag: $TAG_NAME"
 
       - name: Create Git Tag and Release
+        if: steps.create_tag.outputs.tag != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -124,19 +132,28 @@ jobs:
           git push origin "${{ steps.create_tag.outputs.tag }}"
           gh release create "${{ steps.create_tag.outputs.tag }}" --generate-notes --title "${{ steps.create_tag.outputs.tag }}" || true
 
-  # amd64 / arm64 各自在原生 runner 上构建，避免 QEMU 模拟拖慢
+  # amd64 / arm64 各自在原生 runner 上构建避免 QEMU 模拟拖慢；api 与 web 镜像互不依赖，拆成 4 个 job 全并行
   build:
+    needs: [verify-go, verify-web]
     runs-on: ${{ matrix.runner }}
-    needs: [verify, tag-and-release]
-    if: always() && !cancelled() && needs.verify.result == 'success' && (needs.tag-and-release.result == 'success' || needs.tag-and-release.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: linux/amd64
+          - image: api
+            platform: linux/amd64
             runner: ubuntu-latest
             platform_id: amd64
-          - platform: linux/arm64
+          - image: api
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            platform_id: arm64
+          - image: web
+            platform: linux/amd64
+            runner: ubuntu-latest
+            platform_id: amd64
+          - image: web
+            platform: linux/arm64
             runner: ubuntu-24.04-arm
             platform_id: arm64
     steps:
@@ -162,67 +179,41 @@ jobs:
 
       - name: Prepare image name
         id: image
-        run: echo "name=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve version
         id: version
+        if: matrix.image == 'api'
         run: echo "value=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push api image by digest
-        id: build_api
+      - name: Build and push ${{ matrix.image }} image by digest
+        id: build_image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/api.Dockerfile
+          file: docker/${{ matrix.image }}.Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           provenance: false
           sbom: false
+          # 仅 api 镜像需要 VERSION build-arg；web 留空（空行会被 build-push-action 过滤）
           build-args: |
-            VERSION=${{ steps.version.outputs.value }}
-          outputs: type=image,name=${{ steps.image.outputs.name }}-api,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=build-${{ matrix.platform_id }}-api
-          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}-api
+            ${{ matrix.image == 'api' && format('VERSION={0}', steps.version.outputs.value) || '' }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ matrix.platform_id }}-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}-${{ matrix.image }}
 
-      - name: Export api digest
+      - name: Export ${{ matrix.image }} digest
         run: |
-          mkdir -p "${{ runner.temp }}/digests-api"
-          digest="${{ steps.build_api.outputs.digest }}"
-          touch "${{ runner.temp }}/digests-api/${digest#sha256:}"
+          mkdir -p "${{ runner.temp }}/digests-${{ matrix.image }}"
+          digest="${{ steps.build_image.outputs.digest }}"
+          touch "${{ runner.temp }}/digests-${{ matrix.image }}/${digest#sha256:}"
 
-      - name: Upload api digest
+      - name: Upload ${{ matrix.image }} digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ matrix.platform_id }}-api
-          path: ${{ runner.temp }}/digests-api/*
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Build and push web image by digest
-        id: build_web
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: docker/web.Dockerfile
-          platforms: ${{ matrix.platform }}
-          push: true
-          provenance: false
-          sbom: false
-          outputs: type=image,name=${{ steps.image.outputs.name }}-web,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=build-${{ matrix.platform_id }}-web
-          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}-web
-
-      - name: Export web digest
-        run: |
-          mkdir -p "${{ runner.temp }}/digests-web"
-          digest="${{ steps.build_web.outputs.digest }}"
-          touch "${{ runner.temp }}/digests-web/${digest#sha256:}"
-
-      - name: Upload web digest
-        uses: actions/upload-artifact@v7
-        with:
-          name: digests-${{ matrix.platform_id }}-web
-          path: ${{ runner.temp }}/digests-web/*
+          name: digests-${{ matrix.platform_id }}-${{ matrix.image }}
+          path: ${{ runner.temp }}/digests-${{ matrix.image }}/*
           if-no-files-found: error
           retention-days: 1
 
