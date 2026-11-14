@@ -1,13 +1,14 @@
 package httpapi
 
 import (
-	"compress/gzip"
 	"log"
 	"net/http"
 	"os"
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/klauspost/compress/gzhttp"
 )
 
 // 响应体不小于该字节数才压缩；更小的响应省下的字节抵不过压缩开销。
@@ -19,8 +20,26 @@ var streamingContentTypes = []string{"application/x-ndjson", "text/event-stream"
 // 只有这类响应体压缩后仍可直接使用。
 var compressibleContentTypes = []string{"application/json", "text/"}
 
-// 请求日志固定写到标准输出；错误与堆栈留在标准错误，两类信息便于分流采集。
-var requestLog = log.New(os.Stdout, "", log.LstdFlags)
+// gzipWrapper 是配置好阈值的压缩包装器；参数全是常量，构造失败只会是
+// 库版本行为变化，此时退化为直通，保住服务可用性。
+var gzipWrapper = newGzipWrapper()
+
+// newGzipWrapper 构造压缩中间件：客户端接受、类型可压缩且非流式、
+// 响应体达到阈值才压缩。决策推迟到首个响应体写入，状态码与响应头不会提前定型。
+func newGzipWrapper() func(http.Handler) http.Handler {
+	wrapper, err := gzhttp.NewWrapper(
+		gzhttp.MinSize(gzipMinBytes),
+		// 保持既有线上行为：只协商 gzip，不引入 zstd
+		gzhttp.EnableZstd(false),
+		gzhttp.ContentTypeFilter(isCompressibleContentType),
+	)
+	if err != nil {
+		log.Printf("压缩中间件构造失败，已退化为不压缩：%v", err)
+		return func(next http.Handler) http.Handler { return next }
+	}
+	// gzhttp 包装器返回 HandlerFunc，按 Middleware 签名收敛
+	return func(next http.Handler) http.Handler { return wrapper(next) }
+}
 
 // Middleware 是包装函数的统一签名。
 type Middleware func(http.Handler) http.Handler
@@ -35,15 +54,9 @@ func Chain(handler http.Handler, middlewares ...Middleware) http.Handler {
 	return handler
 }
 
-// Gzip 按需压缩响应体，四个条件同时满足才启用：
-// 客户端声明支持 gzip、状态码 200、类型可压缩且非流式、响应体不小于 512 字节。
-// 压缩决策推迟到首个响应体写入或处理结束，因此状态码与响应头都不会提前定型。
+// Gzip 按需压缩响应体；类型判定与阈值见 newGzipWrapper。
 func Gzip(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writer := newGzipWriter(w, acceptsGzip(r.Header.Get("Accept-Encoding")))
-		defer writer.close()
-		next.ServeHTTP(writer, r)
-	})
+	return gzipWrapper(next)
 }
 
 // LogRequests 输出方法、路径、状态码与耗时毫秒数。
@@ -83,42 +96,26 @@ func RecoverPanics(next http.Handler) http.Handler {
 	})
 }
 
-// 客户端是否声明接受 gzip；q=0 属于明确拒绝。
-func acceptsGzip(header string) bool {
-	for _, part := range strings.Split(header, ",") {
-		fields := strings.Split(part, ";")
-		if !strings.EqualFold(strings.TrimSpace(fields[0]), "gzip") {
-			continue
-		}
-		for _, parameter := range fields[1:] {
-			key, value, found := strings.Cut(parameter, "=")
-			if !found || !strings.EqualFold(strings.TrimSpace(key), "q") {
-				continue
-			}
-			switch strings.TrimSpace(value) {
-			case "0", "0.0", "0.00", "0.000":
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
+// 请求日志固定写到标准输出；错误与堆栈留在标准错误，两类信息便于分流采集。
+var requestLog = log.New(os.Stdout, "", log.LstdFlags)
 
-// 流式类型：逐条推送，压缩会破坏时效。
-func isStreamingType(contentType string) bool {
-	for _, streaming := range streamingContentTypes {
-		if strings.HasPrefix(contentType, streaming) {
+// 是否压缩该类型：流式类型一律跳过，文本与 JSON 收益明确，其余类型不压。
+func isCompressibleContentType(contentType string) bool {
+	if isStreamingContentType(contentType) {
+		return false
+	}
+	for _, compressible := range compressibleContentTypes {
+		if strings.HasPrefix(contentType, compressible) {
 			return true
 		}
 	}
 	return false
 }
 
-// 可压缩类型：文本与 JSON 收益明确，二进制格式压缩后通常更大。
-func isCompressibleType(contentType string) bool {
-	for _, compressible := range compressibleContentTypes {
-		if strings.HasPrefix(contentType, compressible) {
+// 流式类型：逐条推送，压缩会破坏时效。
+func isStreamingContentType(contentType string) bool {
+	for _, streaming := range streamingContentTypes {
+		if strings.HasPrefix(contentType, streaming) {
 			return true
 		}
 	}
@@ -166,152 +163,3 @@ func (r *statusRecorder) Flush() {
 
 // Unwrap 让 http.ResponseController 能取到底层 writer。
 func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
-
-// gzipWriter 在首次写入前缓冲响应体，据此决定压缩与否。
-// 状态码与响应头延迟到决策时刻提交，避免默认 200 提前定型。
-type gzipWriter struct {
-	http.ResponseWriter
-	// 客户端接受 gzip 才有压缩可能
-	negotiated bool
-	status     int
-	// 处理方是否显式写过状态码
-	wroteHeader bool
-	// 已提交响应头后不再接受改动
-	decided bool
-	// 压缩流；非空表示已按压缩路径写出
-	zipper *gzip.Writer
-	// 判定前的暂存体
-	pending []byte
-}
-
-func newGzipWriter(w http.ResponseWriter, negotiated bool) *gzipWriter {
-	return &gzipWriter{ResponseWriter: w, negotiated: negotiated, status: http.StatusOK}
-}
-
-func (w *gzipWriter) WriteHeader(status int) {
-	if w.decided {
-		return
-	}
-	w.wroteHeader = true
-	w.status = status
-}
-
-func (w *gzipWriter) Write(payload []byte) (int, error) {
-	if w.decided {
-		if w.zipper != nil {
-			return w.zipper.Write(payload)
-		}
-		return w.ResponseWriter.Write(payload)
-	}
-
-	if !w.compressible() {
-		w.commitPlain()
-		return w.ResponseWriter.Write(payload)
-	}
-
-	w.pending = append(w.pending, payload...)
-	if len(w.pending) >= gzipMinBytes {
-		w.startGzip()
-	}
-	return len(payload), nil
-}
-
-// 是否仍可能压缩：客户端接受、状态码 200、类型可压缩且非流式。
-func (w *gzipWriter) compressible() bool {
-	if !w.negotiated || w.status != http.StatusOK {
-		return false
-	}
-	contentType := w.Header().Get("Content-Type")
-	if contentType == "" || isStreamingType(contentType) || !isCompressibleType(contentType) {
-		return false
-	}
-	return true
-}
-
-// 结束处理：缓冲量达到阈值就压缩，否则原样写出。
-// 处理方既没写状态码也没写响应体时（典型是 panic 中断）不提交任何响应头，
-// 让外层恢复逻辑还能补写自己的信封。
-func (w *gzipWriter) close() {
-	if w.decided {
-		if w.zipper != nil {
-			_ = w.zipper.Close()
-		}
-		return
-	}
-	if !w.wroteHeader && len(w.pending) == 0 {
-		return
-	}
-	if w.compressible() && len(w.pending) >= gzipMinBytes {
-		w.startGzip()
-	}
-	if w.zipper != nil {
-		_ = w.zipper.Close()
-		return
-	}
-	w.commitPlain()
-	if len(w.pending) > 0 {
-		_, _ = w.ResponseWriter.Write(w.pending)
-		w.pending = nil
-	}
-}
-
-// 以压缩方式提交：先改响应头再定型，最后把暂存体灌入压缩流。
-func (w *gzipWriter) startGzip() {
-	header := w.Header()
-	header.Set("Content-Encoding", "gzip")
-	// 压缩后长度不再等于原长度，交给分块编码
-	header.Del("Content-Length")
-	addVary(header)
-	w.ResponseWriter.WriteHeader(w.status)
-	w.decided = true
-
-	w.zipper = gzip.NewWriter(w.ResponseWriter)
-	if len(w.pending) > 0 {
-		_, _ = w.zipper.Write(w.pending)
-		w.pending = nil
-	}
-}
-
-// 以未压缩方式提交响应头。
-func (w *gzipWriter) commitPlain() {
-	if w.decided {
-		return
-	}
-	addVary(w.Header())
-	w.ResponseWriter.WriteHeader(w.status)
-	w.decided = true
-}
-
-// 响应随 Accept-Encoding 变化，缓存必须分开存储；已声明过则不重复追加。
-func addVary(header http.Header) {
-	for _, value := range header.Values("Vary") {
-		if strings.Contains(strings.ToLower(value), "accept-encoding") {
-			return
-		}
-	}
-	header.Add("Vary", "Accept-Encoding")
-}
-
-// Flush 先完成压缩决策再透传，流式响应因此不会被缓冲阻塞。
-func (w *gzipWriter) Flush() {
-	if !w.decided {
-		if w.compressible() && len(w.pending) >= gzipMinBytes {
-			w.startGzip()
-		} else {
-			w.commitPlain()
-			if len(w.pending) > 0 {
-				_, _ = w.ResponseWriter.Write(w.pending)
-				w.pending = nil
-			}
-		}
-	}
-	if w.zipper != nil {
-		_ = w.zipper.Flush()
-	}
-	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
-
-// Unwrap 让 http.ResponseController 能取到底层 writer。
-func (w *gzipWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }

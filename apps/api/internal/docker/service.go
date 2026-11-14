@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/gatecross/homepage/api/internal/config"
 	"github.com/gatecross/homepage/api/internal/domain"
 )
@@ -56,7 +58,7 @@ type runtime struct {
 	samples   *CpuSampleStore
 	seedGap   time.Duration
 	now       func() time.Time
-	inflight  *inflightGroup
+	inflight  *singleflight.Group
 	refresh   chan struct{}
 }
 
@@ -86,7 +88,7 @@ func NewService(targets []Target, opts Options) *Service {
 		samples:   opts.Samples,
 		seedGap:   opts.SeedGap,
 		now:       opts.Now,
-		inflight:  newInflightGroup(),
+		inflight:  &singleflight.Group{},
 		refresh:   make(chan struct{}, concurrency),
 	}
 	if service.rt.transport == nil {
@@ -358,49 +360,21 @@ func queryFailed() domain.DockerStatusResponse {
 	return unavailable("Docker 查询失败")
 }
 
-// inflightGroup 让同一分桶、服务与容器的并发查询只打一次 Docker。
-type inflightGroup struct {
-	mu    sync.Mutex
-	calls map[string]*inflightCall
-}
-
-// inflightCall 是进行中的一次查询，跟随者等它结束后取同一结果。
-type inflightCall struct {
-	done  chan struct{}
-	value any
-}
-
-// 创建空的去重表。
-func newInflightGroup() *inflightGroup {
-	return &inflightGroup{calls: make(map[string]*inflightCall)}
-}
-
-// 执行或加入一次去重查询；ctx 取消时跟随者不等待，直接返回 false。
-func doInflight[T any](group *inflightGroup, ctx context.Context, key string, work func(context.Context) T) (T, bool) {
-	group.mu.Lock()
-	if call, ok := group.calls[key]; ok {
-		group.mu.Unlock()
-		select {
-		case <-call.done:
-			value, _ := call.value.(T)
-			return value, true
-		case <-ctx.Done():
-			var zero T
-			return zero, false
-		}
+// doInflight 让同一分桶、服务与容器的并发查询只打一次 Docker：
+// 首个调用者成为领导执行 work，后来者等待同一结果；ctx 取消的等待者不等待，直接返回 false。
+// 走 DoChan 而不是 Do，等待者才能在领导结束前随自身 ctx 退出。
+func doInflight[T any](group *singleflight.Group, ctx context.Context, key string, work func(context.Context) T) (T, bool) {
+	channel := group.DoChan(key, func() (any, error) {
+		return work(ctx), nil
+	})
+	select {
+	case result := <-channel:
+		value, _ := result.Val.(T)
+		return value, true
+	case <-ctx.Done():
+		var zero T
+		return zero, false
 	}
-	call := &inflightCall{done: make(chan struct{})}
-	group.calls[key] = call
-	group.mu.Unlock()
-
-	value := work(ctx)
-
-	group.mu.Lock()
-	delete(group.calls, key)
-	call.value = value
-	close(call.done)
-	group.mu.Unlock()
-	return value, true
 }
 
 // 进程默认缓存，供路由与未注入缓存的调用复用。

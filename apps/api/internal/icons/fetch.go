@@ -11,9 +11,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 // 出网抓取的固定上限。
@@ -108,12 +109,6 @@ type downloadedCandidate struct {
 	ref  iconRef
 	body []byte
 }
-
-// 粗匹配 link 标签；属性值内的 > 会截断标签，与 TS 的正则解析一致。
-var linkTagPattern = regexp.MustCompile(`(?is)<link\b[^>]*>`)
-
-// 声明里常见的五种实体与单引号数字实体。
-var htmlEntityPattern = regexp.MustCompile(`(?i)&(amp|quot|apos|lt|gt|#39);`)
 
 // 构造取图专用客户端：忽略证书错误、不自动跟随重定向，由调用方逐跳判定同源。
 func newFetchClient() *http.Client {
@@ -238,13 +233,37 @@ func downloadCandidates(ctx context.Context, client *http.Client, refs []iconRef
 
 // 从页面按文档序提取候选：apple-touch 档整体在前，rel=icon 档随后。
 // 相对 href 以基准地址（通常是最终页面地址）解析。
+// 解析交给 golang.org/x/net/html：属性值内的 > 不会截断标签，
+// 实体引用由 tokenizer 还原，注释与脚本体内的伪标签也不会误收。
 func discoverIconRefs(htmlText, baseURL string) []iconRef {
 	apple := make([]iconRef, 0, 4)
 	relIcons := make([]iconRef, 0, 4)
-	for _, tag := range linkTagPattern.FindAllString(htmlText, -1) {
-		attrs := parseAttributes(tag)
-		href := attrs["href"]
-		tier, ok := classifyRel(attrs["rel"])
+	tokenizer := html.NewTokenizer(strings.NewReader(htmlText))
+	for {
+		tokenType := tokenizer.Next()
+		if tokenType == html.ErrorToken {
+			return append(apple, relIcons...)
+		}
+		if tokenType != html.StartTagToken && tokenType != html.SelfClosingTagToken {
+			continue
+		}
+		name, hasAttributes := tokenizer.TagName()
+		if string(name) != "link" || !hasAttributes {
+			continue
+		}
+		attributes := make(map[string]string, 8)
+		for {
+			key, value, more := tokenizer.TagAttr()
+			// 同名属性以首个出现为准，与浏览器语义一致
+			if _, exists := attributes[string(key)]; !exists {
+				attributes[string(key)] = string(value)
+			}
+			if !more {
+				break
+			}
+		}
+		href := attributes["href"]
+		tier, ok := classifyRel(attributes["rel"])
 		if !ok || href == "" {
 			continue
 		}
@@ -255,8 +274,8 @@ func discoverIconRefs(htmlText, baseURL string) []iconRef {
 		ref := iconRef{
 			href:          absolute,
 			tier:          tier,
-			declaredSizes: attrs["sizes"],
-			declaredType:  attrs["type"],
+			declaredSizes: attributes["sizes"],
+			declaredType:  attributes["type"],
 		}
 		if tier == TierAppleTouchIcon {
 			apple = append(apple, ref)
@@ -264,7 +283,6 @@ func discoverIconRefs(htmlText, baseURL string) []iconRef {
 		}
 		relIcons = append(relIcons, ref)
 	}
-	return append(apple, relIcons...)
 }
 
 // 按 rel 令牌判定档位：含 apple-touch 的两个取值归第一档，令牌里含 icon 的归第二档。
@@ -310,97 +328,6 @@ func mergeIconDiscovery(fromHTML []iconRef, pageURL string) []iconRef {
 		merged = append(merged, ref)
 	}
 	return merged
-}
-
-// 解析标签内的属性：名称转小写，值做常见实体还原，未写值的属性按空串记录。
-func parseAttributes(tag string) map[string]string {
-	attributes := make(map[string]string, 8)
-	index := 0
-	for index < len(tag) {
-		for index < len(tag) && isAttributeSpace(tag[index]) {
-			index++
-		}
-		if index >= len(tag) {
-			break
-		}
-		// 自闭合与标签结尾不构成属性
-		if tag[index] == '/' || tag[index] == '>' {
-			index++
-			continue
-		}
-		start := index
-		for index < len(tag) && !isAttributeSpace(tag[index]) && tag[index] != '=' && tag[index] != '>' && tag[index] != '/' {
-			index++
-		}
-		name := strings.ToLower(tag[start:index])
-		for index < len(tag) && isAttributeSpace(tag[index]) {
-			index++
-		}
-		value := ""
-		if index < len(tag) && tag[index] == '=' {
-			index++
-			for index < len(tag) && isAttributeSpace(tag[index]) {
-				index++
-			}
-			if index < len(tag) && (tag[index] == '"' || tag[index] == '\'') {
-				quote := tag[index]
-				index++
-				valueStart := index
-				for index < len(tag) && tag[index] != quote {
-					index++
-				}
-				value = tag[valueStart:index]
-				if index < len(tag) {
-					index++
-				}
-			} else {
-				valueStart := index
-				for index < len(tag) && !isAttributeSpace(tag[index]) && tag[index] != '>' {
-					index++
-				}
-				value = tag[valueStart:index]
-			}
-		}
-		// 首个 token 是标签名本身
-		if name == "" || strings.HasPrefix(name, "<") {
-			continue
-		}
-		attributes[name] = decodeHTMLEntities(value)
-	}
-	return attributes
-}
-
-// HTML 属性的空白分隔字符。
-func isAttributeSpace(char byte) bool {
-	switch char {
-	case ' ', '\t', '\n', '\r', '\f':
-		return true
-	default:
-		return false
-	}
-}
-
-// 还原声明里常见的实体，未识别的保持原样。
-func decodeHTMLEntities(raw string) string {
-	if !strings.Contains(raw, "&") {
-		return raw
-	}
-	return htmlEntityPattern.ReplaceAllStringFunc(raw, func(entity string) string {
-		switch strings.ToLower(entity[1 : len(entity)-1]) {
-		case "amp":
-			return "&"
-		case "quot":
-			return "\""
-		case "apos", "#39":
-			return "'"
-		case "lt":
-			return "<"
-		case "gt":
-			return ">"
-		default:
-			return entity
-		}
-	})
 }
 
 // 以 baseURL 为基准把引用解析为绝对地址；拒绝非 http(s) 与含内嵌凭据的地址。

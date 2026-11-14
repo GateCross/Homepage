@@ -171,27 +171,6 @@ func TestGzipPreservesErrorStatus(t *testing.T) {
 	}
 }
 
-func TestAcceptsGzip(t *testing.T) {
-	cases := map[string]bool{
-		"":                    false,
-		"gzip":                true,
-		"GZIP":                true,
-		"deflate, gzip":       true,
-		"gzip;q=0":            false,
-		"gzip; q=0.0":         false,
-		"gzip;q=0.5":          true,
-		"br, deflate":         false,
-		"identity":            false,
-		"gzip;q=0, deflate":   false,
-		"deflate, gzip;q=0.8": true,
-	}
-	for header, expected := range cases {
-		if got := acceptsGzip(header); got != expected {
-			t.Errorf("acceptsGzip(%q) = %v，期望 %v", header, got, expected)
-		}
-	}
-}
-
 // panic 被吞下并转成 500 信封，堆栈不进响应体。
 func TestRecoverPanicsReturnsEnvelope(t *testing.T) {
 	server := httptest.NewServer(RecoverPanics(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {

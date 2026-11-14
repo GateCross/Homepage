@@ -3,7 +3,6 @@ package providers
 import (
 	"context"
 	"encoding/json"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -120,11 +119,8 @@ func TestCollectOrderAndLabels(t *testing.T) {
 	}
 }
 
-// 非 Linux 平台的资源项必须降级为 unavailable，且文案非空。
-func TestCollectOnUnsupportedPlatform(t *testing.T) {
-	if runtime.GOOS == "linux" {
-		t.Skip("仅在非 Linux 平台验证降级")
-	}
+// 资源采集在任何平台都产出合法形态：可用项带 percent，降级项带非空文案，两组字段不混用。
+func TestCollectOnEveryPlatform(t *testing.T) {
 	client := NewResourcesClient(ResourcesClientOptions{
 		Timeout: time.Second,
 		SeedGap: time.Millisecond,
@@ -138,14 +134,13 @@ func TestCollectOnUnsupportedPlatform(t *testing.T) {
 		t.Fatalf("项数为 %d，期望 3", len(result.Items))
 	}
 	for _, item := range result.Items {
-		if item.Status == nil || *item.Status != StatusUnavailable {
-			t.Errorf("%s 未降级：%+v", item.ID, item)
+		hasPercent := item.Percent != nil
+		hasMessage := item.Status != nil && item.Message != nil && *item.Message != ""
+		if hasPercent == hasMessage {
+			t.Errorf("%s 应当二选一：可用项带 percent，降级项带文案：%+v", item.ID, item)
 		}
-		if item.Message == nil || *item.Message == "" {
-			t.Errorf("%s 缺少降级文案", item.ID)
-		}
-		if item.Percent != nil {
-			t.Errorf("%s 降级却带 percent", item.ID)
+		if hasMessage && *item.Status != StatusUnavailable {
+			t.Errorf("%s 降级项 status 为 %q", item.ID, *item.Status)
 		}
 	}
 }

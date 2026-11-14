@@ -47,6 +47,23 @@ func TestDiscoverIconRefs(t *testing.T) {
 	}
 }
 
+// 属性值内含 > 的声明不再被截断：tokenizer 按属性边界解析，这是换掉正则的动机。
+func TestDiscoverIconRefsAttributeValueWithGt(t *testing.T) {
+	pageHTML := `<html><head>
+		<link rel="icon" href="/favicon.png" data-note="a>b">
+		<!-- <link rel="icon" href="/comment-trap.png"> -->
+	</head></html>`
+
+	refs := discoverIconRefs(pageHTML, "https://example.com/")
+
+	if len(refs) != 1 {
+		t.Fatalf("候选引用数 = %d，期望 1（注释里的伪标签不收）：%+v", len(refs), refs)
+	}
+	if refs[0].href != "https://example.com/favicon.png" {
+		t.Fatalf("href 不符：%+v", refs[0])
+	}
+}
+
 // 合并时静态回退排在页面声明之后，并按 href 去重保留先出现的一条。
 func TestMergeIconDiscoveryDedupesAndAppendsStatic(t *testing.T) {
 	fromHTML := []iconRef{
