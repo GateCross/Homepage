@@ -132,7 +132,7 @@ jobs:
           git push origin "${{ steps.create_tag.outputs.tag }}"
           gh release create "${{ steps.create_tag.outputs.tag }}" --generate-notes --title "${{ steps.create_tag.outputs.tag }}" || true
 
-  # amd64 / arm64 各自在原生 runner 上构建避免 QEMU 模拟拖慢；api 与 web 镜像互不依赖，拆成 4 个 job 全并行
+  # amd64 / arm64 各自在原生 runner 上构建，避免 QEMU 模拟拖慢
   build:
     needs: [verify-go, verify-web]
     runs-on: ${{ matrix.runner }}
@@ -140,20 +140,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: api
-            platform: linux/amd64
+          - platform: linux/amd64
             runner: ubuntu-latest
             platform_id: amd64
-          - image: api
-            platform: linux/arm64
-            runner: ubuntu-24.04-arm
-            platform_id: arm64
-          - image: web
-            platform: linux/amd64
-            runner: ubuntu-latest
-            platform_id: amd64
-          - image: web
-            platform: linux/arm64
+          - platform: linux/arm64
             runner: ubuntu-24.04-arm
             platform_id: arm64
     steps:
@@ -179,41 +169,39 @@ jobs:
 
       - name: Prepare image name
         id: image
-        run: echo "name=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve version
         id: version
-        if: matrix.image == 'api'
         run: echo "value=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push ${{ matrix.image }} image by digest
+      - name: Build and push image by digest
         id: build_image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/${{ matrix.image }}.Dockerfile
+          file: docker/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           provenance: false
           sbom: false
-          # 仅 api 镜像需要 VERSION build-arg；web 留空（空行会被 build-push-action 过滤）
           build-args: |
-            ${{ matrix.image == 'api' && format('VERSION={0}', steps.version.outputs.value) || '' }}
+            VERSION=${{ steps.version.outputs.value }}
           outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=build-${{ matrix.platform_id }}-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}-${{ matrix.image }}
+          cache-from: type=gha,scope=build-${{ matrix.platform_id }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform_id }}
 
-      - name: Export ${{ matrix.image }} digest
+      - name: Export digest
         run: |
-          mkdir -p "${{ runner.temp }}/digests-${{ matrix.image }}"
+          mkdir -p "${{ runner.temp }}/digests"
           digest="${{ steps.build_image.outputs.digest }}"
-          touch "${{ runner.temp }}/digests-${{ matrix.image }}/${digest#sha256:}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
-      - name: Upload ${{ matrix.image }} digest
+      - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ matrix.platform_id }}-${{ matrix.image }}
-          path: ${{ runner.temp }}/digests-${{ matrix.image }}/*
+          name: digests-${{ matrix.platform_id }}
+          path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
 
@@ -227,18 +215,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download api digests
+      - name: Download digests
         uses: actions/download-artifact@v8
         with:
-          path: ${{ runner.temp }}/digests-api
-          pattern: digests-*-api
-          merge-multiple: true
-
-      - name: Download web digests
-        uses: actions/download-artifact@v8
-        with:
-          path: ${{ runner.temp }}/digests-web
-          pattern: digests-*-web
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -250,48 +231,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract api metadata (tags, labels)
-        id: meta_api
+      - name: Extract metadata (tags, labels)
+        id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-api
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
             type=raw,value=${{ needs.tag-and-release.outputs.tag }},enable=${{ needs.tag-and-release.outputs.tag != '' }}
             type=ref,event=tag
 
-      - name: Create api manifest list and push
-        working-directory: ${{ runner.temp }}/digests-api
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
         run: |
-          image="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-api"
+          image="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf "${image}@sha256:%s " *)
 
-      - name: Inspect api image
+      - name: Inspect image
         run: |
           docker buildx imagetools inspect \
-            "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-api:${{ steps.meta_api.outputs.version }}"
-
-      - name: Extract web metadata (tags, labels)
-        id: meta_web
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-web
-          tags: |
-            type=raw,value=latest
-            type=raw,value=${{ needs.tag-and-release.outputs.tag }},enable=${{ needs.tag-and-release.outputs.tag != '' }}
-            type=ref,event=tag
-
-      - name: Create web manifest list and push
-        working-directory: ${{ runner.temp }}/digests-web
-        run: |
-          image="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-web"
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf "${image}@sha256:%s " *)
-
-      - name: Inspect web image
-        run: |
-          docker buildx imagetools inspect \
-            "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}-web:${{ steps.meta_web.outputs.version }}"
+            "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"

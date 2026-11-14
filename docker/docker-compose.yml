@@ -1,16 +1,19 @@
-# 双镜像拆分：web 容器由 nginx 同源托管前端产物，并把 /api /images /icons 反代到 api 容器；
-# 对外仅暴露 web 的 3000 → 80，api 只在内部网络监听 8080。
+# 单镜像：同一容器内 nginx 托管前端产物，并把 /api /images /icons 反代到本容器 Go 服务（127.0.0.1:8080）；
+# 对外仅暴露 3000 → 80。
 services:
-  api:
-    image: sereindusk/homepage-api:latest
+  homepage:
+    image: sereindusk/homepage:latest
     build:
       context: ..
-      dockerfile: docker/api.Dockerfile
+      dockerfile: docker/Dockerfile
       args:
         # 与根 package.json 的 version 保持一致，供 /api/version 返回
-        VERSION: "0.1.1"
+        VERSION: "0.2"
+    ports:
+      - "3000:80"
     environment:
-      HOST: "0.0.0.0"
+      # Go 服务只绑容器内回环，由 nginx 同容器反代，无需对外暴露
+      HOST: "127.0.0.1"
       PORT: "8080"
       CONFIG_DIR: /app/config
       # 密钥类变量按需注入（配置 YAML 中用 ${ENV_VAR} 引用）
@@ -18,7 +21,7 @@ services:
       # EMBY_API_KEY: ""
     volumes:
       # 将本机配置目录挂进容器（五文件 + images/icons）
-      # 容器以非 root 用户 homepage（uid/gid 由镜像创建）运行，
+      # Go 进程以非 root 用户 homepage（uid/gid 由镜像创建）运行，
       # 宿主机 ./config 需可写，否则图标导入/图片上传会失败。示例：
       #   mkdir -p ./config/images && chmod -R a+rwX ./config
       - ./config:/app/config
@@ -28,26 +31,8 @@ services:
       # - /:/host:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/app/homepage-api", "-healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  web:
-    image: sereindusk/homepage-web:latest
-    build:
-      context: ..
-      dockerfile: docker/web.Dockerfile
-    ports:
-      - "3000:80"
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      # nginx:alpine 自带 busybox wget，静默探测本机 80 端口
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      # 经 nginx 全链路探测：静态托管 + 反代到 Go
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/api/version"]
       interval: 30s
       timeout: 5s
       retries: 3
