@@ -5,6 +5,14 @@ import {
   useState,
   type JSX,
 } from "react";
+import {
+  Bookmark,
+  Container,
+  Gauge,
+  Server,
+  Settings2,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { EditableConfigWrite } from "@/lib/contracts";
 
@@ -55,12 +63,12 @@ type LoadState =
   | { status: "error"; message: string }
   | { status: "ready"; draft: EditableConfigWrite };
 
-const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: "settings", label: "设置" },
-  { key: "services", label: "服务" },
-  { key: "bookmarks", label: "书签" },
-  { key: "info", label: "信息" },
-  { key: "docker", label: "Docker" },
+const TABS: Array<{ key: TabKey; label: string; Icon: LucideIcon }> = [
+  { key: "settings", label: "设置", Icon: Settings2 },
+  { key: "services", label: "服务", Icon: Server },
+  { key: "bookmarks", label: "书签", Icon: Bookmark },
+  { key: "info", label: "信息", Icon: Gauge },
+  { key: "docker", label: "Docker", Icon: Container },
 ];
 
 export type ConfigEditorShellProps = {
@@ -79,8 +87,11 @@ export function ConfigEditorShell({
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const savingRef = useRef(false);
+  /** 载入成功时的草稿指纹，用于判断「有未保存的修改」 */
+  const baselineRef = useRef<string | null>(null);
 
   const load = useCallback(async (signal: AbortSignal) => {
     setLoadState({ status: "loading" });
@@ -89,12 +100,12 @@ export function ConfigEditorShell({
     try {
       const editable = await fetchEditableConfig({ signal });
       if (signal.aborted) return;
-      setLoadState({
-        status: "ready",
-        draft: editableViewToDefaultWrite(editable),
-      });
+      const draft = editableViewToDefaultWrite(editable);
+      baselineRef.current = JSON.stringify(draft);
+      setLoadState({ status: "ready", draft });
     } catch (error) {
       if (signal.aborted) return;
+      baselineRef.current = null;
       if (isAbortError(error)) {
         return;
       }
@@ -185,193 +196,274 @@ export function ConfigEditorShell({
 
   const saving = saveState.status === "saving";
   const draft = loadState.status === "ready" ? loadState.draft : null;
+  const dirty =
+    loadState.status === "ready" &&
+    baselineRef.current !== null &&
+    JSON.stringify(loadState.draft) !== baselineRef.current;
+
+  /**
+   * 统一关闭入口：Escape / 点遮罩 / 右下角「关闭」都汇到这里。
+   * 保存中不允许关闭；有未保存修改时先弹确认，避免静默丢失。
+   */
+  const requestClose = useCallback((): void => {
+    if (savingRef.current) return;
+    if (dirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+    onOpenChange(false);
+  }, [dirty, onOpenChange]);
+
+  const handleRootOpenChange = useCallback(
+    (next: boolean): void => {
+      if (next) {
+        onOpenChange(true);
+        return;
+      }
+      requestClose();
+    },
+    [requestClose],
+  );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleRootOpenChange}>
       <DialogContent
-        showCloseButton={!saving}
-        className="flex max-h-[90vh] w-[min(56rem,calc(100vw-2rem))] max-w-4xl flex-col gap-0 overflow-hidden p-0"
+        showCloseButton={false}
+        className="flex h-[100dvh] w-[100vw] max-w-[100vw] flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl"
         onPointerDownOutside={(e) => {
           if (saving) e.preventDefault();
         }}
-        onEscapeKeyDown={(e) => {
-          if (saving) e.preventDefault();
-        }}
       >
-        <DialogHeader className="border-b border-border/60 px-6 py-4">
-          <DialogTitle>配置</DialogTitle>
-          <DialogDescription>
-            通过结构化表单编辑仪表盘配置，保存后立即生效。不提供 YAML 源码编辑。
-          </DialogDescription>
-        </DialogHeader>
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <aside className="flex shrink-0 flex-col border-b border-border/60 md:w-48 md:border-b-0 md:border-r">
+            <div className="px-4 pb-2 pt-4 md:pb-3 md:pt-5">
+              <DialogTitle className="text-base">配置</DialogTitle>
+              <DialogDescription className="mt-1 text-xs leading-relaxed">
+                通过结构化表单编辑仪表盘配置，保存后立即生效。
+              </DialogDescription>
+            </div>
+            <nav
+              className="flex shrink-0 gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:gap-0.5 md:overflow-visible md:px-3 md:pb-3"
+              aria-label="配置分类"
+            >
+              {TABS.map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={loadState.status !== "ready" || saving}
+                  aria-current={tab === key ? "page" : undefined}
+                  className={cn(
+                    "inline-flex h-9 shrink-0 items-center gap-2.5 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:w-full",
+                    tab === key
+                      ? "bg-accent font-medium text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground",
+                  )}
+                  onClick={() => setTab(key)}
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))}
+            </nav>
+          </aside>
 
-        <div className="flex min-h-0 flex-1 flex-col">
-          <nav
-            className="flex shrink-0 gap-1 overflow-x-auto border-b border-border/60 px-4 py-2"
-            aria-label="配置分类"
-          >
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                disabled={loadState.status !== "ready" || saving}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm transition-colors",
-                  tab === t.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-            {loadState.status === "loading" ? (
-              <div
-                data-slot="config-editor-loading"
-                className="space-y-5"
-                aria-busy="true"
-              >
-                <LoadingStatus
-                  message={messages.config.loading}
-                  centered
-                  className="py-4"
-                />
-                <div className="space-y-5" aria-hidden="true">
-                  <div className="space-y-2">
-                    <Skeleton className="h-3.5 w-12" />
-                    <Skeleton className="h-9 w-full rounded-md" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-3.5 w-16" />
-                    <Skeleton className="h-24 w-full rounded-md" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-3.5 w-20" />
-                    <Skeleton className="h-9 w-full rounded-md" />
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-2">
-                      <Skeleton className="h-3.5 w-24" />
-                      <Skeleton className="h-3 w-40" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="w-full px-4 py-5 sm:px-6 sm:py-6">
+                {loadState.status === "loading" ? (
+                  <div
+                    data-slot="config-editor-loading"
+                    className="space-y-5"
+                    aria-busy="true"
+                  >
+                    <LoadingStatus
+                      message={messages.config.loading}
+                      centered
+                      className="py-4"
+                    />
+                    <div className="space-y-5" aria-hidden="true">
+                      <div className="space-y-2">
+                        <Skeleton className="h-3.5 w-12" />
+                        <Skeleton className="h-9 w-full rounded-md" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-3.5 w-16" />
+                        <Skeleton className="h-24 w-full rounded-md" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-3.5 w-20" />
+                        <Skeleton className="h-9 w-full rounded-md" />
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-2">
+                          <Skeleton className="h-3.5 w-24" />
+                          <Skeleton className="h-3 w-40" />
+                        </div>
+                        <Skeleton className="h-6 w-10 rounded-full" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-3.5 w-14" />
+                        <Skeleton className="h-9 w-full rounded-md" />
+                      </div>
                     </div>
-                    <Skeleton className="h-6 w-10 rounded-full" />
                   </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-3.5 w-14" />
-                    <Skeleton className="h-9 w-full rounded-md" />
+                ) : null}
+                {loadState.status === "error" ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-destructive">
+                      {loadState.message}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const controller = new AbortController();
+                        abortRef.current = controller;
+                        void load(controller.signal);
+                      }}
+                    >
+                      重试
+                    </Button>
                   </div>
+                ) : null}
+                {draft ? (
+                  <>
+                    {tab === "settings" ? (
+                      <SettingsForm
+                        value={draft.settings}
+                        disabled={saving}
+                        errors={fieldErrors}
+                        onChange={(settings) =>
+                          setDraft((prev) => ({ ...prev, settings }))
+                        }
+                      />
+                    ) : null}
+                    {tab === "services" ? (
+                      <ServicesEditor
+                        value={draft.services}
+                        dockerEndpoints={draft.dockerEndpoints}
+                        disabled={saving}
+                        errors={fieldErrors}
+                        onChange={(services) =>
+                          setDraft((prev) => ({ ...prev, services }))
+                        }
+                      />
+                    ) : null}
+                    {tab === "bookmarks" ? (
+                      <BookmarksEditor
+                        value={draft.bookmarks}
+                        disabled={saving}
+                        errors={fieldErrors}
+                        onChange={(bookmarks) =>
+                          setDraft((prev) => ({ ...prev, bookmarks }))
+                        }
+                      />
+                    ) : null}
+                    {tab === "info" ? (
+                      <InfoWidgetsEditor
+                        value={draft.infoWidgets}
+                        disabled={saving}
+                        errors={fieldErrors}
+                        onChange={(infoWidgets) =>
+                          setDraft((prev) => ({ ...prev, infoWidgets }))
+                        }
+                      />
+                    ) : null}
+                    {tab === "docker" ? (
+                      <DockerEndpointsEditor
+                        value={draft.dockerEndpoints}
+                        disabled={saving}
+                        errors={fieldErrors}
+                        onChange={(dockerEndpoints) =>
+                          setDraft((prev) => ({ ...prev, dockerEndpoints }))
+                        }
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-border/60 bg-card/30 px-4 py-3 sm:px-6">
+              <div className="flex w-full items-center justify-between gap-4">
+                <div className="min-h-5 min-w-0 flex-1 text-sm">
+                  {saveState.status === "error" ? (
+                    <span className="text-destructive">
+                      {saveState.message}
+                    </span>
+                  ) : null}
+                  {saveState.status === "success" ? (
+                    <span className="text-status-online">保存成功</span>
+                  ) : null}
+                  {saveState.status === "saving" ? (
+                    <span className="text-muted-foreground">正在保存…</span>
+                  ) : null}
+                  {saveState.status === "idle" && dirty ? (
+                    <span className="text-muted-foreground">
+                      有未保存的修改
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={requestClose}
+                  >
+                    关闭
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={saving || loadState.status !== "ready"}
+                    onClick={() => void handleSave()}
+                  >
+                    {saving ? "保存中…" : "保存"}
+                  </Button>
                 </div>
               </div>
-            ) : null}
-            {loadState.status === "error" ? (
-              <div className="space-y-3">
-                <p className="text-sm text-destructive">{loadState.message}</p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const controller = new AbortController();
-                    abortRef.current = controller;
-                    void load(controller.signal);
-                  }}
-                >
-                  重试
-                </Button>
-              </div>
-            ) : null}
-            {draft ? (
-              <>
-                {tab === "settings" ? (
-                  <SettingsForm
-                    value={draft.settings}
-                    disabled={saving}
-                    errors={fieldErrors}
-                    onChange={(settings) =>
-                      setDraft((prev) => ({ ...prev, settings }))
-                    }
-                  />
-                ) : null}
-                {tab === "services" ? (
-                  <ServicesEditor
-                    value={draft.services}
-                    dockerEndpoints={draft.dockerEndpoints}
-                    disabled={saving}
-                    errors={fieldErrors}
-                    onChange={(services) =>
-                      setDraft((prev) => ({ ...prev, services }))
-                    }
-                  />
-                ) : null}
-                {tab === "bookmarks" ? (
-                  <BookmarksEditor
-                    value={draft.bookmarks}
-                    disabled={saving}
-                    errors={fieldErrors}
-                    onChange={(bookmarks) =>
-                      setDraft((prev) => ({ ...prev, bookmarks }))
-                    }
-                  />
-                ) : null}
-                {tab === "info" ? (
-                  <InfoWidgetsEditor
-                    value={draft.infoWidgets}
-                    disabled={saving}
-                    errors={fieldErrors}
-                    onChange={(infoWidgets) =>
-                      setDraft((prev) => ({ ...prev, infoWidgets }))
-                    }
-                  />
-                ) : null}
-                {tab === "docker" ? (
-                  <DockerEndpointsEditor
-                    value={draft.dockerEndpoints}
-                    disabled={saving}
-                    errors={fieldErrors}
-                    onChange={(dockerEndpoints) =>
-                      setDraft((prev) => ({ ...prev, dockerEndpoints }))
-                    }
-                  />
-                ) : null}
-              </>
-            ) : null}
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="border-t border-border/60 px-6 py-4 sm:justify-between">
-          <div className="min-h-5 flex-1 text-sm">
-            {saveState.status === "error" ? (
-              <span className="text-destructive">{saveState.message}</span>
-            ) : null}
-            {saveState.status === "success" ? (
-              <span className="text-status-online">保存成功</span>
-            ) : null}
-            {saveState.status === "saving" ? (
-              <span className="text-muted-foreground">正在保存…</span>
-            ) : null}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={() => onOpenChange(false)}
-            >
-              关闭
-            </Button>
-            <Button
-              type="button"
-              disabled={saving || loadState.status !== "ready"}
-              onClick={() => void handleSave()}
-            >
-              {saving ? "保存中…" : "保存"}
-            </Button>
-          </div>
-        </DialogFooter>
+        <Dialog
+          open={confirmCloseOpen}
+          onOpenChange={(next) => {
+            if (saving) return;
+            setConfirmCloseOpen(next);
+          }}
+        >
+          <DialogContent className="max-w-md" showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle>放弃未保存的修改？</DialogTitle>
+              <DialogDescription>
+                关闭编辑器后，本次尚未保存的修改将丢失。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => setConfirmCloseOpen(false)}
+              >
+                继续编辑
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={saving}
+                onClick={() => {
+                  setConfirmCloseOpen(false);
+                  onOpenChange(false);
+                }}
+              >
+                放弃修改
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 
 import type {
   EditableDockerEndpoint,
@@ -9,10 +9,15 @@ import type {
 import {
   EditorGroupCard,
   EditorListRow,
+  EditorPageHeader,
   useReorderDrag,
 } from "@/components/config-editor/EditorListChrome";
 import { DockerImportDialog } from "@/components/config-editor/DockerImportDialog";
 import { ServiceItemForm } from "@/components/config-editor/ServiceItemForm";
+import {
+  useInlineGroupEditing,
+  type GroupEdit,
+} from "@/components/config-editor/use-inline-group-editing";
 import { ServiceIconView } from "@/components/shared/ResolvedIconView";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,12 +29,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { groupHasItemErrors, itemHasErrors } from "@/lib/editor-paths";
 import {
   cloneService,
   emptyGroup,
   emptyService,
+  serviceHost,
   serviceKeywords,
 } from "@/lib/service-model";
 
@@ -41,14 +46,6 @@ export type ServicesEditorProps = {
   errors?: Record<string, string>;
 };
 
-type EditTarget =
-  | { kind: "group"; gi: number }
-  | { kind: "item"; gi: number; ii: number };
-
-
-
-
-
 function ServiceGroupBlock({
   group,
   gi,
@@ -56,10 +53,15 @@ function ServiceGroupBlock({
   errors,
   dragHandleProps,
   rowProps,
-  onEditGroup,
+  editingItemIndex,
+  groupEdit,
+  onOpenItemEdit,
+  onOpenGroupEdit,
+  onGroupNameChange,
+  onApplyGroupEdit,
+  onCancelGroupEdit,
   onDeleteGroup,
   onAddService,
-  onEditItem,
   onReorderItems,
   onDeleteItem,
 }: {
@@ -71,10 +73,16 @@ function ServiceGroupBlock({
     ReturnType<typeof useReorderDrag>["getHandleProps"]
   >;
   rowProps: ReturnType<ReturnType<typeof useReorderDrag>["getRowProps"]>;
-  onEditGroup: () => void;
+  /** 正在编辑的条目下标（弹窗打开时对应卡片描边） */
+  editingItemIndex: number | null;
+  groupEdit: GroupEdit | null;
+  onOpenItemEdit: (ii: number) => void;
+  onOpenGroupEdit: () => void;
+  onGroupNameChange: (name: string) => void;
+  onApplyGroupEdit: () => void;
+  onCancelGroupEdit: () => void;
   onDeleteGroup: () => void;
   onAddService: () => void;
-  onEditItem: (ii: number) => void;
   onReorderItems: (items: EditableServiceItemWrite[]) => void;
   onDeleteItem: (ii: number) => void;
 }): JSX.Element {
@@ -84,24 +92,71 @@ function ServiceGroupBlock({
     onReorder: onReorderItems,
   });
 
+  const editingThisGroup = groupEdit?.gi === gi;
+  const groupNameError = errors?.[`services.${gi}.name`];
+
   return (
     <EditorGroupCard
       title={group.name || "未命名分组"}
       countLabel={`${group.items.length} 项`}
-      hasError={
-        Boolean(errors?.[`services.${gi}.name`]) || groupHasItemErrors(errors, "services", gi)
-      }
-      errorText={errors?.[`services.${gi}.name`]}
+      hasError={Boolean(groupNameError) || groupHasItemErrors(errors, "services", gi)}
+      errorText={groupNameError}
       disabled={disabled}
       dragHandleProps={dragHandleProps}
       rowProps={rowProps}
-      onEdit={onEditGroup}
+      onEdit={onOpenGroupEdit}
       onDelete={onDeleteGroup}
       onAdd={onAddService}
       addLabel="添加服务"
+      contentClassName="sm:grid-cols-2 xl:grid-cols-3"
+      nameEditor={
+        editingThisGroup && groupEdit ? (
+          <div className="space-y-1">
+            <Input
+              value={groupEdit.name}
+              disabled={disabled}
+              aria-label="分组名称"
+              autoFocus
+              onChange={(e) => onGroupNameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onApplyGroupEdit();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  onCancelGroupEdit();
+                }
+              }}
+            />
+            {groupNameError ? (
+              <p className="text-xs text-destructive">{groupNameError}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                onClick={onCancelGroupEdit}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={disabled}
+                onClick={onApplyGroupEdit}
+              >
+                应用
+              </Button>
+            </div>
+          </div>
+        ) : undefined
+      }
     >
       {group.items.length === 0 ? (
-        <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+        <li className="col-span-full px-4 py-6 text-center text-sm text-muted-foreground">
           分组内暂无服务，点右上角 + 添加
         </li>
       ) : null}
@@ -116,13 +171,16 @@ function ServiceGroupBlock({
             />
           }
           title={item.name || "未命名服务"}
+          subtitle={item.description?.trim() || undefined}
+          host={serviceHost(item) ?? undefined}
           tags={serviceKeywords(item)}
           hasError={itemHasErrors(errors, "services", gi, ii)}
           disabled={disabled}
           dragHandleProps={itemDrag.getHandleProps(ii)}
           rowProps={itemDrag.getRowProps(ii)}
-          onEdit={() => onEditItem(ii)}
+          onEdit={() => onOpenItemEdit(ii)}
           onDelete={() => onDeleteItem(ii)}
+          editing={editingItemIndex === ii}
         />
       ))}
     </EditorGroupCard>
@@ -136,128 +194,47 @@ export function ServicesEditor({
   disabled,
   errors,
 }: ServicesEditorProps): JSX.Element {
-  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
-  const [draftItem, setDraftItem] = useState<EditableServiceItemWrite | null>(
-    null,
-  );
-  const [draftGroupName, setDraftGroupName] = useState("");
+  const editing = useInlineGroupEditing<
+    EditableServiceGroupWrite,
+    EditableServiceItemWrite
+  >({ value, onChange, cloneItem: cloneService });
+
   const [importOpen, setImportOpen] = useState(false);
-
-  const openItemEdit = (
-    gi: number,
-    ii: number,
-    itemOverride?: EditableServiceItemWrite,
-  ): void => {
-    const item = itemOverride ?? value[gi]?.items[ii];
-    if (!item) return;
-    setDraftItem(cloneService(item));
-    setEditTarget({ kind: "item", gi, ii });
-  };
-
-  const openGroupEdit = (gi: number): void => {
-    const group = value[gi];
-    if (!group) return;
-    setDraftGroupName(group.name);
-    setEditTarget({ kind: "group", gi });
-  };
-
-  const closeEdit = (): void => {
-    setEditTarget(null);
-    setDraftItem(null);
-    setDraftGroupName("");
-  };
-
-  const applyItemEdit = (): void => {
-    if (editTarget?.kind !== "item" || !draftItem) return;
-    const { gi, ii } = editTarget;
-    if (!value[gi]) return;
-    onChange(
-      value.map((g, i) =>
-        i === gi
-          ? {
-              ...g,
-              items: g.items.map((it, idx) => (idx === ii ? draftItem : it)),
-            }
-          : g,
-      ),
-    );
-    closeEdit();
-  };
-
-  const applyGroupEdit = (): void => {
-    if (editTarget?.kind !== "group") return;
-    const { gi } = editTarget;
-    onChange(
-      value.map((g, i) =>
-        i === gi ? { ...g, name: draftGroupName } : g,
-      ),
-    );
-    closeEdit();
-  };
-
-  const updateGroup = (
-    gi: number,
-    patch: Partial<EditableServiceGroupWrite>,
-  ): void => {
-    onChange(value.map((g, i) => (i === gi ? { ...g, ...patch } : g)));
-  };
-
-  const addServiceAndEdit = (gi: number): void => {
-    const group = value[gi];
-    if (!group) return;
-    const created = emptyService();
-    const nextItems = [...group.items, created];
-    onChange(
-      value.map((g, i) => (i === gi ? { ...g, items: nextItems } : g)),
-    );
-    openItemEdit(gi, nextItems.length - 1, created);
-  };
 
   const groupDrag = useReorderDrag({
     items: value,
     disabled,
-    onReorder: onChange,
+    // 分组换位后所有下标偏移，行内编辑一并关闭
+    onReorder: editing.reorderGroups,
   });
-
-  const dialogOpen = editTarget !== null;
-
-  const dialogTitle = useMemo(() => {
-    if (editTarget?.kind === "group") return "编辑分组";
-    if (editTarget?.kind === "item") return "编辑服务";
-    return "";
-  }, [editTarget]);
-
-  const itemErrorPrefix =
-    editTarget?.kind === "item"
-      ? `services.${editTarget.gi}.items.${editTarget.ii}`
-      : "";
 
   return (
     <div className="space-y-4" data-slot="services-editor">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          拖拽左侧手柄可调整分组与服务顺序
-        </p>
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={() => setImportOpen(true)}
-          >
-            从 Docker 导入
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={disabled}
-            onClick={() => onChange([...value, emptyGroup()])}
-          >
-            添加分组
-          </Button>
-        </div>
-      </div>
+      <EditorPageHeader
+        title="服务分组"
+        description="拖拽手柄调整分组与服务顺序，点行内铅笔就地编辑"
+        actions={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled}
+              onClick={() => setImportOpen(true)}
+            >
+              从 Docker 导入
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={disabled}
+              onClick={() => onChange([...value, emptyGroup()])}
+            >
+              添加分组
+            </Button>
+          </>
+        }
+      />
 
       {value.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
@@ -275,75 +252,68 @@ export function ServicesEditor({
             errors={errors}
             dragHandleProps={groupDrag.getHandleProps(gi)}
             rowProps={groupDrag.getRowProps(gi)}
-            onEditGroup={() => openGroupEdit(gi)}
-            onDeleteGroup={() => onChange(value.filter((_, i) => i !== gi))}
-            onAddService={() => addServiceAndEdit(gi)}
-            onEditItem={(ii) => openItemEdit(gi, ii)}
-            onReorderItems={(items) => updateGroup(gi, { items })}
-            onDeleteItem={(ii) =>
-              updateGroup(gi, {
-                items: group.items.filter((_, idx) => idx !== ii),
-              })
+            editingItemIndex={
+              editing.activeItemEdit?.gi === gi
+                ? editing.activeItemEdit.ii
+                : null
             }
+            groupEdit={editing.activeGroupEdit}
+            onOpenItemEdit={(ii) => editing.openItemEdit(gi, ii)}
+            onOpenGroupEdit={() => editing.openGroupEdit(gi)}
+            onGroupNameChange={editing.updateGroupName}
+            onApplyGroupEdit={editing.applyGroupEdit}
+            onCancelGroupEdit={editing.closeGroupEdit}
+            onDeleteGroup={() => editing.deleteGroup(gi)}
+            onAddService={() => editing.addItemAndEdit(gi, emptyService())}
+            onReorderItems={(items) => editing.replaceItems(gi, items)}
+            onDeleteItem={(ii) => editing.deleteItem(gi, ii)}
           />
         ))}
       </div>
 
+      {/* 条目编辑弹窗：表单型编辑保持模态聚焦，浏览用卡片网格 */}
       <Dialog
-        open={dialogOpen}
+        open={editing.activeItemEdit !== null}
         onOpenChange={(open) => {
-          if (!open) closeEdit();
+          if (!open) editing.closeItemEdit();
         }}
       >
         <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogTitle>
+              编辑服务
+              {editing.activeItemEdit?.draft.name
+                ? ` · ${editing.activeItemEdit.draft.name}`
+                : ""}
+            </DialogTitle>
             <DialogDescription>
-              {editTarget?.kind === "item"
-                ? "修改后点确定写回列表，再保存配置才会生效。"
-                : "修改分组名称，点确定写回列表。"}
+              修改后点确定写回列表，再保存配置才会生效。
             </DialogDescription>
           </DialogHeader>
 
-          {editTarget?.kind === "group" ? (
-            <div className="space-y-1">
-              <Label>分组名称</Label>
-              <Input
-                value={draftGroupName}
-                disabled={disabled}
-                onChange={(e) => setDraftGroupName(e.target.value)}
-                autoFocus
-              />
-              {errors?.[`services.${editTarget.gi}.name`] ? (
-                <p className="text-xs text-destructive">
-                  {errors[`services.${editTarget.gi}.name`]}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {editTarget?.kind === "item" && draftItem ? (
+          {editing.activeItemEdit ? (
             <ServiceItemForm
-              value={draftItem}
-              onChange={setDraftItem}
+              value={editing.activeItemEdit.draft}
+              onChange={editing.updateItemDraft}
               {...(disabled !== undefined ? { disabled } : {})}
-              errorPrefix={itemErrorPrefix}
+              errorPrefix={`services.${editing.activeItemEdit.gi}.items.${editing.activeItemEdit.ii}`}
               {...(errors !== undefined ? { errors } : {})}
               dockerEndpoints={dockerEndpoints}
             />
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeEdit}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={editing.closeItemEdit}
+            >
               取消
             </Button>
             <Button
               type="button"
               disabled={disabled}
-              onClick={() => {
-                if (editTarget?.kind === "group") applyGroupEdit();
-                else applyItemEdit();
-              }}
+              onClick={editing.applyItemEdit}
             >
               确定
             </Button>

@@ -15,6 +15,7 @@ import {
   collectBoundDockerKeys,
   emptyGroup,
   emptyService,
+  serviceHost,
   serviceKeywords,
 } from "./service-model";
 
@@ -53,12 +54,13 @@ describe("cloneService", () => {
   });
 });
 
-describe("serviceKeywords", () => {
-  it("空服务只有默认名以外的零标签", () => {
+describe("serviceKeywords / serviceHost", () => {
+  it("空服务零标签、无地址", () => {
     expect(serviceKeywords(emptyService())).toEqual([]);
+    expect(serviceHost(emptyService())).toBeNull();
   });
 
-  it("按固定顺序汇总各维度标签", () => {
+  it("标签只含状态与绑定维度，主机与描述走独立列", () => {
     const item = emptyService();
     item.hidden = true;
     item.href = "https://example.com:8080/path";
@@ -68,12 +70,11 @@ describe("serviceKeywords", () => {
     item.description = "  媒体库  ";
     expect(serviceKeywords(item)).toEqual([
       "已隐藏",
-      "example.com:8080",
       "探测",
       "nas/plex",
       "emby",
-      "媒体库",
     ]);
+    expect(serviceHost(item)).toBe("example.com:8080");
   });
 
   it("docker 无 server 时只显示容器名", () => {

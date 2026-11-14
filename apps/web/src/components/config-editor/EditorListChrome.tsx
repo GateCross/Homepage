@@ -21,6 +21,31 @@ export type ReorderDragState = {
   over: number | null;
 };
 
+/** 页签页头：标题 + 说明 + 右侧操作，压住内容区顶部 */
+export function EditorPageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description: string;
+  actions?: ReactNode;
+}): JSX.Element {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-4">
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold leading-tight">{title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      </div>
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">{actions}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export type UseReorderDragOptions<T> = {
   items: readonly T[];
   onReorder: (next: T[]) => void;
@@ -226,6 +251,7 @@ export function EditorListRow({
   icon,
   title,
   subtitle,
+  host,
   tags,
   hasError,
   disabled,
@@ -234,10 +260,14 @@ export function EditorListRow({
   onDelete,
   rowProps,
   className,
+  editing,
 }: {
   icon: ReactNode;
   title: string;
+  /** 名称下方的次要文字（如描述） */
   subtitle?: ReactNode;
+  /** 地址列：来自条目 href 的主机，等宽字体弱化展示 */
+  host?: string | undefined;
   tags?: string[] | undefined;
   hasError?: boolean | undefined;
   disabled?: boolean | undefined;
@@ -246,51 +276,73 @@ export function EditorListRow({
   onDelete: () => void;
   rowProps: ReturnType<UseReorderDragResult["getRowProps"]>;
   className?: string | undefined;
+  /** 该条目正被编辑（编辑弹窗打开时的描边提示） */
+  editing?: boolean | undefined;
 }): JSX.Element {
   return (
     <li
       {...rowProps}
       className={cn(
-        "group flex items-center gap-1.5 border-b border-border/40 px-2 py-2 last:border-b-0 sm:gap-2 sm:px-2.5",
-        "bg-card/30 transition-[background-color,opacity,box-shadow] duration-150",
-        "hover:bg-muted/40",
-        rowProps["data-dragging"] && "opacity-45",
+        "group relative flex flex-col rounded-lg border border-border/50 bg-card/60 shadow-xs backdrop-blur-sm",
+        "transition-[background-color,opacity,box-shadow,border-color] duration-150",
+        editing
+          ? "border-primary/40 ring-1 ring-primary/30"
+          : "hover:border-border hover:bg-card/85",
+        rowProps["data-dragging"] && "opacity-50",
         rowProps["data-drop-target"] &&
-          "bg-primary/5 shadow-[inset_0_2px_0_0_var(--color-primary)]",
-        hasError && "bg-destructive/[0.04]",
+          "border-primary/50 ring-1 ring-primary/30",
+        hasError && "border-destructive/40",
         className,
       )}
     >
-      <DragHandle disabled={disabled} {...dragHandleProps} />
-      <div className="shrink-0">{icon}</div>
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium leading-none">
-            {title}
-          </span>
-          {hasError ? (
-            <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
-              有错误
+      <div className="flex items-center gap-2.5">
+        <DragHandle disabled={disabled} {...dragHandleProps} />
+        <div className="shrink-0">{icon}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-semibold leading-tight">
+              {title}
             </span>
+            {hasError ? (
+              <span className="shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                有错误
+              </span>
+            ) : null}
+          </div>
+          {subtitle ? (
+            <p className="mt-1 line-clamp-2 text-xs leading-snug text-muted-foreground">
+              {subtitle}
+            </p>
+          ) : null}
+          {host || (tags && tags.length > 0) ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {host ? (
+                <span
+                  title={host}
+                  className="truncate font-mono text-[11px] leading-none text-muted-foreground/80"
+                >
+                  {host}
+                </span>
+              ) : null}
+              {tags && tags.length > 0 ? (
+                <EditorKeywordTags tags={tags} dangerTag="已隐藏" />
+              ) : null}
+            </div>
           ) : null}
         </div>
-        {subtitle ? (
-          <div className="text-xs text-muted-foreground">{subtitle}</div>
-        ) : null}
-        {tags ? <EditorKeywordTags tags={tags} dangerTag="已隐藏" /> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        <IconActionButton label="编辑" disabled={disabled} onClick={onEdit}>
-          <Pencil className="size-3.5" />
-        </IconActionButton>
-        <IconActionButton
-          label="删除"
-          disabled={disabled}
-          tone="danger"
-          onClick={onDelete}
-        >
-          <Trash2 className="size-3.5" />
-        </IconActionButton>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <IconActionButton label="编辑" disabled={disabled} onClick={onEdit}>
+            <Pencil className="size-3.5" />
+          </IconActionButton>
+          <IconActionButton
+            label="删除"
+            disabled={disabled}
+            tone="danger"
+            onClick={onDelete}
+          >
+            <Trash2 className="size-3.5" />
+          </IconActionButton>
+        </div>
       </div>
     </li>
   );
@@ -308,6 +360,8 @@ export function EditorGroupCard({
   onDelete,
   onAdd,
   addLabel,
+  nameEditor,
+  contentClassName,
   children,
 }: {
   title: string;
@@ -321,6 +375,10 @@ export function EditorGroupCard({
   onDelete: () => void;
   onAdd: () => void;
   addLabel: string;
+  /** 存在时替换标题区（分组改名内嵌编辑态），并隐藏右上角操作 */
+  nameEditor?: ReactNode;
+  /** 内容容器追加类（如卡片网格的列定义） */
+  contentClassName?: string | undefined;
   children: ReactNode;
 }): JSX.Element {
   return (
@@ -335,48 +393,56 @@ export function EditorGroupCard({
       )}
     >
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/50 bg-muted/25 px-2 py-2 sm:gap-2 sm:px-3">
-        <DragHandle disabled={disabled} {...dragHandleProps} />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <h3 className="truncate text-sm font-semibold tracking-tight">
-              {title}
-            </h3>
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
-              {countLabel}
-            </span>
-            {hasError ? (
-              <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
-                有错误
-              </span>
-            ) : null}
-          </div>
-          {errorText ? (
-            <p className="mt-0.5 text-xs text-destructive">{errorText}</p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <IconActionButton
-            label={addLabel}
-            disabled={disabled}
-            variant="outline"
-            onClick={onAdd}
-          >
-            <Plus className="size-3.5" />
-          </IconActionButton>
-          <IconActionButton label="编辑分组" disabled={disabled} onClick={onEdit}>
-            <Pencil className="size-3.5" />
-          </IconActionButton>
-          <IconActionButton
-            label="删除分组"
-            disabled={disabled}
-            tone="danger"
-            onClick={onDelete}
-          >
-            <Trash2 className="size-3.5" />
-          </IconActionButton>
-        </div>
+        <DragHandle disabled={disabled || Boolean(nameEditor)} {...dragHandleProps} />
+        {nameEditor ? (
+          <div className="min-w-0 flex-1">{nameEditor}</div>
+        ) : (
+          <>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <h4 className="truncate text-sm font-semibold tracking-tight">
+                  {title}
+                </h4>
+                <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] tabular-nums leading-none text-muted-foreground">
+                  {countLabel}
+                </span>
+                {hasError ? (
+                  <span className="shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                    有错误
+                  </span>
+                ) : null}
+              </div>
+              {errorText ? (
+                <p className="mt-0.5 text-xs text-destructive">{errorText}</p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <IconActionButton
+                label={addLabel}
+                disabled={disabled}
+                variant="outline"
+                onClick={onAdd}
+              >
+                <Plus className="size-3.5" />
+              </IconActionButton>
+              <IconActionButton label="编辑分组" disabled={disabled} onClick={onEdit}>
+                <Pencil className="size-3.5" />
+              </IconActionButton>
+              <IconActionButton
+                label="删除分组"
+                disabled={disabled}
+                tone="danger"
+                onClick={onDelete}
+              >
+                <Trash2 className="size-3.5" />
+              </IconActionButton>
+            </div>
+          </>
+        )}
       </div>
-      <ul className="divide-y-0">{children}</ul>
+      <ul className={cn("grid content-start gap-2 p-2", contentClassName)}>
+        {children}
+      </ul>
     </section>
   );
 }

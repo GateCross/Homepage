@@ -383,7 +383,7 @@ export function ImageAssetField({
       </div>
 
       {preview === "background" && showPreview ? (
-        <div className="h-28 w-full overflow-hidden rounded-md border border-border/60 bg-muted/40">
+        <div className="h-36 w-full overflow-hidden rounded-md border border-border/60 bg-muted/40">
           <img
             src={trimmed}
             alt=""

@@ -26,12 +26,15 @@ export function cloneService(
   return structuredClone(item);
 }
 
-/** 列表行上的关键字标签：隐藏态、主机、探测、容器、组件类型、描述 */
+/** 列表行地址列：href 的主机展示文本 */
+export function serviceHost(item: EditableServiceItemWrite): string | null {
+  return summarizeHref(item.href);
+}
+
+/** 列表行状态标签：隐藏态、探测、容器、组件类型；主机与描述走独立列 */
 export function serviceKeywords(item: EditableServiceItemWrite): string[] {
   const tags: string[] = [];
   if (item.hidden === true) tags.push("已隐藏");
-  const host = summarizeHref(item.href);
-  if (host) tags.push(host);
   if (item.httpProbe?.enabled) tags.push("探测");
   if (item.docker?.container) {
     tags.push(
@@ -41,7 +44,6 @@ export function serviceKeywords(item: EditableServiceItemWrite): string[] {
     );
   }
   if (item.widget?.type) tags.push(item.widget.type);
-  if (item.description?.trim()) tags.push(item.description.trim());
   return tags;
 }
 
