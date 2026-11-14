@@ -156,7 +156,7 @@ api:
 | api | `build` | `golang:1.27-alpine` | 静态编译 Go 二进制（`VERSION` build-arg 注入版本号） |
 | api | 运行时 | `alpine:3.22` | 仅二进制 + ca 证书，非 root 运行，监听内部 `:8080` |
 | web | `web` | `node:22-alpine` | 装前端依赖并 `vite build` |
-| web | 运行时 | `nginx:1.27-alpine` | 托管前端产物，反代 `/api`、`/images`、`/icons` |
+| web | 运行时 | `nginx:1.30-alpine` | 托管前端产物，反代 `/api`、`/images`、`/icons` |
 
 api 运行时镜像不含 Node、pnpm 与 Go 工具链；web 运行时镜像不含 Node 构建链。健康检查：api 复用二进制自身的 `-healthcheck` 模式（镜像内无需 curl/wget），web 用 `nginx:alpine` 自带的 busybox wget 探测本机 80。
 

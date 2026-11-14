@@ -9,7 +9,7 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --filter=@homepage/web...
 COPY apps/web apps/web
 RUN pnpm --filter @homepage/web build
-FROM nginx:1.27-alpine
+FROM nginx:1.30-alpine
 COPY --from=web /app/apps/web/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
