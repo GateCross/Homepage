@@ -106,13 +106,10 @@ jobs:
         run: |
           VERSION=$(jq -r .version package.json)
           TAG_NAME="v${VERSION}"
+          # 版本号必须与 package.json 一一对应；tag 已存在说明忘升版本，直接失败提醒
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            DATE_STR=$(date +'%Y%m%d')
-            SEQ=1
-            while git rev-parse "v${VERSION}-${DATE_STR}.${SEQ}" >/dev/null 2>&1; do
-              SEQ=$((SEQ + 1))
-            done
-            TAG_NAME="v${VERSION}-${DATE_STR}.${SEQ}"
+            echo "::error::Tag ${TAG_NAME} 已存在，请先升级 package.json 中的 version 再推送发布"
+            exit 1
           fi
           echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "Resolved Tag: $TAG_NAME"
