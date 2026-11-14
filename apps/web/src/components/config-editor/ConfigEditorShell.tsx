@@ -11,6 +11,7 @@ import {
   Gauge,
   Server,
   Settings2,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -84,6 +85,7 @@ export function ConfigEditorShell({
   onSaved,
 }: ConfigEditorShellProps): JSX.Element {
   const [tab, setTab] = useState<TabKey>("settings");
+  const categoryNavRef = useRef<HTMLElement | null>(null);
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -201,6 +203,20 @@ export function ConfigEditorShell({
     baselineRef.current !== null &&
     JSON.stringify(loadState.draft) !== baselineRef.current;
 
+  // 移动端分类导航横向溢出：切换后把激活 tab 滚回可视区，避免选中项悬在屏幕外
+  useEffect(() => {
+    const nav = categoryNavRef.current;
+    if (!nav) return;
+    const active = nav.querySelector('[aria-current="page"]');
+    if (!active) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    active.scrollIntoView({
+      behavior: reduced ? "auto" : "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [tab]);
+
   /**
    * 统一关闭入口：Escape / 点遮罩 / 右下角「关闭」都汇到这里。
    * 保存中不允许关闭；有未保存修改时先弹确认，避免静默丢失。
@@ -243,7 +259,8 @@ export function ConfigEditorShell({
               </DialogDescription>
             </div>
             <nav
-              className="flex shrink-0 gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:gap-0.5 md:overflow-visible md:px-3 md:pb-3"
+              ref={categoryNavRef}
+              className="flex shrink-0 gap-1 overflow-x-auto px-2 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] md:flex-col md:gap-0.5 md:overflow-visible md:px-3 md:pb-3 [&::-webkit-scrollbar]:hidden"
               aria-label="配置分类"
             >
               {TABS.map(({ key, label, Icon }) => (
@@ -406,27 +423,29 @@ export function ConfigEditorShell({
                     </span>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={requestClose}
-                  >
-                    关闭
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={saving || loadState.status !== "ready"}
-                    onClick={() => void handleSave()}
-                  >
-                    {saving ? "保存中…" : "保存"}
-                  </Button>
-                </div>
+                {/* 关闭入口收敛到右上角 ✕ / Esc / 点遮罩，底栏只留主操作 */}
+                <Button
+                  type="button"
+                  disabled={saving || loadState.status !== "ready"}
+                  onClick={() => void handleSave()}
+                >
+                  {saving ? "保存中…" : "保存"}
+                </Button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* 右上角常驻关闭：实底浮层，滚动内容从其下穿过仍保持可读；走统一关闭入口（有未保存修改先确认） */}
+        <button
+          type="button"
+          aria-label="关闭"
+          disabled={saving}
+          onClick={requestClose}
+          className="absolute right-4 top-5 z-20 flex size-8 items-center justify-center rounded-md border border-border/60 bg-popover/90 text-muted-foreground shadow-xs backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 sm:top-6"
+        >
+          <X className="size-4" aria-hidden="true" />
+        </button>
 
         <Dialog
           open={confirmCloseOpen}

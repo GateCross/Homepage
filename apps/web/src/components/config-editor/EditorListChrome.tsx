@@ -40,7 +40,8 @@ export function EditorPageHeader({
         </p>
       </div>
       {actions ? (
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">{actions}</div>
+        // 右侧给常驻关闭按钮让位（mr-10/mr-8），避免页头操作与其重叠
+        <div className="mr-10 flex shrink-0 flex-wrap justify-end gap-2 sm:mr-8">{actions}</div>
       ) : null}
     </div>
   );

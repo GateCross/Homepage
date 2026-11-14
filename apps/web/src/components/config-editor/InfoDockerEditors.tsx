@@ -332,6 +332,10 @@ export function DockerEndpointsEditor({
                 className="grid gap-2 px-3 py-2.5 sm:grid-cols-[14rem_1fr_3rem] sm:items-start sm:gap-2"
               >
                 <div className="space-y-1">
+                  {/* 桌面由列表头提供字段名，移动端无表头，逐行补可见标签 */}
+                  <span className="block text-xs font-medium text-muted-foreground sm:hidden">
+                    名称
+                  </span>
                   <Input
                     value={ep.name}
                     disabled={disabled}
@@ -352,6 +356,9 @@ export function DockerEndpointsEditor({
                   ) : null}
                 </div>
                 <div className="space-y-1">
+                  <span className="block text-xs font-medium text-muted-foreground sm:hidden">
+                    连接串
+                  </span>
                   <Input
                     value={ep.connection}
                     disabled={disabled}
