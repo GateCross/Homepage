@@ -209,6 +209,48 @@ func TestUploadRejectsDeclaredOversize(t *testing.T) {
 	}
 }
 
+// 无声明长度（chunked 形态）时，超大的非 file 分段也必须被请求体上限拦住。
+func TestUploadRejectsChunkedJunkPart(t *testing.T) {
+	configDir := t.TempDir()
+	handler := NewHandler(configDir)
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	junk, err := writer.CreateFormField("junk")
+	if err != nil {
+		t.Fatalf("构造 junk 分段失败：%v", err)
+	}
+	if _, err := junk.Write(bytes.Repeat([]byte{0x78}, MaxUploadBytes*2)); err != nil {
+		t.Fatalf("写入 junk 分段失败：%v", err)
+	}
+	part, err := writer.CreateFormFile("file", "logo.png")
+	if err != nil {
+		t.Fatalf("构造 file 分段失败：%v", err)
+	}
+	if _, err := part.Write(testPNG()); err != nil {
+		t.Fatalf("写入 file 分段失败：%v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("结束 multipart 写入失败：%v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, UploadPath, body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	// 模拟 chunked：内容长度未知，绕过声明长度预检
+	request.ContentLength = -1
+
+	status, payload := upload(t, handler, request)
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("状态码 = %d，期望 422：%v", status, payload)
+	}
+	if message, _ := errorOf(t, payload); message != msgTooLarge {
+		t.Fatalf("错误文案 = %q，期望 %q", message, msgTooLarge)
+	}
+	if names := imageEntries(t, configDir); len(names) != 0 {
+		t.Fatalf("被拒绝的上传不得落盘，实际写入：%v", names)
+	}
+}
+
 // 字段名不是 file 时视为未选择文件。
 func TestUploadRejectsMissingField(t *testing.T) {
 	configDir := t.TempDir()

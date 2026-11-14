@@ -202,13 +202,15 @@ func mustRead(t *testing.T, path string) []byte {
 	return content
 }
 
-// 崩溃残留的写回临时文件在启动清理时删除，正常配置文件不受影响。
+// 崩溃残留的写回临时文件在启动清理时删除，正常配置文件与外来同名文件不受影响。
 func TestCleanupStaleTempFiles(t *testing.T) {
 	dir := t.TempDir()
 	stale := filepath.Join(dir, "."+FileSettings+".12345.tmp")
 	staleRollback := filepath.Join(dir, "."+FileDocker+".12345.rollback.tmp")
 	normal := filepath.Join(dir, FileSettings)
-	for _, path := range []string{stale, staleRollback, normal} {
+	foreign := filepath.Join(dir, ".other-tool.tmp")
+	foreignLike := filepath.Join(dir, "."+FileSettings+".not-a-pid.tmp")
+	for _, path := range []string{stale, staleRollback, normal, foreign, foreignLike} {
 		if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -222,7 +224,13 @@ func TestCleanupStaleTempFiles(t *testing.T) {
 	if _, err := os.Stat(staleRollback); err == nil {
 		t.Fatal("回滚残留 tmp 应被清理")
 	}
-	if _, err := os.Stat(normal); err != nil {
-		t.Fatalf("正常配置文件不应被清理：%v", err)
+	for name, path := range map[string]string{
+		"正常配置文件":     normal,
+		"外来工具的 tmp":  foreign,
+		"非本服务命名形态文件": foreignLike,
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("%s不应被清理：%v", name, err)
+		}
 	}
 }

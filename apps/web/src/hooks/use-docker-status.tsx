@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { useVisibilityPolling } from "@/hooks/use-visibility-poll";
 import {
   dockerTargetKey,
   GLOBAL_ERROR_KEY,
@@ -52,19 +53,12 @@ export function DockerStatusProvider({
   const [paused, setPausedState] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const hasSuccessRef = useRef(false);
-  const pausedRef = useRef(false);
   const enabledRef = useRef(enabled);
   const generationRef = useRef(0);
-  const visibleRef = useRef(
-    typeof document === "undefined"
-      ? true
-      : document.visibilityState !== "hidden",
-  );
 
   enabledRef.current = enabled;
 
   const setPaused = useCallback((next: boolean) => {
-    pausedRef.current = next;
     setPausedState(next);
   }, []);
 
@@ -145,7 +139,7 @@ export function DockerStatusProvider({
     [load],
   );
 
-  // 主加载 + 轮询
+  // 主加载：enabled 关闭时清空状态并停止
   useEffect(() => {
     if (!enabled) {
       abortRef.current?.abort();
@@ -158,62 +152,27 @@ export function DockerStatusProvider({
     const controller = new AbortController();
     abortRef.current = controller;
     void load(controller.signal);
-
-    let timerId: number | null = null;
-    const clearTimer = (): void => {
-      if (timerId !== null) {
-        window.clearInterval(timerId);
-        timerId = null;
-      }
-    };
-
-    const tick = (): void => {
-      if (!visibleRef.current || pausedRef.current) return;
-      abortRef.current?.abort();
-      const next = new AbortController();
-      abortRef.current = next;
-      void load(next.signal, { silent: true });
-    };
-
-    const startTimer = (): void => {
-      clearTimer();
-      timerId = window.setInterval(tick, pollIntervalMs);
-    };
-
-    const onVisibility = (): void => {
-      const visible = document.visibilityState !== "hidden";
-      visibleRef.current = visible;
-      if (visible && !pausedRef.current) {
-        tick();
-        startTimer();
-      } else {
-        clearTimer();
-      }
-    };
-
-    if (visibleRef.current && !pausedRef.current) {
-      startTimer();
-    }
-
-    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearTimer();
-      document.removeEventListener("visibilitychange", onVisibility);
       controller.abort();
       abortRef.current?.abort();
       abortRef.current = null;
     };
-  }, [enabled, load, pollIntervalMs]);
+  }, [enabled, load]);
 
-  // 从暂停恢复时立即补拉
-  useEffect(() => {
-    if (!enabled || paused) return;
-    if (!visibleRef.current) return;
+  // 到点或恢复可见时的静默刷新：中止在途请求后重发
+  const pollTick = useCallback(() => {
     abortRef.current?.abort();
     const next = new AbortController();
     abortRef.current = next;
     void load(next.signal, { silent: true });
-  }, [paused, enabled, load]);
+  }, [load]);
+
+  useVisibilityPolling({
+    enabled,
+    paused,
+    intervalMs: pollIntervalMs,
+    tick: pollTick,
+  });
 
   const get = useCallback(
     (server: string, container: string): DockerEntryState => {

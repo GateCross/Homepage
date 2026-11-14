@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** 页面是否可见；SSR 环境下按可见处理 */
-function isPageVisible(): boolean {
-  return typeof document === "undefined"
-    ? true
-    : document.visibilityState !== "hidden";
-}
+import { useVisibilityPolling } from "@/hooks/use-visibility-poll";
 
 export type PolledResourceOptions<T> = {
   /** 拉取一次数据；收到 abort 时应尽快放弃 */
@@ -46,8 +41,8 @@ export function isAbortError(error: unknown): boolean {
 /**
  * 轮询式资源读取的统一骨架。
  *
- * 收敛下列重复逻辑：中止控制、静默刷新不闪 loading、
- * 页面隐藏时停表、失败时保留上一次成功数据、卸载后不 setState。
+ * 收敛中止控制、静默刷新不闪 loading、失败时保留上一次成功数据、卸载后不 setState；
+ * 计时与页面可见性交给 useVisibilityPolling。
  */
 export function usePolledResource<T>(
   options: PolledResourceOptions<T>,
@@ -68,15 +63,9 @@ export function usePolledResource<T>(
 
   const abortRef = useRef<AbortController | null>(null);
   const hasSuccessRef = useRef(false);
-  const visibleRef = useRef(isPageVisible());
-  const pausedRef = useRef(paused);
-  const enabledRef = useRef(enabled);
   const generationRef = useRef(0);
   /** 最新一次成功数据的时间戳，供陈旧提示使用 */
   const fetchedAtRef = useRef(0);
-
-  pausedRef.current = paused;
-  enabledRef.current = enabled;
 
   /** 执行一次拉取；silent 时不重置为 loading */
   const run = useCallback(
@@ -131,7 +120,7 @@ export function usePolledResource<T>(
     setReloadToken((n) => n + 1);
   }, []);
 
-  // 主加载 + 轮询
+  // 主加载：enabled 关闭时清空状态并停止
   useEffect(() => {
     if (!enabled) {
       abortRef.current?.abort();
@@ -144,61 +133,18 @@ export function usePolledResource<T>(
     const controller = new AbortController();
     abortRef.current = controller;
     void run(controller.signal, false);
-
-    let timerId: number | null = null;
-    const clearTimer = (): void => {
-      if (timerId !== null) {
-        window.clearInterval(timerId);
-        timerId = null;
-      }
-    };
-
-    const tick = (): void => {
-      if (!visibleRef.current || pausedRef.current) return;
-      start({ silent: true });
-    };
-
-    const startTimer = (): void => {
-      clearTimer();
-      if (intervalMs === null) return;
-      timerId = window.setInterval(tick, intervalMs);
-    };
-
-    const onVisibility = (): void => {
-      const visible = isPageVisible();
-      visibleRef.current = visible;
-      if (visible && !pausedRef.current) {
-        tick();
-        startTimer();
-      } else {
-        clearTimer();
-      }
-    };
-
-    if (visibleRef.current && !pausedRef.current) {
-      startTimer();
-    }
-
-    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearTimer();
-      document.removeEventListener("visibilitychange", onVisibility);
       controller.abort();
       abortRef.current?.abort();
       abortRef.current = null;
     };
-  }, [enabled, intervalMs, reloadToken, run, start]);
+  }, [enabled, reloadToken, run, start]);
 
-  // 从暂停恢复时立即补拉。首次挂载跳过，避免与主加载重复请求
-  const pausedSettledRef = useRef(false);
-  useEffect(() => {
-    if (!pausedSettledRef.current) {
-      pausedSettledRef.current = true;
-      return;
-    }
-    if (!enabled || paused || !visibleRef.current) return;
+  const pollTick = useCallback(() => {
     start({ silent: true });
-  }, [paused, enabled, start]);
+  }, [start]);
+
+  useVisibilityPolling({ enabled, paused, intervalMs, tick: pollTick });
 
   return { state, retry, refresh };
 }

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -266,22 +267,42 @@ func replaceTempName(name string) string {
 	return fmt.Sprintf(".%s.%d.tmp", name, os.Getpid())
 }
 
-// CleanupStaleTempFiles 清理进程被杀留下的写回临时文件
+// CleanupStaleTempFiles 清理历史进程崩溃留下的写回临时文件
 // （.<配置文件>.<进程号>.tmp 与对应 .rollback.tmp）。
 // 崩溃残留以点前缀隐藏文件形态留在配置目录，不影响加载，但会无限累积；
 // 启动时调用一次即可，清理失败静默忽略。
+// 只删匹配自身命名规则的文件，配置目录里其它工具的同名形态文件不动。
 func CleanupStaleTempFiles(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".tmp") {
+		if entry.IsDir() || !isStaleTempName(entry.Name()) {
 			continue
 		}
-		_ = os.Remove(filepath.Join(dir, name))
+		_ = os.Remove(filepath.Join(dir, entry.Name()))
 	}
+}
+
+// 判断文件名是否为本服务写回临时文件的命名形态：
+// .<配置文件名>.<纯数字进程号>.tmp 或 .<配置文件名>.<纯数字进程号>.rollback.tmp。
+func isStaleTempName(name string) bool {
+	for _, configName := range ConfigFileNames {
+		prefix := "." + configName + "."
+		if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ".tmp") {
+			continue
+		}
+		middle := strings.TrimSuffix(strings.TrimPrefix(name, prefix), ".tmp")
+		middle = strings.TrimSuffix(middle, ".rollback")
+		if middle == "" {
+			continue
+		}
+		if _, err := strconv.Atoi(middle); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // 写入并尽量落盘；同步失败不阻断写回。

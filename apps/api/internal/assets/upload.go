@@ -104,7 +104,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // 解析 multipart 并落盘：字段与内容校验失败回 422，读写磁盘失败回 500。
 func (h *Handler) serveUpload(w http.ResponseWriter, r *http.Request) {
-	// 声明长度明显超限时不解析请求体；分块传输仍由下面的读取上限兜住
+	// 整个请求体统一封顶：chunked 等无声明长度的请求不再依赖头部预检
+	r.Body = http.MaxBytesReader(w, r.Body, MaxUploadBytes+uploadOverhead)
+	// 声明长度明显超限时不解析请求体
 	if declaredTooLarge(r) {
 		httpapi.ConfigInvalid(msgTooLarge).Write(w)
 		return
@@ -175,7 +177,7 @@ func readFilePart(reader *multipart.Reader) (*uploadedInput, string) {
 			return nil, msgFileFieldMissing
 		}
 		if err != nil {
-			return nil, msgMultipartOnly
+			return nil, readPartFailure(err)
 		}
 		if part.FormName() != "file" {
 			// 其它字段一律忽略，读指针由下一次取分段时推进
@@ -184,7 +186,7 @@ func readFilePart(reader *multipart.Reader) (*uploadedInput, string) {
 
 		body, err := io.ReadAll(io.LimitReader(part, MaxUploadBytes+1))
 		if err != nil {
-			return nil, msgMultipartOnly
+			return nil, readPartFailure(err)
 		}
 		if len(body) == 0 {
 			return nil, msgEmptyFile
@@ -198,6 +200,15 @@ func readFilePart(reader *multipart.Reader) (*uploadedInput, string) {
 			body:        body,
 		}, ""
 	}
+}
+
+// 读取分段失败：超出请求体上限按超限提示，其余按分段损坏处理。
+func readPartFailure(err error) string {
+	var maxBytes *http.MaxBytesError
+	if errors.As(err, &maxBytes) {
+		return msgTooLarge
+	}
+	return msgMultipartOnly
 }
 
 // 请求头声明的长度超过上限加余量时不解析请求体；分块传输的长度为 -1，不参与此判定。
