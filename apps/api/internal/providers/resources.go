@@ -323,6 +323,13 @@ func parseDiskEntries(raw any) []DiskTarget {
 		return nil
 	case string:
 		return parseDiskString(value)
+	case []string:
+		// allowlist options 里的 diskPaths 以 []string 暂存，必须显式接住
+		entries := make([]DiskTarget, 0, len(value))
+		for _, item := range value {
+			entries = append(entries, parseDiskString(item)...)
+		}
+		return entries
 	case []any:
 		entries := make([]DiskTarget, 0, len(value))
 		for _, item := range value {

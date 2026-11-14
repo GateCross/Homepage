@@ -209,3 +209,19 @@ func TestParseDockerEndpoint(t *testing.T) {
 		}
 	}
 }
+
+// 别名只进采集目标（「路径|别名」复合串），不进身份（纯路径）。
+func TestCollectResourceDiskPathsLabelHandling(t *testing.T) {
+	doc := map[string]any{
+		"disk": []any{
+			map[string]any{"path": "/home/data", "label": "希捷"},
+			map[string]any{"path": "/"},
+		},
+	}
+	if got := collectResourceDiskPaths(doc, true); strings.Join(got, ",") != "/,/home/data|希捷" {
+		t.Fatalf("保留别名的结果不符：%v", got)
+	}
+	if got := collectResourceDiskPaths(doc, false); strings.Join(got, ",") != "/,/home/data" {
+		t.Fatalf("剥离别名的结果不符：%v", got)
+	}
+}

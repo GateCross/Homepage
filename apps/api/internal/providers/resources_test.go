@@ -238,3 +238,28 @@ func TestParseResourcesTargetRejectsNonObject(t *testing.T) {
 		}
 	}
 }
+
+// allowlist options 里的 diskPaths 以 []string 暂存：字符串切片必须能解析出路径与别名。
+func TestParseResourcesTargetAcceptsStringSliceDisks(t *testing.T) {
+	options := map[string]any{
+		"cpu":       true,
+		"memory":    true,
+		"diskPaths": []string{"/", "/home/data|希捷"},
+	}
+	target, ok := ParseResourcesTarget(options)
+	if !ok {
+		t.Fatal("解析资源目标失败")
+	}
+	if !target.CPU || !target.Memory {
+		t.Fatal("cpu/memory 开关丢失")
+	}
+	if len(target.Disks) != 2 {
+		t.Fatalf("磁盘条目数不符：got %d want 2", len(target.Disks))
+	}
+	if target.Disks[0].Path != "/" || target.Disks[0].Label != "" {
+		t.Fatalf("第一条磁盘不符：got %+v", target.Disks[0])
+	}
+	if target.Disks[1].Path != "/home/data" || target.Disks[1].Label != "希捷" {
+		t.Fatalf("第二条磁盘不符：got %+v", target.Disks[1])
+	}
+}

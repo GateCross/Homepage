@@ -1040,7 +1040,7 @@ func normalizeInfoWidget(doc map[string]any, entryIndex int, infoType string, al
 		}
 
 	case "resources":
-		diskPaths := collectResourceDiskPaths(doc)
+		diskPaths := collectResourceDiskPaths(doc, true)
 		cpu := normalizeBoolFlag(doc["cpu"], true)
 		memory := normalizeBoolFlag(doc["memory"], true)
 		allowList.InfoTargets[infoID] = InfoTarget{
@@ -1073,7 +1073,7 @@ func infoTargetIdentity(infoType string, doc map[string]any) (domain.InfoIdentit
 		// 身份用原始 cityId，prefix 与校验只影响目标登记，不影响 ID
 		return domain.InfoIdentity{Kind: "openmeteo", CityID: rawCityID(doc["cityId"])}, true
 	case "resources":
-		return domain.InfoIdentity{Kind: "resources", DiskPaths: collectResourceDiskPaths(doc)}, true
+		return domain.InfoIdentity{Kind: "resources", DiskPaths: collectResourceDiskPaths(doc, false)}, true
 	default:
 		return domain.InfoIdentity{Kind: "none"}, false
 	}
@@ -1094,22 +1094,27 @@ func rawCityID(raw any) string {
 }
 
 // 磁盘路径按 path、diskPath、disks、disk 的顺序收集并去重排序。
-func collectResourceDiskPaths(doc map[string]any) []string {
+// keepLabel 为真时以「路径|别名」复合串保留展示别名（供采集目标），否则只留路径（供身份）。
+func collectResourceDiskPaths(doc map[string]any, keepLabel bool) []string {
 	paths := []string{}
 	for _, key := range []string{"diskPaths", "diskPath", "disks", "disk"} {
-		paths = append(paths, diskPathsFrom(doc[key])...)
+		paths = append(paths, diskPathsFrom(doc[key], keepLabel)...)
 	}
 	return sortedUniquePaths(paths)
 }
 
-func diskPathsFrom(raw any) []string {
+func diskPathsFrom(raw any, keepLabel bool) []string {
 	switch value := raw.(type) {
 	case string:
 		paths := []string{}
 		for _, chunk := range strings.Split(value, ",") {
 			for _, part := range strings.Split(chunk, "，") {
 				if path := normalizeDiskPath(part); path != "" {
-					paths = append(paths, path)
+					if keepLabel {
+						paths = append(paths, strings.TrimSpace(part))
+					} else {
+						paths = append(paths, path)
+					}
 				}
 			}
 		}
@@ -1117,7 +1122,7 @@ func diskPathsFrom(raw any) []string {
 	case []any:
 		paths := []string{}
 		for _, item := range value {
-			paths = append(paths, diskPathsFrom(item)...)
+			paths = append(paths, diskPathsFrom(item, keepLabel)...)
 		}
 		return paths
 	default:
@@ -1128,6 +1133,12 @@ func diskPathsFrom(raw any) []string {
 		for _, field := range []string{"path", "disk", "mount"} {
 			if text, ok := doc[field].(string); ok {
 				if path := normalizeDiskPath(text); path != "" {
+					// 别名只影响展示标签，不参与身份
+					if keepLabel {
+						if label := nonEmptyString(doc["label"]); label != "" {
+							return []string{path + "|" + label}
+						}
+					}
 					return []string{path}
 				}
 			}
