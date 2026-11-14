@@ -41,6 +41,7 @@ const (
 )
 
 // DockerResourceStats 是运行中容器的资源占用，缺省字段不出现在 JSON 中。
+// 两个百分比统一为 0–100：CPU 是占宿主全部算力的比例，内存是占 cgroup 限额的比例。
 type DockerResourceStats struct {
 	CPUPercent       *float64 `json:"cpuPercent,omitempty"`
 	MemoryPercent    *float64 `json:"memoryPercent,omitempty"`

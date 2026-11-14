@@ -456,7 +456,6 @@ func (c *Client) sampleKey(container string) string {
 type CpuCounterSample struct {
 	TotalUsage  float64
 	SystemUsage float64
-	OnlineCPUs  int
 	At          time.Time
 }
 
@@ -530,7 +529,7 @@ func mapStatsToResources(payload any, previous *CpuCounterSample, now time.Time)
 			cpuDelta := curTotal - preTotal
 			systemDelta := curSystem - preSystem
 			if systemDelta > 0 && cpuDelta >= 0 {
-				cpuPercent = clampPercent(cpuDelta / systemDelta * float64(onlineCPUs(root)) * 100)
+				cpuPercent = clampPercent(cpuDelta / systemDelta * 100)
 				hasPercent = true
 			}
 		}
@@ -541,15 +540,11 @@ func mapStatsToResources(payload any, previous *CpuCounterSample, now time.Time)
 
 	usage, hasUsage := nestedNumber(root, "memory_stats", "usage")
 	limit, hasLimit := nestedNumber(root, "memory_stats", "limit")
-	if hasUsage && usage >= 0 {
-		result.resources.MemoryUsageBytes = int64Ptr(usage)
-	}
 	if hasLimit && limit > 0 {
 		result.resources.MemoryLimitBytes = int64Ptr(limit)
 	}
-
-	if hasUsage && hasLimit && limit > 0 {
-		// 优先 cgroup v2 的 inactive_file，回退 total_inactive_file 与 cache
+	if hasUsage && usage >= 0 {
+		// 用量一律扣除页缓存：优先 cgroup v2 的 inactive_file，回退 total_inactive_file 与 cache
 		inactiveFile := 0.0
 		if value, ok := nestedNumber(root, "memory_stats", "stats", "inactive_file"); ok {
 			inactiveFile = value
@@ -559,8 +554,10 @@ func mapStatsToResources(payload any, previous *CpuCounterSample, now time.Time)
 			inactiveFile = value
 		}
 		used := math.Max(0, usage-math.Max(0, inactiveFile))
-		result.resources.MemoryPercent = float64Ptr(clampPercent(used / limit * 100))
 		result.resources.MemoryUsageBytes = int64Ptr(used)
+		if hasLimit && limit > 0 {
+			result.resources.MemoryPercent = float64Ptr(clampPercent(used / limit * 100))
+		}
 	}
 
 	return result
@@ -579,32 +576,11 @@ func extractCpuSample(root map[string]any, at time.Time) *CpuCounterSample {
 	return &CpuCounterSample{
 		TotalUsage:  totalUsage,
 		SystemUsage: systemUsage,
-		OnlineCPUs:  onlineCPUs(root),
 		At:          at,
 	}
 }
 
-// 在线 CPU 数：优先 online_cpus，缺失时按 percpu_usage 长度推断，最小为 1。
-func onlineCPUs(root map[string]any) int {
-	if value, ok := nestedNumber(root, "cpu_stats", "online_cpus"); ok && value > 0 {
-		return int(value)
-	}
-	cpuStats, ok := root["cpu_stats"].(map[string]any)
-	if !ok {
-		return 1
-	}
-	cpuUsage, ok := cpuStats["cpu_usage"].(map[string]any)
-	if !ok {
-		return 1
-	}
-	perCPU, ok := cpuUsage["percpu_usage"].([]any)
-	if !ok || len(perCPU) == 0 {
-		return 1
-	}
-	return len(perCPU)
-}
-
-// 用两拍计数算占用率；上一拍缺失、过期或计数回绕时返回空，不伪造 0。
+// 用两拍计数算容器占宿主全部 CPU 算力的比例；上一拍缺失、过期或计数回绕时返回空，不伪造 0。
 func cpuPercentFromSamples(previous *CpuCounterSample, current CpuCounterSample) (float64, bool) {
 	if previous == nil {
 		return 0, false
@@ -618,14 +594,7 @@ func cpuPercentFromSamples(previous *CpuCounterSample, current CpuCounterSample)
 	if systemDelta <= 0 || cpuDelta < 0 {
 		return 0, false
 	}
-	online := current.OnlineCPUs
-	if online <= 0 {
-		online = previous.OnlineCPUs
-	}
-	if online <= 0 {
-		online = 1
-	}
-	return clampPercent(cpuDelta / systemDelta * float64(online) * 100), true
+	return clampPercent(cpuDelta / systemDelta * 100), true
 }
 
 // 把数值夹在 0–100；非有限值按 0 处理。

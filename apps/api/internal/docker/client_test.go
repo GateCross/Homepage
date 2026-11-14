@@ -31,7 +31,6 @@ func TestStatsUsesPreviousSampleForCPUPercent(t *testing.T) {
 	client.samples.set(key, CpuCounterSample{
 		TotalUsage:  1000,
 		SystemUsage: 5000,
-		OnlineCPUs:  2,
 		At:          client.now().Add(-10 * time.Second),
 	})
 
@@ -42,9 +41,9 @@ func TestStatsUsesPreviousSampleForCPUPercent(t *testing.T) {
 	if stats.CPUPercent == nil {
 		t.Fatal("有上一拍时应算出 CPU 占用")
 	}
-	// (2000-1000)/(10000-5000)*2*100 = 40%
-	if got := *stats.CPUPercent; got < 39.9 || got > 40.1 {
-		t.Fatalf("CPU 百分比应为 40，实得 %v", got)
+	// (2000-1000)/(10000-5000)*100 = 20%，即占宿主全部算力的比例
+	if got := *stats.CPUPercent; got < 19.9 || got > 20.1 {
+		t.Fatalf("CPU 百分比应为 20，实得 %v", got)
 	}
 	if got := transport.count(); got != 1 {
 		t.Fatalf("有上一拍时只应请求一次，实际 %d 次", got)
@@ -84,7 +83,6 @@ func TestStatsPrefersPreviousSampleOverZeroPrecpu(t *testing.T) {
 	client.samples.set(client.sampleKey("web"), CpuCounterSample{
 		TotalUsage:  2000,
 		SystemUsage: 8000,
-		OnlineCPUs:  4,
 		At:          client.now().Add(-time.Second),
 	})
 
@@ -95,9 +93,9 @@ func TestStatsPrefersPreviousSampleOverZeroPrecpu(t *testing.T) {
 	if stats.CPUPercent == nil {
 		t.Fatal("应使用进程内上一拍算出 CPU 占用")
 	}
-	// (3000-2000)/(9000-8000)*4*100 = 400 → 夹到 100
+	// (3000-2000)/(9000-8000)*100 = 100%，整台宿主算力全被吃满
 	if got := *stats.CPUPercent; got != 100 {
-		t.Fatalf("CPU 百分比应被夹到 100，实得 %v", got)
+		t.Fatalf("CPU 百分比应为 100，实得 %v", got)
 	}
 	if got := transport.count(); got != 1 {
 		t.Fatalf("有上一拍时不得补拉第二拍，实际 %d 次", got)
