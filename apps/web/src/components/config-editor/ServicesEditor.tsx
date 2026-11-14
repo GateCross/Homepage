@@ -287,7 +287,7 @@ export function ServicesEditor({
                 : ""}
             </DialogTitle>
             <DialogDescription>
-              修改后点确定写回列表，再保存配置才会生效。
+              修改后点确定写回列表，再保存配置才会生效
             </DialogDescription>
           </DialogHeader>
 

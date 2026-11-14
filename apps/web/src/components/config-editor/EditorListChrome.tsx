@@ -130,7 +130,7 @@ export function useReorderDrag<T>({
   return { drag, getHandleProps, getRowProps };
 }
 
-function IconActionButton({
+export function IconActionButton({
   label,
   onClick,
   disabled,
@@ -283,7 +283,8 @@ export function EditorListRow({
     <li
       {...rowProps}
       className={cn(
-        "group relative flex flex-col rounded-lg border border-border/50 bg-card/60 shadow-xs backdrop-blur-sm",
+        // py-2：标题/地址行与卡片上下边框保持呼吸空隙，文字块会撑起行高
+        "group relative flex flex-col rounded-lg border border-border/50 bg-card/60 py-2 shadow-xs backdrop-blur-sm",
         "transition-[background-color,opacity,box-shadow,border-color] duration-150",
         editing
           ? "border-primary/40 ring-1 ring-primary/30"
@@ -304,7 +305,7 @@ export function EditorListRow({
               {title}
             </span>
             {hasError ? (
-              <span className="shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+              <span className="shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
                 有错误
               </span>
             ) : null}
@@ -319,7 +320,7 @@ export function EditorListRow({
               {host ? (
                 <span
                   title={host}
-                  className="truncate font-mono text-[11px] leading-none text-muted-foreground/80"
+                  className="truncate font-mono text-[11px] leading-none text-muted-foreground"
                 >
                   {host}
                 </span>
@@ -385,14 +386,15 @@ export function EditorGroupCard({
     <section
       {...rowProps}
       className={cn(
-        "overflow-hidden rounded-xl border border-border/60 bg-card/40 shadow-sm backdrop-blur-sm transition-[opacity,box-shadow,border-color] duration-150",
+        "rounded-xl border border-border/60 bg-card/40 shadow-sm backdrop-blur-sm transition-[opacity,box-shadow,border-color] duration-150",
         rowProps["data-dragging"] && "opacity-50",
         rowProps["data-drop-target"] &&
           "border-primary/50 ring-1 ring-primary/30",
         hasError && "border-destructive/40",
       )}
     >
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border/50 bg-muted/25 px-2 py-2 sm:gap-2 sm:px-3">
+      {/* 分组头吸顶：滚动时钉在内容区顶部，实底遮住从下方穿过的行，避免标题被边缘截断 */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 rounded-t-[calc(var(--radius-xl)-1px)] border-b border-border/50 bg-muted px-2 py-2 sm:gap-2 sm:px-3">
         <DragHandle disabled={disabled || Boolean(nameEditor)} {...dragHandleProps} />
         {nameEditor ? (
           <div className="min-w-0 flex-1">{nameEditor}</div>
@@ -407,7 +409,7 @@ export function EditorGroupCard({
                   {countLabel}
                 </span>
                 {hasError ? (
-                  <span className="shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                  <span className="shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
                     有错误
                   </span>
                 ) : null}

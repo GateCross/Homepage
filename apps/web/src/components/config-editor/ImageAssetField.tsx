@@ -269,7 +269,7 @@ export function ImageAssetField({
         {preview === "icon" ? (
           <div
             className={cn(
-              "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/40",
+              "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40",
               !showPreview && "border-dashed text-muted-foreground/50",
             )}
           >
@@ -375,7 +375,7 @@ export function ImageAssetField({
           preview === "icon" &&
           siteIconSourceUrl !== undefined ? (
             <p className="text-xs text-muted-foreground">
-              无有效链接时无法从站点获取，请上传或手填。
+              无有效链接时无法从站点获取，请上传或手填
             </p>
           ) : null}
           {error ? <p className="text-xs text-destructive">{error}</p> : null}

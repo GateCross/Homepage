@@ -181,7 +181,7 @@ export function ServiceItemForm({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label className="text-muted-foreground">端点</Label>
+            <Label>端点</Label>
             {endpointNames.length > 0 ? (
               <Select
                 value={value.docker?.server ?? ""}
@@ -231,7 +231,7 @@ export function ServiceItemForm({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-muted-foreground">容器名</Label>
+            <Label>容器名</Label>
             <Input
               value={value.docker?.container ?? ""}
               disabled={disabled}

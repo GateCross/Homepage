@@ -72,7 +72,7 @@ export function SiteIconPickerDialog({
           <DialogDescription className="break-all">
             来源：{sourceUrl}
             <span className="mt-1 block text-muted-foreground">
-              采用后写入表单，需保存配置才会写入 YAML。
+              采用后写入表单，需保存配置才会写入 YAML
             </span>
           </DialogDescription>
         </DialogHeader>

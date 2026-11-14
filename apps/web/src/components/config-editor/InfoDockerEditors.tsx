@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 
 import type {
   EditableDockerEndpoint,
@@ -9,6 +9,7 @@ import type {
 import { WeatherCityPicker } from "@/components/config-editor/WeatherCityPicker";
 import {
   EditorPageHeader,
+  IconActionButton,
 } from "@/components/config-editor/EditorListChrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,7 +114,7 @@ export function InfoWidgetsEditor({
       />
 
       {value.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
           暂无信息组件，点右上角添加
         </p>
       ) : (
@@ -132,35 +133,28 @@ export function InfoWidgetsEditor({
                       : "资源占用"}
                 </span>
                 <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
+                  <IconActionButton
+                    label="上移"
                     disabled={disabled ?? i === 0}
                     onClick={() => onChange(moveItem(value, i, i - 1))}
                   >
-                    上移
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
+                    <ArrowUp className="size-3.5" aria-hidden="true" />
+                  </IconActionButton>
+                  <IconActionButton
+                    label="下移"
                     disabled={disabled ?? i >= value.length - 1}
                     onClick={() => onChange(moveItem(value, i, i + 1))}
                   >
-                    下移
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
+                    <ArrowDown className="size-3.5" aria-hidden="true" />
+                  </IconActionButton>
+                  <IconActionButton
+                    label="删除该组件"
+                    tone="danger"
                     disabled={disabled}
-                    aria-label="删除该组件"
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => onChange(value.filter((_, idx) => idx !== i))}
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
-                  </Button>
+                  </IconActionButton>
                 </div>
               </div>
 
@@ -327,7 +321,7 @@ export function DockerEndpointsEditor({
           <span />
         </div>
         {value.length === 0 ? (
-          <p className="px-3 py-10 text-center text-sm text-muted-foreground">
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
             暂无 Docker 端点，点右上角「添加端点」
           </p>
         ) : (

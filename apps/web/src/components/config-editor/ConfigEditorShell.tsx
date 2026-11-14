@@ -235,11 +235,11 @@ export function ConfigEditorShell({
         }}
       >
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <aside className="flex shrink-0 flex-col border-b border-border/60 md:w-48 md:border-b-0 md:border-r">
+          <aside className="flex shrink-0 flex-col border-b border-border/60 md:w-52 md:border-b-0 md:border-r">
             <div className="px-4 pb-2 pt-4 md:pb-3 md:pt-5">
               <DialogTitle className="text-base">配置</DialogTitle>
               <DialogDescription className="mt-1 text-xs leading-relaxed">
-                通过结构化表单编辑仪表盘配置，保存后立即生效。
+                以表单编辑仪表盘配置，保存后立即生效
               </DialogDescription>
             </div>
             <nav
@@ -267,7 +267,8 @@ export function ConfigEditorShell({
             </nav>
           </aside>
 
-          <div className="flex min-w-0 flex-1 flex-col">
+          {/* 顶部 12px 静置留白不参与滚动：吸顶的分组头与内容区上边缘保持距离 */}
+          <div className="flex min-w-0 flex-1 flex-col pt-3">
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="w-full px-4 py-5 sm:px-6 sm:py-6">
                 {loadState.status === "loading" ? (
@@ -438,7 +439,7 @@ export function ConfigEditorShell({
             <DialogHeader>
               <DialogTitle>放弃未保存的修改？</DialogTitle>
               <DialogDescription>
-                关闭编辑器后，本次尚未保存的修改将丢失。
+                关闭编辑器后，本次尚未保存的修改将丢失
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

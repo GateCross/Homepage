@@ -173,13 +173,13 @@ export function DockerImportDialog({
         <DialogHeader>
           <DialogTitle>从 Docker 导入</DialogTitle>
           <DialogDescription>
-            扫描已配置端点上的容器，勾选后写入草稿；需保存配置才会生效。
+            扫描已配置端点上的容器，勾选后写入草稿；需保存配置才会生效
           </DialogDescription>
         </DialogHeader>
 
         {dockerEndpoints.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            请先在「Docker」页添加端点。
+            请先在「Docker」页添加端点
           </p>
         ) : (
           <div className="space-y-3">
