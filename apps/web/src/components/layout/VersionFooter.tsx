@@ -124,23 +124,34 @@ export function VersionLabel({ className }: VersionLabelProps): JSX.Element {
         className,
       )}
     >
-      <span className="tabular-nums text-foreground/80">
+      {/* 有更新提示时移动端隐藏版本号本体，把顶栏宽度还给站点标题 */}
+      <span
+        className={cn(
+          "tabular-nums text-foreground/80",
+          state.data.updateAvailable && state.data.latestVersion
+            ? "hidden sm:inline"
+            : null,
+        )}
+      >
         {formatVersionLabel(state.data.version)}
       </span>
       {state.data.updateAvailable && state.data.latestVersion ? (
         <span className="inline-flex items-center gap-1">
-          <span
-            className="font-medium text-amber-700 dark:text-amber-300"
-            role="status"
+          {/* 更新提示全区可点：移动端无文字链接，点击琥珀文案直达发布说明 */}
+          <SafeExternalLink
+            href={state.data.releaseUrl}
+            className="font-medium text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
           >
-            {messages.version.updateAvailable}
-            <span className="mx-0.5 opacity-60">·</span>
-            {formatVersionLabel(state.data.latestVersion)}
-          </span>
+            <span role="status" title={messages.version.viewRelease}>
+              {messages.version.updateAvailable}
+              <span className="mx-0.5 opacity-60">·</span>
+              {formatVersionLabel(state.data.latestVersion)}
+            </span>
+          </SafeExternalLink>
           {state.data.releaseUrl ? (
             <SafeExternalLink
               href={state.data.releaseUrl}
-              className="text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+              className="hidden text-foreground/70 underline-offset-2 hover:text-foreground hover:underline sm:inline"
             >
               {messages.version.viewRelease}
             </SafeExternalLink>

@@ -77,8 +77,8 @@ export function CollapsibleGroup({
           className={cn(
             "group/title -ml-1.5 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1",
             "text-left transition-colors duration-150",
-            "hover:bg-white/12 dark:hover:bg-white/6",
-            "active:bg-white/16 dark:active:bg-white/10",
+            "hover:bg-foreground/[0.06] dark:hover:bg-white/[0.06]",
+            "active:bg-foreground/[0.09] dark:active:bg-white/[0.1]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
           )}
         >

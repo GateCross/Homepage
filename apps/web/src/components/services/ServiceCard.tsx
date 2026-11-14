@@ -43,7 +43,12 @@ export function ServiceCard({
   const body = (
     <>
       <div className="relative z-[1] flex items-start gap-3">
-        <ServiceIconView icon={service.icon} name={service.name} />
+        {/* 移动端磁贴收紧到 32px，单列列表下降低整卡高度；桌面维持 36px */}
+        <ServiceIconView
+          icon={service.icon}
+          name={service.name}
+          className="size-8 sm:size-9"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-1.5">
             <h3

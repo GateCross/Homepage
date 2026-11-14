@@ -37,8 +37,9 @@ export function Header({
     <header
       data-slot="dashboard-header"
       className={cn(
-        // sticky 顶栏：整条毛玻璃贴顶，不再留可透出下层内容的空隙
-        "sticky top-0 z-40 border-b border-white/15 bg-background/65 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/50 dark:border-white/10 dark:bg-background/60 dark:supports-[backdrop-filter]:bg-background/45",
+        // sticky 顶栏：整条毛玻璃贴顶，不再留可透出下层内容的空隙；
+        // 刘海屏（viewport-fit=cover）时用安全区把整条顶栏压到刘海之下
+        "sticky top-0 z-40 border-b border-white/15 bg-background/65 pt-[env(safe-area-inset-top)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/50 dark:border-white/10 dark:bg-background/60 dark:supports-[backdrop-filter]:bg-background/45",
         className,
       )}
     >

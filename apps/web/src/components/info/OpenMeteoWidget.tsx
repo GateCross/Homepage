@@ -95,7 +95,6 @@ export function weatherCodeToConditionText(code: number): string {
 
 function weatherVisual(code: number | undefined): {
   Icon: LucideIcon;
-  wash: string;
   icon: string;
 } {
   const c =
@@ -104,7 +103,6 @@ function weatherVisual(code: number | undefined): {
   if (c === 0) {
     return {
       Icon: Sun,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(251,191,36,0.12),transparent_68%)] dark:bg-[radial-gradient(120%_90%_at_100%_0%,rgba(251,191,36,0.22),transparent_68%)]",
       icon: "text-amber-600 dark:text-amber-300",
     };
   }
@@ -112,7 +110,6 @@ function weatherVisual(code: number | undefined): {
   if (c === 1) {
     return {
       Icon: CloudSun,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(56,189,248,0.2),transparent_68%)]",
       icon: "text-sky-500 dark:text-sky-300",
     };
   }
@@ -120,7 +117,6 @@ function weatherVisual(code: number | undefined): {
   if (c === 2) {
     return {
       Icon: Cloud,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(148,163,184,0.22),transparent_68%)]",
       icon: "text-slate-500 dark:text-slate-300",
     };
   }
@@ -128,7 +124,6 @@ function weatherVisual(code: number | undefined): {
   if (c === 18 || c === 35 || c === 53) {
     return {
       Icon: CloudFog,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(148,163,184,0.24),transparent_68%)]",
       icon: "text-slate-500 dark:text-slate-300",
     };
   }
@@ -151,7 +146,6 @@ function weatherVisual(code: number | undefined): {
   ) {
     return {
       Icon: CloudRain,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(59,130,246,0.2),transparent_68%)]",
       icon: "text-blue-500 dark:text-blue-300",
     };
   }
@@ -169,7 +163,6 @@ function weatherVisual(code: number | undefined): {
   ) {
     return {
       Icon: CloudSnow,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(34,211,238,0.18),transparent_68%)]",
       icon: "text-cyan-600 dark:text-cyan-300",
     };
   }
@@ -177,14 +170,12 @@ function weatherVisual(code: number | undefined): {
   if (c === 4 || c === 5) {
     return {
       Icon: CloudLightning,
-      wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(167,139,250,0.22),transparent_68%)]",
       icon: "text-violet-500 dark:text-violet-300",
     };
   }
   // 沙尘等
   return {
     Icon: Cloud,
-    wash: "bg-[radial-gradient(120%_90%_at_100%_0%,rgba(148,163,184,0.2),transparent_68%)]",
     icon: "text-slate-500 dark:text-slate-300",
   };
 }
@@ -799,11 +790,6 @@ export function OpenMeteoWidget({
       role="status"
       aria-label={ariaLabel}
     >
-      <div
-        aria-hidden="true"
-        className={cn("pointer-events-none absolute inset-0", visual.wash)}
-      />
-
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-medium text-muted-foreground">

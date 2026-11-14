@@ -1,5 +1,11 @@
 import { useCallback, type JSX } from "react";
-import { CheckCircle2, CircleAlert, CircleX, LoaderCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleAlert,
+  CircleX,
+  LoaderCircle,
+  RotateCw,
+} from "lucide-react";
 
 import type { HttpProbeResponse } from "@/lib/contracts";
 
@@ -133,18 +139,23 @@ export function ProbeSlot({
         role="status"
         aria-label={state.message}
         className={cn(
-          "inline-flex max-w-[10rem] flex-wrap items-center gap-1.5 text-xs text-destructive",
+          // 移动端收成「状态图标 + 重试图标」一行，详情进 title/aria
+          "inline-flex h-5 items-center justify-center gap-1 text-xs text-destructive sm:w-auto sm:max-w-[10rem] sm:flex-wrap sm:justify-start sm:gap-1.5",
           className,
         )}
+        title={state.message}
       >
         <StatusIcon state="error" />
-        <span className="truncate">{state.message}</span>
+        <span className="hidden truncate sm:inline">{state.message}</span>
         <button
           type="button"
-          className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={messages.common.retry}
+          title={messages.common.retry}
+          className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={retry}
         >
-          {messages.common.retry}
+          <RotateCw className="size-3" aria-hidden="true" />
+          <span className="hidden sm:inline">{messages.common.retry}</span>
         </button>
       </div>
     );
@@ -169,13 +180,14 @@ export function ProbeSlot({
         role="status"
         aria-label={ariaLabel}
         className={cn(
-          "inline-flex h-5 max-w-[7rem] items-center gap-1 text-[11px] leading-none text-destructive",
+          // 不可达：移动端仅图标，原因进 title；桌面保留短文案
+          "inline-flex size-5 items-center justify-center text-[11px] leading-none text-destructive sm:w-auto sm:max-w-[7rem] sm:justify-start sm:gap-1",
           className,
         )}
         title={label}
       >
         <StatusIcon state={data.status} />
-        <span className="truncate">{label}</span>
+        <span className="hidden truncate sm:inline">{label}</span>
       </div>
     );
   }

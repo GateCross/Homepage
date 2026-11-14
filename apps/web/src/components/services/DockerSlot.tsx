@@ -305,12 +305,16 @@ export function DockerSlot({
       >
         <StatusIcon state="error" />
         {mode === "badge" ? (
+          // badge：移动端空间有限，重试收成图标；文案进 aria-label/title
           <button
             type="button"
-            className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={messages.common.retry}
+            title={messages.common.retry}
+            className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={handleRetry}
           >
-            {messages.common.retry}
+            <RotateCw className="size-3" aria-hidden="true" />
+            <span className="hidden sm:inline">{messages.common.retry}</span>
           </button>
         ) : (
           <>
@@ -338,7 +342,8 @@ export function DockerSlot({
     data.status !== "unavailable" ? data.detail : reason;
 
   if (mode === "badge") {
-    // 正常运行：图标即可表达状态，文案进 title/aria，把顶栏宽度还给服务名
+    // 正常运行：所有断点仅图标；异常态桌面补短文案，移动端仍只留图标，
+    // 长文案（如「不可用（原因）」）会挤掉卡片上的服务名，详情进 title/aria
     const iconOnly =
       data.status === "running" &&
       (health === undefined || health === "healthy");
@@ -352,14 +357,18 @@ export function DockerSlot({
         aria-label={label}
         className={cn(
           "inline-flex h-5 items-center text-xs leading-none",
-          iconOnly ? "size-5 justify-center" : "max-w-[6.5rem] gap-1",
+          iconOnly
+            ? "size-5 justify-center"
+            : "size-5 justify-center gap-1 sm:w-auto sm:max-w-[6.5rem] sm:justify-start",
           className,
         )}
         title={title ?? label}
       >
         <StatusIcon state={uiState} />
         {iconOnly ? null : (
-          <span className={cn("truncate font-medium", tone)}>{label}</span>
+          <span className={cn("hidden truncate font-medium sm:inline", tone)}>
+            {label}
+          </span>
         )}
       </div>
     );

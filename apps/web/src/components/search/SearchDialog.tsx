@@ -171,7 +171,13 @@ export function SearchDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-slot="search-dialog"
-        className={cn("overflow-hidden p-0 sm:max-w-lg", className)}
+        className={cn(
+          // 移动端贴顶铺开（键盘从底部弹起不遮输入框）；桌面维持居中悬浮
+          "top-2 right-2 left-2 w-auto max-w-none translate-x-0 translate-y-0 rounded-xl",
+          "sm:top-[50%] sm:right-auto sm:left-[50%] sm:w-full sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%]",
+          "overflow-hidden p-0",
+          className,
+        )}
         showCloseButton={false}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -199,7 +205,14 @@ export function SearchDialog({
           <CommandList>
             <CommandEmpty>{messages.search.noResults}</CommandEmpty>
             {results.length > 0 ? (
-              <CommandGroup heading={messages.search.navigateHint}>
+              <CommandGroup
+                heading={
+                  // 方向键/回车是键盘交互，触屏设备上没有意义，隐藏
+                  <span className="[@media(hover:none)]:hidden">
+                    {messages.search.navigateHint}
+                  </span>
+                }
+              >
                 {results.map((item) => {
                   const kindLabel =
                     item.kind === "service"

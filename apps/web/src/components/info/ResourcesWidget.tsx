@@ -160,6 +160,8 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         data-resource-id={item.id}
         data-resource-state="unavailable"
         className="flex flex-col gap-0.5"
+        // 多块磁盘不可用时原因往往相同，不在行内逐条铺开，完整原因进 aria 与 title
+        aria-label={`${labelText}不可用：${item.message}`}
       >
         <div className="flex items-baseline justify-between gap-2">
           <span
@@ -168,14 +170,14 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
           >
             {labelText}
           </span>
-          <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+          <span
+            className="shrink-0 text-[10px] font-medium text-muted-foreground"
+            title={item.message}
+          >
             不可用
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-foreground/8" />
-        <p className="text-[10px] leading-snug text-muted-foreground">
-          {item.message}
-        </p>
       </li>
     );
   }
