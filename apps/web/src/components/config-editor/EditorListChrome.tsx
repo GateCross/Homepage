@@ -5,7 +5,7 @@ import {
   type JSX,
   type ReactNode,
 } from "react";
-import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -86,10 +86,8 @@ export function useReorderDrag<T>({
         }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", String(index));
-        // 部分浏览器需要一点延迟才应用拖拽样式
-        requestAnimationFrame(() => {
-          setDrag({ from: index, over: index });
-        });
+        // 同步记录拖拽状态，保证快速拖放与各种浏览器环境下数据就绪
+        setDrag({ from: index, over: index });
       },
       onDragEnd: () => {
         setDrag(null);
@@ -101,18 +99,27 @@ export function useReorderDrag<T>({
   const getRowProps = useCallback(
     (index: number) => ({
       onDragOver: (event: DragEvent) => {
-        if (disabled || drag === null) return;
+        if (disabled) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
-        if (drag.over !== index) {
+        if (drag !== null && drag.over !== index) {
           setDrag({ from: drag.from, over: index });
         }
       },
       onDrop: (event: DragEvent) => {
         event.preventDefault();
-        if (disabled || drag === null) return;
-        const next = moveItem([...items], drag.from, index);
+        if (disabled) return;
+        const fromIndex =
+          drag?.from ?? parseInt(event.dataTransfer.getData("text/plain"), 10);
         setDrag(null);
+        if (
+          Number.isNaN(fromIndex) ||
+          fromIndex < 0 ||
+          fromIndex >= items.length
+        ) {
+          return;
+        }
+        const next = moveItem([...items], fromIndex, index);
         if (next !== items && next.some((v, i) => v !== items[i])) {
           onReorder(next);
         }
@@ -170,7 +177,7 @@ export function IconActionButton({
   );
 }
 
-function DragHandle({
+export function DragHandle({
   disabled,
   ...props
 }: {
@@ -259,6 +266,10 @@ export function EditorListRow({
   dragHandleProps,
   onEdit,
   onDelete,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   rowProps,
   className,
   editing,
@@ -275,6 +286,10 @@ export function EditorListRow({
   dragHandleProps: ReturnType<UseReorderDragResult["getHandleProps"]>;
   onEdit: () => void;
   onDelete: () => void;
+  onMoveUp?: (() => void) | undefined;
+  onMoveDown?: (() => void) | undefined;
+  canMoveUp?: boolean | undefined;
+  canMoveDown?: boolean | undefined;
   rowProps: ReturnType<UseReorderDragResult["getRowProps"]>;
   className?: string | undefined;
   /** 该条目正被编辑（编辑弹窗打开时的描边提示） */
@@ -333,6 +348,24 @@ export function EditorListRow({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {onMoveUp ? (
+            <IconActionButton
+              label="上移"
+              disabled={disabled || canMoveUp === false}
+              onClick={onMoveUp}
+            >
+              <ArrowUp className="size-3.5" />
+            </IconActionButton>
+          ) : null}
+          {onMoveDown ? (
+            <IconActionButton
+              label="下移"
+              disabled={disabled || canMoveDown === false}
+              onClick={onMoveDown}
+            >
+              <ArrowDown className="size-3.5" />
+            </IconActionButton>
+          ) : null}
           <IconActionButton label="编辑" disabled={disabled} onClick={onEdit}>
             <Pencil className="size-3.5" />
           </IconActionButton>
@@ -361,6 +394,10 @@ export function EditorGroupCard({
   onEdit,
   onDelete,
   onAdd,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   addLabel,
   nameEditor,
   contentClassName,
@@ -376,6 +413,10 @@ export function EditorGroupCard({
   onEdit: () => void;
   onDelete: () => void;
   onAdd: () => void;
+  onMoveUp?: (() => void) | undefined;
+  onMoveDown?: (() => void) | undefined;
+  canMoveUp?: boolean | undefined;
+  canMoveDown?: boolean | undefined;
   addLabel: string;
   /** 存在时替换标题区（分组改名内嵌编辑态），并隐藏右上角操作 */
   nameEditor?: ReactNode;
@@ -403,7 +444,11 @@ export function EditorGroupCard({
           <>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <h4 className="truncate text-sm font-semibold tracking-tight">
+                <h4
+                  className="cursor-pointer truncate text-sm font-semibold tracking-tight transition-colors hover:text-primary hover:underline"
+                  title="点击修改分组名称"
+                  onClick={onEdit}
+                >
                   {title}
                 </h4>
                 <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] tabular-nums leading-none text-muted-foreground">
@@ -420,6 +465,24 @@ export function EditorGroupCard({
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
+              {onMoveUp ? (
+                <IconActionButton
+                  label="上移分组"
+                  disabled={disabled || canMoveUp === false}
+                  onClick={onMoveUp}
+                >
+                  <ArrowUp className="size-3.5" />
+                </IconActionButton>
+              ) : null}
+              {onMoveDown ? (
+                <IconActionButton
+                  label="下移分组"
+                  disabled={disabled || canMoveDown === false}
+                  onClick={onMoveDown}
+                >
+                  <ArrowDown className="size-3.5" />
+                </IconActionButton>
+              ) : null}
               <IconActionButton
                 label={addLabel}
                 disabled={disabled}

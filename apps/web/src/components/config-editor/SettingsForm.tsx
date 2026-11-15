@@ -1,30 +1,112 @@
 import type { JSX } from "react";
-import { Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 
-import type { EditableSettings } from "@/lib/contracts";
+import type { EditableLayoutEntry, EditableSettings } from "@/lib/contracts";
 
 import { ImageAssetField } from "@/components/config-editor/ImageAssetField";
 import {
+  DragHandle,
   EditorPageHeader,
+  IconActionButton,
+  useReorderDrag,
 } from "@/components/config-editor/EditorListChrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 export type SettingsFormProps = {
   value: EditableSettings;
   onChange: (next: EditableSettings) => void;
-  disabled?: boolean;
-  errors?: Record<string, string>;
+  disabled?: boolean | undefined;
+  errors?: Record<string, string> | undefined;
+  /** 已有的服务分组名称列表，用于分组名自动补全与智能默认名推荐 */
+  serviceGroupNames?: string[] | undefined;
 };
+
+let layoutRowKeySeed = 0;
+const layoutRowKeyMap = new WeakMap<EditableLayoutEntry, string>();
+
+/** 为每行生成稳定标识并在更新内容时继承，防止输入时 DOM 重建丢失焦点 */
+function getLayoutRowKey(entry: EditableLayoutEntry): string {
+  let key = layoutRowKeyMap.get(entry);
+  if (!key) {
+    key = `layout-row-${++layoutRowKeySeed}`;
+    layoutRowKeyMap.set(entry, key);
+  }
+  return key;
+}
 
 export function SettingsForm({
   value,
   onChange,
   disabled,
   errors,
+  serviceGroupNames,
 }: SettingsFormProps): JSX.Element {
+  const layoutDrag = useReorderDrag({
+    items: value.layout,
+    disabled,
+    onReorder: (next) => onChange({ ...value, layout: next }),
+  });
+
+  const handleGroupNameChange = (index: number, nextName: string): void => {
+    const current = value.layout[index];
+    if (!current) return;
+    const currentKey = getLayoutRowKey(current);
+    const nextLayout = value.layout.map((row, i) => {
+      if (i !== index) return row;
+      const updated = { ...row, groupName: nextName };
+      layoutRowKeyMap.set(updated, currentKey);
+      return updated;
+    });
+    onChange({ ...value, layout: nextLayout });
+  };
+
+  const handleMaxColumnsChange = (index: number, nextVal: string): void => {
+    const current = value.layout[index];
+    if (!current) return;
+    const currentKey = getLayoutRowKey(current);
+    const n = Number(nextVal);
+    const nextLayout = value.layout.map((row, i) => {
+      if (i !== index) return row;
+      const updated = {
+        ...row,
+        maxColumns: Number.isInteger(n) && n >= 1 ? n : row.maxColumns,
+      };
+      layoutRowKeyMap.set(updated, currentKey);
+      return updated;
+    });
+    onChange({ ...value, layout: nextLayout });
+  };
+
+  const handleAddLayout = (): void => {
+    const configured = new Set(value.layout.map((l) => l.groupName));
+    const nextAvailableName =
+      serviceGroupNames?.find((name) => !configured.has(name)) ?? "新分组";
+
+    const newRow: EditableLayoutEntry = {
+      groupName: nextAvailableName,
+      maxColumns: 4,
+    };
+    getLayoutRowKey(newRow);
+    onChange({
+      ...value,
+      layout: [...value.layout, newRow],
+    });
+  };
+
+  const moveLayoutRow = (index: number, direction: "up" | "down"): void => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= value.layout.length) return;
+    const next = [...value.layout];
+    const [removed] = next.splice(index, 1);
+    if (!removed) return;
+    next.splice(targetIndex, 0, removed);
+    onChange({ ...value, layout: next });
+  };
+
   return (
     <div className="space-y-6" data-slot="settings-form">
       <EditorPageHeader
@@ -75,15 +157,7 @@ export function SettingsForm({
                 size="sm"
                 variant="outline"
                 disabled={disabled}
-                onClick={() =>
-                  onChange({
-                    ...value,
-                    layout: [
-                      ...value.layout,
-                      { groupName: "新分组", maxColumns: 3 },
-                    ],
-                  })
-                }
+                onClick={handleAddLayout}
               >
                 添加
               </Button>
@@ -92,67 +166,88 @@ export function SettingsForm({
               <p className="text-sm text-muted-foreground">暂无布局配置</p>
             ) : (
               <ul className="space-y-2">
-                {value.layout.map((entry, index) => (
-                  <li
-                    key={`${entry.groupName}-${index}`}
-                    className="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-center gap-2 rounded-lg border border-border/60 p-2"
-                  >
-                    <Input
-                      value={entry.groupName}
-                      disabled={disabled}
-                      aria-label="分组名"
-                      placeholder="分组名"
-                      onChange={(e) => {
-                        const layout = value.layout.map((row, i) =>
-                          i === index
-                            ? { ...row, groupName: e.target.value }
-                            : row,
-                        );
-                        onChange({ ...value, layout });
-                      }}
-                    />
-                    <Input
-                      type="number"
-                      min={1}
-                      value={entry.maxColumns}
-                      disabled={disabled}
-                      aria-label="最大列数"
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        const layout = value.layout.map((row, i) =>
-                          i === index
-                            ? {
-                                ...row,
-                                maxColumns:
-                                  Number.isInteger(n) && n >= 1
-                                    ? n
-                                    : row.maxColumns,
-                              }
-                            : row,
-                        );
-                        onChange({ ...value, layout });
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      disabled={disabled}
-                      aria-label="删除该行"
-                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => {
-                        onChange({
-                          ...value,
-                          layout: value.layout.filter((_, i) => i !== index),
-                        });
-                      }}
+                {value.layout.map((entry, index) => {
+                  const rowProps = layoutDrag.getRowProps(index);
+                  return (
+                    <li
+                      key={getLayoutRowKey(entry)}
+                      {...rowProps}
+                      className={cn(
+                        "grid grid-cols-[auto_minmax(0,1fr)_5.5rem_auto] items-center gap-2 rounded-lg border border-border/60 bg-card/60 p-2 shadow-xs transition-[background-color,opacity,box-shadow,border-color] duration-150",
+                        rowProps["data-dragging"] && "opacity-50",
+                        rowProps["data-drop-target"] &&
+                          "border-primary/50 ring-1 ring-primary/30",
+                      )}
                     >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  </li>
-                ))}
+                      <DragHandle
+                        disabled={disabled}
+                        {...layoutDrag.getHandleProps(index)}
+                      />
+                      <Input
+                        value={entry.groupName}
+                        disabled={disabled}
+                        aria-label="分组名"
+                        placeholder="分组名"
+                        list="settings-group-name-options"
+                        onChange={(e) =>
+                          handleGroupNameChange(index, e.target.value)
+                        }
+                      />
+                      <Input
+                        type="number"
+                        min={1}
+                        value={entry.maxColumns}
+                        disabled={disabled}
+                        aria-label="最大列数"
+                        onChange={(e) =>
+                          handleMaxColumnsChange(index, e.target.value)
+                        }
+                      />
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <IconActionButton
+                          label="上移"
+                          disabled={disabled || index === 0}
+                          onClick={() => moveLayoutRow(index, "up")}
+                        >
+                          <ArrowUp className="size-3.5" />
+                        </IconActionButton>
+                        <IconActionButton
+                          label="下移"
+                          disabled={
+                            disabled || index === value.layout.length - 1
+                          }
+                          onClick={() => moveLayoutRow(index, "down")}
+                        >
+                          <ArrowDown className="size-3.5" />
+                        </IconActionButton>
+                        <IconActionButton
+                          label="删除该行"
+                          disabled={disabled}
+                          tone="danger"
+                          onClick={() => {
+                            onChange({
+                              ...value,
+                              layout: value.layout.filter(
+                                (_, i) => i !== index,
+                              ),
+                            });
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </IconActionButton>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
+            {serviceGroupNames && serviceGroupNames.length > 0 ? (
+              <datalist id="settings-group-name-options">
+                {serviceGroupNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            ) : null}
           </div>
         </div>
 

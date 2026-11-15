@@ -8,14 +8,17 @@ import type {
 
 import { WeatherCityPicker } from "@/components/config-editor/WeatherCityPicker";
 import {
+  DragHandle,
   EditorPageHeader,
   IconActionButton,
+  useReorderDrag,
 } from "@/components/config-editor/EditorListChrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { moveItem } from "@/lib/config-editor/validation";
+import { cn } from "@/lib/utils";
 
 export type InfoWidgetsEditorProps = {
   value: EditableInfoWidget[];
@@ -49,6 +52,12 @@ function formatDiskField(
     .join(", ");
 }
 
+const WIDGET_TITLES: Record<EditableInfoWidget["type"], string> = {
+  datetime: "日期时间",
+  openmeteo: "天气",
+  resources: "资源占用",
+};
+
 export function InfoWidgetsEditor({
   value,
   onChange,
@@ -58,6 +67,12 @@ export function InfoWidgetsEditor({
   const updateAt = (index: number, next: EditableInfoWidget): void => {
     onChange(value.map((w, i) => (i === index ? next : w)));
   };
+
+  const { drag, getHandleProps, getRowProps } = useReorderDrag({
+    items: value,
+    onReorder: onChange,
+    disabled,
+  });
 
   return (
     <div className="space-y-4" data-slot="info-widgets-editor">
@@ -118,20 +133,27 @@ export function InfoWidgetsEditor({
           暂无信息组件，点右上角添加
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="space-y-3">
           {value.map((w, i) => (
             <li
               key={`info-${i}`}
-              className="space-y-2 rounded-lg border border-border/60 bg-card/40 p-3"
+              {...getRowProps(i)}
+              className={cn(
+                "space-y-3 rounded-lg border border-border/60 bg-card/40 p-3.5 transition-colors",
+                drag?.from === i && "opacity-40 border-dashed border-primary/50",
+                drag !== null &&
+                  drag.over === i &&
+                  drag.from !== i &&
+                  "ring-1 ring-primary",
+              )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium">
-                  {w.type === "datetime"
-                    ? "日期时间"
-                    : w.type === "openmeteo"
-                      ? "天气"
-                      : "资源占用"}
-                </span>
+              <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <DragHandle disabled={disabled} {...getHandleProps(i)} />
+                  <span className="text-sm font-medium">
+                    {WIDGET_TITLES[w.type]}
+                  </span>
+                </div>
                 <div className="flex gap-1">
                   <IconActionButton
                     label="上移"
@@ -165,12 +187,13 @@ export function InfoWidgetsEditor({
               ) : null}
 
               {w.type === "datetime" ? (
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>时区</Label>
                     <Input
                       value={w.timezone ?? ""}
                       disabled={disabled}
+                      placeholder="Asia/Shanghai"
                       onChange={(e) =>
                         updateAt(i, {
                           ...w,
@@ -184,6 +207,7 @@ export function InfoWidgetsEditor({
                     <Input
                       value={w.label ?? ""}
                       disabled={disabled}
+                      placeholder="可选"
                       onChange={(e) =>
                         updateAt(i, {
                           ...w,
@@ -196,7 +220,7 @@ export function InfoWidgetsEditor({
               ) : null}
 
               {w.type === "openmeteo" ? (
-                <div className="space-y-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>城市</Label>
                     <WeatherCityPicker
@@ -217,6 +241,7 @@ export function InfoWidgetsEditor({
                     <Input
                       value={w.label ?? ""}
                       disabled={disabled}
+                      placeholder="可选"
                       onChange={(e) =>
                         updateAt(i, {
                           ...w,
@@ -230,25 +255,27 @@ export function InfoWidgetsEditor({
 
               {w.type === "resources" ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>CPU</Label>
-                    <Switch
-                      checked={w.cpu !== false}
-                      disabled={disabled}
-                      onCheckedChange={(checked) =>
-                        updateAt(i, { ...w, cpu: checked })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label>内存</Label>
-                    <Switch
-                      checked={w.memory !== false}
-                      disabled={disabled}
-                      onCheckedChange={(checked) =>
-                        updateAt(i, { ...w, memory: checked })
-                      }
-                    />
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Switch
+                        checked={w.cpu !== false}
+                        disabled={disabled}
+                        onCheckedChange={(checked) =>
+                          updateAt(i, { ...w, cpu: checked })
+                        }
+                      />
+                      <span>CPU</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Switch
+                        checked={w.memory !== false}
+                        disabled={disabled}
+                        onCheckedChange={(checked) =>
+                          updateAt(i, { ...w, memory: checked })
+                        }
+                      />
+                      <span>内存</span>
+                    </label>
                   </div>
                   <div className="space-y-1">
                     <Label>磁盘</Label>
@@ -257,7 +284,6 @@ export function InfoWidgetsEditor({
                       disabled={disabled}
                       placeholder="/|系统盘, /home/data|数据盘"
                       onChange={(e) => {
-                        // 输入过程保留原文字符串，保存时再拆分 path|别名
                         const raw = e.target.value;
                         updateAt(i, {
                           ...w,

@@ -1,6 +1,12 @@
 import { useState } from "react";
 
-export type ItemEdit<TItem> = { gi: number; ii: number; draft: TItem };
+export type ItemEdit<TItem> = {
+  gi: number;
+  ii: number;
+  draft: TItem;
+  /** 目标分组下标，允许在条目编辑弹窗中调整所属分组 */
+  targetGi?: number;
+};
 
 export type GroupEdit = { gi: number; name: string };
 
@@ -47,26 +53,58 @@ export function useInlineGroupEditing<
       return;
     }
     setGroupEdit(null);
-    setItemEdit({ gi, ii, draft: cloneItem(item) });
+    setItemEdit({ gi, ii, draft: cloneItem(item), targetGi: gi });
   };
 
   const updateItemDraft = (draft: TItem): void => {
     setItemEdit((prev) => (prev === null ? prev : { ...prev, draft }));
   };
 
+  const updateItemTargetGroup = (targetGi: number): void => {
+    setItemEdit((prev) => (prev === null ? prev : { ...prev, targetGi }));
+  };
+
   const applyItemEdit = (): void => {
     if (activeItemEdit === null) return;
     const { gi, ii, draft } = activeItemEdit;
-    onChange(
-      value.map((g, i) =>
-        i === gi
-          ? {
+    const targetGi =
+      typeof activeItemEdit.targetGi === "number" &&
+      activeItemEdit.targetGi >= 0 &&
+      activeItemEdit.targetGi < value.length
+        ? activeItemEdit.targetGi
+        : gi;
+
+    if (targetGi === gi) {
+      onChange(
+        value.map((g, i) =>
+          i === gi
+            ? {
+                ...g,
+                items: g.items.map((it, idx) => (idx === ii ? draft : it)),
+              }
+            : g,
+        ),
+      );
+    } else {
+      // 跨分组转移条目：从原分组移除，追加至目标分组末尾
+      onChange(
+        value.map((g, i) => {
+          if (i === gi) {
+            return {
               ...g,
-              items: g.items.map((it, idx) => (idx === ii ? draft : it)),
-            }
-          : g,
-      ),
-    );
+              items: g.items.filter((_, idx) => idx !== ii),
+            };
+          }
+          if (i === targetGi) {
+            return {
+              ...g,
+              items: [...g.items, draft],
+            };
+          }
+          return g;
+        }),
+      );
+    }
     setItemEdit(null);
   };
 
@@ -119,13 +157,72 @@ export function useInlineGroupEditing<
     );
   };
 
+  /** 分组上下换位 */
+  const moveGroup = (gi: number, direction: "up" | "down"): void => {
+    const targetGi = direction === "up" ? gi - 1 : gi + 1;
+    if (targetGi < 0 || targetGi >= value.length) return;
+    closeAllEdits();
+    const nextGroups = [...value];
+    const [removed] = nextGroups.splice(gi, 1);
+    if (!removed) return;
+    nextGroups.splice(targetGi, 0, removed);
+    onChange(nextGroups);
+  };
+
+  /** 分组内条目上下换位 */
+  const moveItem = (
+    gi: number,
+    ii: number,
+    direction: "up" | "down",
+  ): void => {
+    const group = value[gi];
+    if (!group) return;
+    const targetIi = direction === "up" ? ii - 1 : ii + 1;
+    if (targetIi < 0 || targetIi >= group.items.length) return;
+    closeAllEdits();
+    const nextItems = [...group.items];
+    const [removed] = nextItems.splice(ii, 1);
+    if (!removed) return;
+    nextItems.splice(targetIi, 0, removed);
+    onChange(
+      value.map((g, i) => (i === gi ? { ...g, items: nextItems } : g)),
+    );
+  };
+
+  /** 跨分组直接移动条目 */
+  const moveItemToGroup = (fromGi: number, ii: number, toGi: number): void => {
+    if (fromGi === toGi) return;
+    const sourceGroup = value[fromGi];
+    const targetGroup = value[toGi];
+    if (!sourceGroup || !targetGroup) return;
+    const item = sourceGroup.items[ii];
+    if (!item) return;
+    closeAllEdits();
+    onChange(
+      value.map((g, i) => {
+        if (i === fromGi) {
+          return { ...g, items: g.items.filter((_, idx) => idx !== ii) };
+        }
+        if (i === toGi) {
+          return { ...g, items: [...g.items, item] };
+        }
+        return g;
+      }),
+    );
+  };
+
   /** 追加新条目并立即进入其行内编辑 */
   const addItemAndEdit = (gi: number, item: TItem): void => {
     const group = value[gi];
     if (!group) return;
     const nextItems = [...group.items, item];
     setGroupEdit(null);
-    setItemEdit({ gi, ii: nextItems.length - 1, draft: cloneItem(item) });
+    setItemEdit({
+      gi,
+      ii: nextItems.length - 1,
+      draft: cloneItem(item),
+      targetGi: gi,
+    });
     onChange(value.map((g, i) => (i === gi ? { ...g, items: nextItems } : g)));
   };
 
@@ -135,6 +232,7 @@ export function useInlineGroupEditing<
     openItemEdit,
     closeItemEdit,
     updateItemDraft,
+    updateItemTargetGroup,
     applyItemEdit,
     openGroupEdit,
     updateGroupName,
@@ -145,6 +243,9 @@ export function useInlineGroupEditing<
     deleteGroup,
     replaceItems,
     deleteItem,
+    moveGroup,
+    moveItem,
+    moveItemToGroup,
     addItemAndEdit,
   };
 }

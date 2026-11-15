@@ -42,6 +42,11 @@ import {
   saveConfig,
 } from "@/lib/api";
 import {
+  reconcileInitialDraft,
+  syncLayoutToServices,
+  syncServicesToLayout,
+} from "@/lib/config-editor/group-sync";
+import {
   editableViewToDefaultWrite,
   prepareDraftForSave,
   validateEditableDraft,
@@ -102,7 +107,7 @@ export function ConfigEditorShell({
     try {
       const editable = await fetchEditableConfig({ signal });
       if (signal.aborted) return;
-      const draft = editableViewToDefaultWrite(editable);
+      const draft = reconcileInitialDraft(editableViewToDefaultWrite(editable));
       baselineRef.current = JSON.stringify(draft);
       setLoadState({ status: "ready", draft });
     } catch (error) {
@@ -352,8 +357,22 @@ export function ConfigEditorShell({
                         value={draft.settings}
                         disabled={saving}
                         errors={fieldErrors}
+                        serviceGroupNames={draft.services
+                          .map((g) => g.name)
+                          .filter(Boolean)}
                         onChange={(settings) =>
-                          setDraft((prev) => ({ ...prev, settings }))
+                          setDraft((prev) => {
+                            const nextServices = syncLayoutToServices(
+                              prev.settings.layout,
+                              settings.layout,
+                              prev.services,
+                            );
+                            return {
+                              ...prev,
+                              settings,
+                              services: nextServices,
+                            };
+                          })
                         }
                       />
                     ) : null}
@@ -364,7 +383,21 @@ export function ConfigEditorShell({
                         disabled={saving}
                         errors={fieldErrors}
                         onChange={(services) =>
-                          setDraft((prev) => ({ ...prev, services }))
+                          setDraft((prev) => {
+                            const nextLayout = syncServicesToLayout(
+                              prev.settings.layout,
+                              prev.services,
+                              services,
+                            );
+                            return {
+                              ...prev,
+                              services,
+                              settings: {
+                                ...prev.settings,
+                                layout: nextLayout,
+                              },
+                            };
+                          })
                         }
                       />
                     ) : null}

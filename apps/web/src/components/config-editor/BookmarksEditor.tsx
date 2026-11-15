@@ -1,4 +1,4 @@
-import { type JSX } from "react";
+import { useState, type JSX } from "react";
 
 import type {
   EditableBookmarkGroup,
@@ -11,6 +11,7 @@ import {
   EditorPageHeader,
   useReorderDrag,
 } from "@/components/config-editor/EditorListChrome";
+import { AddGroupDialog } from "@/components/config-editor/AddGroupDialog";
 import { ImageAssetField } from "@/components/config-editor/ImageAssetField";
 import {
   useInlineGroupEditing,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   groupHasItemErrors,
   itemHasErrors,
@@ -45,8 +47,8 @@ function emptyItem(): EditableBookmarkItem {
   return { name: "新书签", href: "https://example.com" };
 }
 
-function emptyGroup(): EditableBookmarkGroup {
-  return { name: "新分组", items: [emptyItem()] };
+function emptyGroup(name = "新分组"): EditableBookmarkGroup {
+  return { name, items: [emptyItem()] };
 }
 
 function cloneItem(item: EditableBookmarkItem): EditableBookmarkItem {
@@ -169,9 +171,15 @@ function BookmarkGroupBlock({
   onApplyGroupEdit,
   onCancelGroupEdit,
   onDeleteGroup,
+  onMoveGroupUp,
+  onMoveGroupDown,
+  canMoveGroupUp,
+  canMoveGroupDown,
   onAddItem,
   onReorderItems,
   onDeleteItem,
+  onMoveItemUp,
+  onMoveItemDown,
 }: {
   group: EditableBookmarkGroup;
   gi: number;
@@ -190,9 +198,15 @@ function BookmarkGroupBlock({
   onApplyGroupEdit: () => void;
   onCancelGroupEdit: () => void;
   onDeleteGroup: () => void;
+  onMoveGroupUp: () => void;
+  onMoveGroupDown: () => void;
+  canMoveGroupUp: boolean;
+  canMoveGroupDown: boolean;
   onAddItem: () => void;
   onReorderItems: (items: EditableBookmarkItem[]) => void;
   onDeleteItem: (ii: number) => void;
+  onMoveItemUp: (ii: number) => void;
+  onMoveItemDown: (ii: number) => void;
 }): JSX.Element {
   const itemDrag = useReorderDrag({
     items: group.items,
@@ -214,6 +228,10 @@ function BookmarkGroupBlock({
       rowProps={rowProps}
       onEdit={onOpenGroupEdit}
       onDelete={onDeleteGroup}
+      onMoveUp={onMoveGroupUp}
+      onMoveDown={onMoveGroupDown}
+      canMoveUp={canMoveGroupUp}
+      canMoveDown={canMoveGroupDown}
       onAdd={onAddItem}
       addLabel="添加书签"
       contentClassName="sm:grid-cols-2 xl:grid-cols-3"
@@ -225,6 +243,7 @@ function BookmarkGroupBlock({
               disabled={disabled}
               aria-label="分组名称"
               autoFocus
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => onGroupNameChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -289,6 +308,10 @@ function BookmarkGroupBlock({
           rowProps={itemDrag.getRowProps(ii)}
           onEdit={() => onOpenItemEdit(ii)}
           onDelete={() => onDeleteItem(ii)}
+          onMoveUp={() => onMoveItemUp(ii)}
+          onMoveDown={() => onMoveItemDown(ii)}
+          canMoveUp={ii > 0}
+          canMoveDown={ii < group.items.length - 1}
           editing={editingItemIndex === ii}
         />
       ))}
@@ -308,6 +331,8 @@ export function BookmarksEditor({
     cloneItem,
   });
 
+  const [addGroupOpen, setAddGroupOpen] = useState(false);
+
   const groupDrag = useReorderDrag({
     items: value,
     disabled,
@@ -319,13 +344,13 @@ export function BookmarksEditor({
     <div className="space-y-4" data-slot="bookmarks-editor">
       <EditorPageHeader
         title="书签分组"
-        description="拖拽手柄调整分组与书签顺序，点行内铅笔就地编辑"
+        description="拖拽手柄或点击上移下移按钮调整分组与书签顺序，点行内铅笔或标题就地编辑"
         actions={
           <Button
             type="button"
             size="sm"
             disabled={disabled}
-            onClick={() => onChange([...value, emptyGroup()])}
+            onClick={() => setAddGroupOpen(true)}
           >
             添加分组
           </Button>
@@ -360,9 +385,15 @@ export function BookmarksEditor({
             onApplyGroupEdit={editing.applyGroupEdit}
             onCancelGroupEdit={editing.closeGroupEdit}
             onDeleteGroup={() => editing.deleteGroup(gi)}
+            onMoveGroupUp={() => editing.moveGroup(gi, "up")}
+            onMoveGroupDown={() => editing.moveGroup(gi, "down")}
+            canMoveGroupUp={gi > 0}
+            canMoveGroupDown={gi < value.length - 1}
             onAddItem={() => editing.addItemAndEdit(gi, emptyItem())}
             onReorderItems={(items) => editing.replaceItems(gi, items)}
             onDeleteItem={(ii) => editing.deleteItem(gi, ii)}
+            onMoveItemUp={(ii) => editing.moveItem(gi, ii, "up")}
+            onMoveItemDown={(ii) => editing.moveItem(gi, ii, "down")}
           />
         ))}
       </div>
@@ -388,13 +419,37 @@ export function BookmarksEditor({
           </DialogHeader>
 
           {editing.activeItemEdit ? (
-            <BookmarkItemForm
-              value={editing.activeItemEdit.draft}
-              onChange={editing.updateItemDraft}
-              {...(disabled !== undefined ? { disabled } : {})}
-              errorPrefix={`bookmarks.${editing.activeItemEdit.gi}.items.${editing.activeItemEdit.ii}`}
-              {...(errors !== undefined ? { errors } : {})}
-            />
+            <div className="space-y-4">
+              {value.length > 1 ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="bookmark-target-group-select">所属分组</Label>
+                  <Select
+                    id="bookmark-target-group-select"
+                    value={String(
+                      editing.activeItemEdit.targetGi ??
+                        editing.activeItemEdit.gi,
+                    )}
+                    disabled={disabled}
+                    onChange={(e) =>
+                      editing.updateItemTargetGroup(Number(e.target.value))
+                    }
+                  >
+                    {value.map((g, idx) => (
+                      <option key={`opt-bmk-group-${idx}`} value={idx}>
+                        {g.name || `分组 ${idx + 1}`}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+              <BookmarkItemForm
+                value={editing.activeItemEdit.draft}
+                onChange={editing.updateItemDraft}
+                {...(disabled !== undefined ? { disabled } : {})}
+                errorPrefix={`bookmarks.${editing.activeItemEdit.gi}.items.${editing.activeItemEdit.ii}`}
+                {...(errors !== undefined ? { errors } : {})}
+              />
+            </div>
           ) : null}
 
           <DialogFooter>
@@ -415,6 +470,18 @@ export function BookmarksEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddGroupDialog
+        open={addGroupOpen}
+        onOpenChange={setAddGroupOpen}
+        title="添加书签分组"
+        description="输入新分组的名称，创建后可向其中添加书签条目"
+        placeholder="例如：常用推荐、工作开发、影音娱乐"
+        disabled={disabled}
+        onConfirm={(name) => {
+          onChange([...value, emptyGroup(name)]);
+        }}
+      />
     </div>
   );
 }

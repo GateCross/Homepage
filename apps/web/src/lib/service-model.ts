@@ -14,9 +14,9 @@ export function emptyService(): EditableServiceItemWrite {
   return { name: "新服务" };
 }
 
-/** 新建分组：默认带一条服务，避免空分组无从下手 */
-export function emptyGroup(): EditableServiceGroupWrite {
-  return { name: "新分组", items: [emptyService()] };
+/** 新建分组：默认带一条服务，可指定初始分组名称 */
+export function emptyGroup(name = "新分组"): EditableServiceGroupWrite {
+  return { name, items: [emptyService()] };
 }
 
 /** 深拷贝条目，防止编辑态污染原对象 */

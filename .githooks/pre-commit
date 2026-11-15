@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# 提交前自动递增 package.json 的 patch 版本号并暂存
+node scripts/bump-version.mjs
+git add package.json

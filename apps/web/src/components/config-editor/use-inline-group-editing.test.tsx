@@ -97,4 +97,52 @@ describe("useInlineGroupEditing", () => {
     expect(result.current.activeItemEdit?.ii).toBe(1);
     expect(result.current.activeItemEdit?.draft).toEqual({ name: "a2" });
   });
+
+  it("支持在分组内上下移动条目", () => {
+    const { result, getLatest } = setup([
+      { name: "A", items: [{ name: "1" }, { name: "2" }, { name: "3" }] },
+    ]);
+
+    // 第一项下移
+    act(() => result.current.moveItem(0, 0, "down"));
+    expect(getLatest()[0]!.items.map((it) => it.name)).toEqual(["2", "1", "3"]);
+
+    // 第二项上移回首位
+    act(() => result.current.moveItem(0, 1, "up"));
+    expect(getLatest()[0]!.items.map((it) => it.name)).toEqual(["1", "2", "3"]);
+
+    // 首项尝试上移无变化
+    act(() => result.current.moveItem(0, 0, "up"));
+    expect(getLatest()[0]!.items.map((it) => it.name)).toEqual(["1", "2", "3"]);
+  });
+
+  it("支持上下移动分组", () => {
+    const { result, getLatest } = setup([
+      { name: "A", items: [] },
+      { name: "B", items: [] },
+      { name: "C", items: [] },
+    ]);
+
+    // 分组 A 下移
+    act(() => result.current.moveGroup(0, "down"));
+    expect(getLatest().map((g) => g.name)).toEqual(["B", "A", "C"]);
+
+    // 分组 C 上移
+    act(() => result.current.moveGroup(2, "up"));
+    expect(getLatest().map((g) => g.name)).toEqual(["B", "C", "A"]);
+  });
+
+  it("编辑条目时支持跨分组转移", () => {
+    const { result, getLatest } = setup([
+      { name: "A", items: [{ name: "a1" }] },
+      { name: "B", items: [{ name: "b1" }] },
+    ]);
+
+    act(() => result.current.openItemEdit(0, 0));
+    act(() => result.current.updateItemTargetGroup(1));
+    act(() => result.current.applyItemEdit());
+
+    expect(getLatest()[0]!.items).toHaveLength(0);
+    expect(getLatest()[1]!.items.map((it) => it.name)).toEqual(["b1", "a1"]);
+  });
 });

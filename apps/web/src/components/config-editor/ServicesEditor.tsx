@@ -12,6 +12,7 @@ import {
   EditorPageHeader,
   useReorderDrag,
 } from "@/components/config-editor/EditorListChrome";
+import { AddGroupDialog } from "@/components/config-editor/AddGroupDialog";
 import { DockerImportDialog } from "@/components/config-editor/DockerImportDialog";
 import { ServiceItemForm } from "@/components/config-editor/ServiceItemForm";
 import {
@@ -29,6 +30,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { groupHasItemErrors, itemHasErrors } from "@/lib/editor-paths";
 import {
   cloneService,
@@ -61,9 +64,15 @@ function ServiceGroupBlock({
   onApplyGroupEdit,
   onCancelGroupEdit,
   onDeleteGroup,
+  onMoveGroupUp,
+  onMoveGroupDown,
+  canMoveGroupUp,
+  canMoveGroupDown,
   onAddService,
   onReorderItems,
   onDeleteItem,
+  onMoveItemUp,
+  onMoveItemDown,
 }: {
   group: EditableServiceGroupWrite;
   gi: number;
@@ -82,9 +91,15 @@ function ServiceGroupBlock({
   onApplyGroupEdit: () => void;
   onCancelGroupEdit: () => void;
   onDeleteGroup: () => void;
+  onMoveGroupUp: () => void;
+  onMoveGroupDown: () => void;
+  canMoveGroupUp: boolean;
+  canMoveGroupDown: boolean;
   onAddService: () => void;
   onReorderItems: (items: EditableServiceItemWrite[]) => void;
   onDeleteItem: (ii: number) => void;
+  onMoveItemUp: (ii: number) => void;
+  onMoveItemDown: (ii: number) => void;
 }): JSX.Element {
   const itemDrag = useReorderDrag({
     items: group.items,
@@ -106,6 +121,10 @@ function ServiceGroupBlock({
       rowProps={rowProps}
       onEdit={onOpenGroupEdit}
       onDelete={onDeleteGroup}
+      onMoveUp={onMoveGroupUp}
+      onMoveDown={onMoveGroupDown}
+      canMoveUp={canMoveGroupUp}
+      canMoveDown={canMoveGroupDown}
       onAdd={onAddService}
       addLabel="添加服务"
       contentClassName="sm:grid-cols-2 xl:grid-cols-3"
@@ -117,6 +136,7 @@ function ServiceGroupBlock({
               disabled={disabled}
               aria-label="分组名称"
               autoFocus
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => onGroupNameChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -180,6 +200,10 @@ function ServiceGroupBlock({
           rowProps={itemDrag.getRowProps(ii)}
           onEdit={() => onOpenItemEdit(ii)}
           onDelete={() => onDeleteItem(ii)}
+          onMoveUp={() => onMoveItemUp(ii)}
+          onMoveDown={() => onMoveItemDown(ii)}
+          canMoveUp={ii > 0}
+          canMoveDown={ii < group.items.length - 1}
           editing={editingItemIndex === ii}
         />
       ))}
@@ -200,6 +224,7 @@ export function ServicesEditor({
   >({ value, onChange, cloneItem: cloneService });
 
   const [importOpen, setImportOpen] = useState(false);
+  const [addGroupOpen, setAddGroupOpen] = useState(false);
 
   const groupDrag = useReorderDrag({
     items: value,
@@ -212,7 +237,7 @@ export function ServicesEditor({
     <div className="space-y-4" data-slot="services-editor">
       <EditorPageHeader
         title="服务分组"
-        description="拖拽手柄调整分组与服务顺序，点行内铅笔就地编辑"
+        description="拖拽手柄或点击上移下移按钮调整分组与服务顺序，点行内铅笔或标题就地编辑"
         actions={
           <>
             <Button
@@ -228,7 +253,7 @@ export function ServicesEditor({
               type="button"
               size="sm"
               disabled={disabled}
-              onClick={() => onChange([...value, emptyGroup()])}
+              onClick={() => setAddGroupOpen(true)}
             >
               添加分组
             </Button>
@@ -264,9 +289,15 @@ export function ServicesEditor({
             onApplyGroupEdit={editing.applyGroupEdit}
             onCancelGroupEdit={editing.closeGroupEdit}
             onDeleteGroup={() => editing.deleteGroup(gi)}
+            onMoveGroupUp={() => editing.moveGroup(gi, "up")}
+            onMoveGroupDown={() => editing.moveGroup(gi, "down")}
+            canMoveGroupUp={gi > 0}
+            canMoveGroupDown={gi < value.length - 1}
             onAddService={() => editing.addItemAndEdit(gi, emptyService())}
             onReorderItems={(items) => editing.replaceItems(gi, items)}
             onDeleteItem={(ii) => editing.deleteItem(gi, ii)}
+            onMoveItemUp={(ii) => editing.moveItem(gi, ii, "up")}
+            onMoveItemDown={(ii) => editing.moveItem(gi, ii, "down")}
           />
         ))}
       </div>
@@ -292,14 +323,38 @@ export function ServicesEditor({
           </DialogHeader>
 
           {editing.activeItemEdit ? (
-            <ServiceItemForm
-              value={editing.activeItemEdit.draft}
-              onChange={editing.updateItemDraft}
-              {...(disabled !== undefined ? { disabled } : {})}
-              errorPrefix={`services.${editing.activeItemEdit.gi}.items.${editing.activeItemEdit.ii}`}
-              {...(errors !== undefined ? { errors } : {})}
-              dockerEndpoints={dockerEndpoints}
-            />
+            <div className="space-y-4">
+              {value.length > 1 ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="service-target-group-select">所属分组</Label>
+                  <Select
+                    id="service-target-group-select"
+                    value={String(
+                      editing.activeItemEdit.targetGi ??
+                        editing.activeItemEdit.gi,
+                    )}
+                    disabled={disabled}
+                    onChange={(e) =>
+                      editing.updateItemTargetGroup(Number(e.target.value))
+                    }
+                  >
+                    {value.map((g, idx) => (
+                      <option key={`opt-group-${idx}`} value={idx}>
+                        {g.name || `分组 ${idx + 1}`}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+              <ServiceItemForm
+                value={editing.activeItemEdit.draft}
+                onChange={editing.updateItemDraft}
+                {...(disabled !== undefined ? { disabled } : {})}
+                errorPrefix={`services.${editing.activeItemEdit.gi}.items.${editing.activeItemEdit.ii}`}
+                {...(errors !== undefined ? { errors } : {})}
+                dockerEndpoints={dockerEndpoints}
+              />
+            </div>
           ) : null}
 
           <DialogFooter>
@@ -320,6 +375,18 @@ export function ServicesEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddGroupDialog
+        open={addGroupOpen}
+        onOpenChange={setAddGroupOpen}
+        title="添加服务分组"
+        description="输入新分组的名称，创建后可向其中添加服务条目"
+        placeholder="例如：常用工具、媒体影音、开发环境"
+        disabled={disabled}
+        onConfirm={(name) => {
+          onChange([...value, emptyGroup(name)]);
+        }}
+      />
 
       <DockerImportDialog
         open={importOpen}
