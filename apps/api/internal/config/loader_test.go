@@ -225,3 +225,25 @@ func TestCollectResourceDiskPathsLabelHandling(t *testing.T) {
 		t.Fatalf("剥离别名的结果不符：%v", got)
 	}
 }
+
+// 布局中声明的分组顺序应如实写入 LayoutOrder，且同时支持服务与书签分组。
+func TestNormalizeSettingsLayoutOrder(t *testing.T) {
+	dir := writeConfigDir(t, map[string]string{
+		FileSettings: "layout:\n  PT:\n    columns: 6\n  Server:\n    columns: 4\n  Media:\n    style: row\n",
+	})
+	snapshot, err := Load(dir)
+	if err != nil {
+		t.Fatalf("加载配置失败：%v", err)
+	}
+	want := []string{"PT", "Server", "Media"}
+	got := snapshot.Config.Settings.LayoutOrder
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("LayoutOrder 不符，预期 %v，实得 %v", want, got)
+	}
+	if snapshot.Config.Settings.Layout["PT"].MaxColumns != 6 {
+		t.Errorf("PT 列数不符：%d", snapshot.Config.Settings.Layout["PT"].MaxColumns)
+	}
+	if snapshot.Config.Settings.Layout["Server"].MaxColumns != 4 {
+		t.Errorf("Server 列数不符：%d", snapshot.Config.Settings.Layout["Server"].MaxColumns)
+	}
+}

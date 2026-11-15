@@ -10,6 +10,7 @@ export type NormalizedSettings = {
   favicon?: string | undefined;
   useEqualHeights: boolean;
   layout: Record<string, LayoutGroup>;
+  layoutOrder?: string[] | undefined;
 };
 
 export type InfoWidgetConfig = {

@@ -43,6 +43,8 @@ import {
 } from "@/lib/api";
 import {
   reconcileInitialDraft,
+  syncBookmarksToLayout,
+  syncLayoutToBookmarks,
   syncLayoutToServices,
   syncServicesToLayout,
 } from "@/lib/config-editor/group-sync";
@@ -357,20 +359,37 @@ export function ConfigEditorShell({
                         value={draft.settings}
                         disabled={saving}
                         errors={fieldErrors}
-                        serviceGroupNames={draft.services
-                          .map((g) => g.name)
-                          .filter(Boolean)}
+                        groupOptions={[
+                          ...draft.services.map((g) => ({
+                            name: g.name,
+                            type: "service" as const,
+                          })),
+                          ...draft.bookmarks.map((g) => ({
+                            name: g.name,
+                            type: "bookmark" as const,
+                          })),
+                        ].filter((opt) => Boolean(opt.name?.trim()))}
                         onChange={(settings) =>
                           setDraft((prev) => {
+                            const bookmarkNames = prev.bookmarks
+                              .map((g) => g.name?.trim())
+                              .filter(Boolean);
                             const nextServices = syncLayoutToServices(
                               prev.settings.layout,
                               settings.layout,
                               prev.services,
+                              bookmarkNames,
+                            );
+                            const nextBookmarks = syncLayoutToBookmarks(
+                              prev.settings.layout,
+                              settings.layout,
+                              prev.bookmarks,
                             );
                             return {
                               ...prev,
                               settings,
                               services: nextServices,
+                              bookmarks: nextBookmarks,
                             };
                           })
                         }
@@ -384,10 +403,14 @@ export function ConfigEditorShell({
                         errors={fieldErrors}
                         onChange={(services) =>
                           setDraft((prev) => {
+                            const bookmarkNames = prev.bookmarks
+                              .map((g) => g.name?.trim())
+                              .filter(Boolean);
                             const nextLayout = syncServicesToLayout(
                               prev.settings.layout,
                               prev.services,
                               services,
+                              bookmarkNames,
                             );
                             return {
                               ...prev,
@@ -407,7 +430,25 @@ export function ConfigEditorShell({
                         disabled={saving}
                         errors={fieldErrors}
                         onChange={(bookmarks) =>
-                          setDraft((prev) => ({ ...prev, bookmarks }))
+                          setDraft((prev) => {
+                            const serviceNames = prev.services
+                              .map((g) => g.name?.trim())
+                              .filter(Boolean);
+                            const nextLayout = syncBookmarksToLayout(
+                              prev.settings.layout,
+                              prev.bookmarks,
+                              bookmarks,
+                              serviceNames,
+                            );
+                            return {
+                              ...prev,
+                              bookmarks,
+                              settings: {
+                                ...prev.settings,
+                                layout: nextLayout,
+                              },
+                            };
+                          })
                         }
                       />
                     ) : null}

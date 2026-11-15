@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 export type BookmarkSectionsProps = {
   groups: NormalizedConfig["bookmarks"];
+  layout?: NormalizedConfig["settings"]["layout"] | undefined;
   className?: string;
 };
 
@@ -38,6 +39,7 @@ function countRenderableItems(
 
 export function BookmarkSections({
   groups,
+  layout,
   className,
 }: BookmarkSectionsProps): JSX.Element {
   const hasContent = groups.length > 0 && countRenderableItems(groups) > 0;
@@ -62,47 +64,56 @@ export function BookmarkSections({
       data-slot="bookmark-sections"
       className={cn("flex w-full flex-col gap-7", className)}
     >
-      {groups.map((group) => (
-        <CollapsibleGroup
-          key={group.name}
-          scope="bookmarks"
-          name={group.name}
-          count={group.items.length}
-          data-slot="bookmark-group"
-          data-group-name={group.name}
-        >
-          {group.items.length === 0 ? (
-            <EmptyStatus message={messages.empty.bookmarks} />
-          ) : (
-            <AdaptiveGrid
-              as="ul"
-              minItemWidth={BOOKMARK_MIN_ITEM_WIDTH_PX}
-              maxColumns={ADAPTIVE_GRID_UNBOUNDED_MAX_COLUMNS}
-              gap={8}
-            >
-              {group.items.map((item, index) => {
-                if (isBookmarkError(item)) {
+      {groups.map((group) => {
+        const maxColumns =
+          layout?.[group.name]?.maxColumns ?? ADAPTIVE_GRID_UNBOUNDED_MAX_COLUMNS;
+        return (
+          <CollapsibleGroup
+            key={group.name}
+            scope="bookmarks"
+            name={group.name}
+            count={group.items.length}
+            data-slot="bookmark-group"
+            data-group-name={group.name}
+            data-max-columns={
+              layout?.[group.name]?.maxColumns !== undefined
+                ? layout[group.name]?.maxColumns
+                : undefined
+            }
+          >
+            {group.items.length === 0 ? (
+              <EmptyStatus message={messages.empty.bookmarks} />
+            ) : (
+              <AdaptiveGrid
+                as="ul"
+                minItemWidth={BOOKMARK_MIN_ITEM_WIDTH_PX}
+                maxColumns={maxColumns}
+                gap={8}
+              >
+                {group.items.map((item, index) => {
+                  if (isBookmarkError(item)) {
+                    return (
+                      <li
+                        key={`${group.name}-error-${index}`}
+                        className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive backdrop-blur-md"
+                      >
+                        {item.message}
+                      </li>
+                    );
+                  }
+                  const delay = Math.min(riseIndex, 20) * 24;
+                  riseIndex += 1;
                   return (
-                    <li
-                      key={`${group.name}-error-${index}`}
-                      className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive backdrop-blur-md"
-                    >
-                      {item.message}
+                    <li key={item.id} className="list-none">
+                      <BookmarkItem bookmark={item} riseDelayMs={delay} />
                     </li>
                   );
-                }
-                const delay = Math.min(riseIndex, 20) * 24;
-                riseIndex += 1;
-                return (
-                  <li key={item.id} className="list-none">
-                    <BookmarkItem bookmark={item} riseDelayMs={delay} />
-                  </li>
-                );
-              })}
-            </AdaptiveGrid>
-          )}
-        </CollapsibleGroup>
-      ))}
+                })}
+              </AdaptiveGrid>
+            )}
+          </CollapsibleGroup>
+        );
+      })}
     </section>
   );
 }

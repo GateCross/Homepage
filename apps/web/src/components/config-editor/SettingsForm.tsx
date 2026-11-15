@@ -16,12 +16,19 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
+export type LayoutGroupOption = {
+  name: string;
+  type: "service" | "bookmark";
+};
+
 export type SettingsFormProps = {
   value: EditableSettings;
   onChange: (next: EditableSettings) => void;
   disabled?: boolean | undefined;
   errors?: Record<string, string> | undefined;
-  /** 已有的服务分组名称列表，用于分组名自动补全与智能默认名推荐 */
+  /** 已有的分组选项列表（包含服务与书签），用于来源标识、分组名自动补全与智能默认名推荐 */
+  groupOptions?: LayoutGroupOption[] | undefined;
+  /** 兼容旧代码的服务分组名称列表 */
   serviceGroupNames?: string[] | undefined;
 };
 
@@ -43,6 +50,7 @@ export function SettingsForm({
   onChange,
   disabled,
   errors,
+  groupOptions,
   serviceGroupNames,
 }: SettingsFormProps): JSX.Element {
   const layoutDrag = useReorderDrag({
@@ -50,6 +58,21 @@ export function SettingsForm({
     disabled,
     onReorder: (next) => onChange({ ...value, layout: next }),
   });
+
+  // 整理分组选项：优先使用 groupOptions，没有时回退 serviceGroupNames
+  const allOptions: LayoutGroupOption[] = groupOptions ?? [
+    ...(serviceGroupNames ?? []).map((name) => ({
+      name,
+      type: "service" as const,
+    })),
+  ];
+
+  const groupTypeMap = new Map<string, "service" | "bookmark">();
+  for (const opt of allOptions) {
+    if (opt.name?.trim()) {
+      groupTypeMap.set(opt.name.trim(), opt.type);
+    }
+  }
 
   const handleGroupNameChange = (index: number, nextName: string): void => {
     const current = value.layout[index];
@@ -82,9 +105,11 @@ export function SettingsForm({
   };
 
   const handleAddLayout = (): void => {
-    const configured = new Set(value.layout.map((l) => l.groupName));
-    const nextAvailableName =
-      serviceGroupNames?.find((name) => !configured.has(name)) ?? "新分组";
+    const configured = new Set(value.layout.map((l) => l.groupName.trim()));
+    const nextAvailable = allOptions.find(
+      (opt) => opt.name.trim() && !configured.has(opt.name.trim()),
+    );
+    const nextAvailableName = nextAvailable?.name ?? "新分组";
 
     const newRow: EditableLayoutEntry = {
       groupName: nextAvailableName,
@@ -151,7 +176,12 @@ export function SettingsForm({
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>服务分组最大列数</Label>
+              <div>
+                <Label>页面布局与分组排序</Label>
+                <p className="text-xs text-muted-foreground">
+                  调整服务与书签分组在首页的上下展示顺序与最大列数
+                </p>
+              </div>
               <Button
                 type="button"
                 size="sm"
@@ -168,12 +198,13 @@ export function SettingsForm({
               <ul className="space-y-2">
                 {value.layout.map((entry, index) => {
                   const rowProps = layoutDrag.getRowProps(index);
+                  const groupType = groupTypeMap.get(entry.groupName.trim());
                   return (
                     <li
                       key={getLayoutRowKey(entry)}
                       {...rowProps}
                       className={cn(
-                        "grid grid-cols-[auto_minmax(0,1fr)_5.5rem_auto] items-center gap-2 rounded-lg border border-border/60 bg-card/60 p-2 shadow-xs transition-[background-color,opacity,box-shadow,border-color] duration-150",
+                        "grid grid-cols-[auto_auto_minmax(0,1fr)_5.5rem_auto] items-center gap-2 rounded-lg border border-border/60 bg-card/60 p-2 shadow-xs transition-[background-color,opacity,box-shadow,border-color] duration-150",
                         rowProps["data-dragging"] && "opacity-50",
                         rowProps["data-drop-target"] &&
                           "border-primary/50 ring-1 ring-primary/30",
@@ -183,6 +214,19 @@ export function SettingsForm({
                         disabled={disabled}
                         {...layoutDrag.getHandleProps(index)}
                       />
+                      {groupType === "service" ? (
+                        <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                          服务
+                        </span>
+                      ) : groupType === "bookmark" ? (
+                        <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                          书签
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          自定义
+                        </span>
+                      )}
                       <Input
                         value={entry.groupName}
                         disabled={disabled}
@@ -241,10 +285,15 @@ export function SettingsForm({
                 })}
               </ul>
             )}
-            {serviceGroupNames && serviceGroupNames.length > 0 ? (
+            {allOptions.length > 0 ? (
               <datalist id="settings-group-name-options">
-                {serviceGroupNames.map((name) => (
-                  <option key={name} value={name} />
+                {allOptions.map((opt) => (
+                  <option
+                    key={`${opt.type}-${opt.name}`}
+                    value={opt.name}
+                  >
+                    {opt.name} ({opt.type === "service" ? "服务" : "书签"})
+                  </option>
                 ))}
               </datalist>
             ) : null}

@@ -6,5 +6,9 @@ export {
 } from "./grid";
 export { matchSearch, type SearchableItem } from "./search";
 export { parseThemeMode, type ResolvedTheme, type ThemeMode } from "./theme";
+export {
+  buildDashboardSectionChunks,
+  type DashboardSectionChunk,
+} from "./layout-order";
 export { DEFAULT_DASHBOARD_TITLE, normalizeTitle } from "./title";
 export { isAbsoluteHttpUrl, normalizeAbsoluteHttpUrl } from "./url";

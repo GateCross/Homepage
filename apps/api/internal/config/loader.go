@@ -33,6 +33,7 @@ type SettingsJSON struct {
 	Favicon         *string                    `json:"favicon,omitempty"`
 	UseEqualHeights bool                       `json:"useEqualHeights"`
 	Layout          map[string]LayoutGroupJSON `json:"layout"`
+	LayoutOrder     []string                   `json:"layoutOrder,omitempty"`
 }
 
 // LayoutGroupJSON 是布局分组，仅保留列数。
@@ -312,16 +313,23 @@ func normalizeSettings(raw any) SettingsJSON {
 	}
 
 	layout := asMap(doc["layout"])
+	var layoutOrder []string
 	for _, name := range mapKeysInOrder(doc["layout"]) {
 		groupName := strings.TrimSpace(name)
 		if groupName == "" {
 			continue
 		}
-		columns, ok := asInt(asMap(layout[name])["columns"])
-		if !ok || columns < 1 {
+		groupMap, isMap := asMapOK(layout[name])
+		if !isMap {
 			continue
 		}
-		settings.Layout[groupName] = LayoutGroupJSON{MaxColumns: columns}
+		if columns, ok := asInt(groupMap["columns"]); ok && columns >= 1 {
+			settings.Layout[groupName] = LayoutGroupJSON{MaxColumns: columns}
+		}
+		layoutOrder = append(layoutOrder, groupName)
+	}
+	if len(layoutOrder) > 0 {
+		settings.LayoutOrder = layoutOrder
 	}
 
 	return settings

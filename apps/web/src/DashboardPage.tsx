@@ -9,7 +9,10 @@ import {
 } from "react";
 
 import type { NormalizedConfig } from "@/lib/contracts";
-import { DEFAULT_DASHBOARD_TITLE } from "@/lib/pure";
+import {
+  DEFAULT_DASHBOARD_TITLE,
+  buildDashboardSectionChunks,
+} from "@/lib/pure";
 
 const ConfigEditorShell = lazy(() =>
   import("@/components/config-editor/ConfigEditorShell").then((m) => ({
@@ -410,6 +413,11 @@ export function DashboardPage(): JSX.Element {
   const { settings, services, bookmarks, infoWidgets } = config;
   const title =
     settings.title?.trim() || DEFAULT_DASHBOARD_TITLE;
+  const sectionChunks = buildDashboardSectionChunks(
+    services,
+    bookmarks,
+    settings.layoutOrder,
+  );
 
   return (
     <DockerStatusProvider enabled>
@@ -447,23 +455,32 @@ export function DashboardPage(): JSX.Element {
               <InfoSection widgets={infoWidgets} />
             </SectionErrorBoundary>
 
-            <SectionErrorBoundary
-              label={messages.layout.servicesSection}
-              resetKeys={[services]}
-            >
-              <ServiceSections
-                groups={services}
-                layout={settings.layout}
-                useEqualHeights={settings.useEqualHeights}
-              />
-            </SectionErrorBoundary>
-
-            <SectionErrorBoundary
-              label={messages.layout.bookmarksSection}
-              resetKeys={[bookmarks]}
-            >
-              <BookmarkSections groups={bookmarks} />
-            </SectionErrorBoundary>
+            {sectionChunks.map((chunk, index) =>
+              chunk.type === "service" ? (
+                <SectionErrorBoundary
+                  key={`chunk-svc-${index}`}
+                  label={messages.layout.servicesSection}
+                  resetKeys={[chunk.groups]}
+                >
+                  <ServiceSections
+                    groups={chunk.groups}
+                    layout={settings.layout}
+                    useEqualHeights={settings.useEqualHeights}
+                  />
+                </SectionErrorBoundary>
+              ) : (
+                <SectionErrorBoundary
+                  key={`chunk-bm-${index}`}
+                  label={messages.layout.bookmarksSection}
+                  resetKeys={[chunk.groups]}
+                >
+                  <BookmarkSections
+                    groups={chunk.groups}
+                    layout={settings.layout}
+                  />
+                </SectionErrorBoundary>
+              ),
+            )}
           </main>
         </div>
 
