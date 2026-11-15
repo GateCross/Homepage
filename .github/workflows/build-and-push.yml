@@ -2,22 +2,8 @@ name: build-and-push
 
 on:
   push:
-    branches:
-      - main
     tags:
-      - v*
-    paths:
-      - apps/web/**
-      - apps/api/**
-      - docker/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - .npmrc
-      - .nvmrc
-      - tsconfig*.json
-      - .dockerignore
-      - .github/workflows/build-and-push.yml
+      - 'v*'
   pull_request:
     branches:
       - main
@@ -94,56 +80,22 @@ jobs:
       - name: Frontend lint
         run: pnpm lint
 
-  # 推送到 main 时自动打 tag 并发 Release；版本号未变（tag 已存在）则跳过，只让 merge 更新 latest
-  tag-and-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  # 推送标签时创建 GitHub Release
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [verify-go, verify-web]
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.create_tag.outputs.tag }}
+      tag: ${{ github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Resolve tag name
-        id: create_tag
-        run: |
-          VERSION=$(jq -r .version package.json)
-          TAG_NAME="v${VERSION}"
-          # 版本号与 package.json 对应；若 tag 已存在且指向当前提交则继续发版
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            TAG_COMMIT=$(git rev-list -n 1 "$TAG_NAME")
-            HEAD_COMMIT=$(git rev-parse HEAD)
-            if [ "$TAG_COMMIT" = "$HEAD_COMMIT" ]; then
-              echo "Tag ${TAG_NAME} 属于当前提交，继续发布镜像与 Release"
-              echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
-            else
-              echo "Tag ${TAG_NAME} 属于历史提交，本次推送不发新版本，仅更新 latest 镜像"
-              echo "tag=" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
-            echo "Resolved Tag: $TAG_NAME"
-          fi
-
-      - name: Create Git Tag and Release
-        if: steps.create_tag.outputs.tag != ''
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.create_tag.outputs.tag }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 若 tag 尚未存在则创建并推送到远端
-          if ! git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
-            if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-              git tag -a "$TAG" -m "Release $TAG"
-            fi
-            git push origin "$TAG"
-          fi
-          gh release create "$TAG" --generate-notes --title "$TAG" || true
+          gh release create "${{ github.ref_name }}" --generate-notes --title "${{ github.ref_name }}" || true
 
   # amd64 / arm64 各自在原生 runner 上构建，避免 QEMU 模拟拖慢
   build:
@@ -186,7 +138,9 @@ jobs:
 
       - name: Resolve version
         id: version
-        run: echo "value=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image by digest
         id: build_image
@@ -222,7 +176,7 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     needs:
-      - tag-and-release
+      - release
       - build
     steps:
       - name: Checkout
@@ -251,7 +205,7 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ needs.tag-and-release.outputs.tag }},enable=${{ needs.tag-and-release.outputs.tag != '' }}
+            type=raw,value=${{ needs.release.outputs.tag }},enable=${{ needs.release.outputs.tag != '' }}
             type=ref,event=tag
 
       - name: Create manifest list and push
@@ -266,3 +220,4 @@ jobs:
         run: |
           docker buildx imagetools inspect \
             "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
+

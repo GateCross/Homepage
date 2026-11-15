@@ -40,3 +40,26 @@ func readMemorySample() (memorySample, bool) {
 		totalBytes: int64(memory.Total),
 	}, true
 }
+
+// 由 statfs 的块大小、总块数与可用块数算占用：比例按可用块算，字节数按块大小换算。
+// 计数非法时返回带通用文案的降级结果。
+func computeDiskSample(blockSize, totalBlocks, availableBlocks int64) diskSample {
+	if blockSize <= 0 || totalBlocks <= 0 {
+		return diskSample{message: diskGeneralMessage}
+	}
+	if availableBlocks < 0 {
+		availableBlocks = 0
+	}
+	if availableBlocks > totalBlocks {
+		availableBlocks = totalBlocks
+	}
+	totalBytes := totalBlocks * blockSize
+	freeBytes := availableBlocks * blockSize
+	return diskSample{
+		ok:         true,
+		percent:    (1 - float64(availableBlocks)/float64(totalBlocks)) * 100,
+		usedBytes:  totalBytes - freeBytes,
+		totalBytes: totalBytes,
+	}
+}
+
