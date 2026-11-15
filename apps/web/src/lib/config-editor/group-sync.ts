@@ -85,7 +85,7 @@ export function syncLayoutToServices(
   }
 
   // 1. 将改名应用到服务分组列表
-  let nextServices = prevServices.map((g) => {
+  const nextServices = prevServices.map((g) => {
     const renamed = renameMap.get(g.name?.trim());
     return renamed ? { ...g, name: renamed } : g;
   });

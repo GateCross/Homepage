@@ -31,8 +31,8 @@ export type SelectProps = {
 
 /** 从 children 中提取 option 标签内容，兼容原生 select 的用法 */
 function parseOptions(
-  optionsProp?: SelectOption[] | undefined,
-  children?: React.ReactNode | undefined,
+  optionsProp?: SelectOption[],
+  children?: React.ReactNode,
 ): SelectOption[] {
   if (optionsProp && optionsProp.length > 0) {
     return optionsProp;

@@ -6,6 +6,9 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
+      "**/webdist/**",
+      "scripts/**",
+      ".githooks/**",
       // 本地草稿目录，不入库；ESLint 不读 .gitignore，须显式排除
       ".scratch/**",
       "**/build/**",
