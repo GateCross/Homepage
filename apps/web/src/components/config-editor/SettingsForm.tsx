@@ -122,6 +122,97 @@ export function SettingsForm({
     });
   };
 
+  /** 一键将所有书签分组置于服务分组上方 */
+  const handleMoveBookmarksToTop = (): void => {
+    const existingMap = new Map(
+      value.layout.map((e) => [e.groupName.trim(), e]),
+    );
+    const bookmarkEntries: EditableLayoutEntry[] = [];
+    const otherEntries: EditableLayoutEntry[] = [];
+
+    // 先收集所有书签分组（已有配置的保留其 maxColumns，缺失的默认 4 列）
+    for (const opt of allOptions) {
+      if (opt.type === "bookmark" && opt.name.trim()) {
+        const name = opt.name.trim();
+        const existing = existingMap.get(name);
+        const entry = existing ?? { groupName: name, maxColumns: 4 };
+        getLayoutRowKey(entry);
+        bookmarkEntries.push(entry);
+        existingMap.delete(name);
+      }
+    }
+
+    // 再按原有顺序保留剩下的项
+    for (const entry of value.layout) {
+      if (existingMap.has(entry.groupName.trim())) {
+        otherEntries.push(entry);
+        existingMap.delete(entry.groupName.trim());
+      }
+    }
+
+    // 补充剩余未在 layout 中的服务
+    for (const opt of allOptions) {
+      if (
+        opt.type === "service" &&
+        opt.name.trim() &&
+        !otherEntries.some((e) => e.groupName.trim() === opt.name.trim())
+      ) {
+        const entry = { groupName: opt.name.trim(), maxColumns: 4 };
+        getLayoutRowKey(entry);
+        otherEntries.push(entry);
+      }
+    }
+
+    onChange({
+      ...value,
+      layout: [...bookmarkEntries, ...otherEntries],
+    });
+  };
+
+  /** 一键将所有服务分组置于书签分组上方 */
+  const handleMoveServicesToTop = (): void => {
+    const existingMap = new Map(
+      value.layout.map((e) => [e.groupName.trim(), e]),
+    );
+    const serviceEntries: EditableLayoutEntry[] = [];
+    const otherEntries: EditableLayoutEntry[] = [];
+
+    for (const opt of allOptions) {
+      if (opt.type === "service" && opt.name.trim()) {
+        const name = opt.name.trim();
+        const existing = existingMap.get(name);
+        const entry = existing ?? { groupName: name, maxColumns: 4 };
+        getLayoutRowKey(entry);
+        serviceEntries.push(entry);
+        existingMap.delete(name);
+      }
+    }
+
+    for (const entry of value.layout) {
+      if (existingMap.has(entry.groupName.trim())) {
+        otherEntries.push(entry);
+        existingMap.delete(entry.groupName.trim());
+      }
+    }
+
+    for (const opt of allOptions) {
+      if (
+        opt.type === "bookmark" &&
+        opt.name.trim() &&
+        !otherEntries.some((e) => e.groupName.trim() === opt.name.trim())
+      ) {
+        const entry = { groupName: opt.name.trim(), maxColumns: 4 };
+        getLayoutRowKey(entry);
+        otherEntries.push(entry);
+      }
+    }
+
+    onChange({
+      ...value,
+      layout: [...serviceEntries, ...otherEntries],
+    });
+  };
+
   const moveLayoutRow = (index: number, direction: "up" | "down"): void => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= value.layout.length) return;
@@ -175,22 +266,44 @@ export function SettingsForm({
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <Label>页面布局与分组排序</Label>
                 <p className="text-xs text-muted-foreground">
                   调整服务与书签分组在首页的上下展示顺序与最大列数
                 </p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={disabled}
-                onClick={handleAddLayout}
-              >
-                添加
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={handleMoveBookmarksToTop}
+                  title="将所有书签分组排在服务分组之前"
+                >
+                  书签置顶
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={handleMoveServicesToTop}
+                  title="将所有服务分组排在书签分组之前"
+                >
+                  服务置顶
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={handleAddLayout}
+                >
+                  添加
+                </Button>
+              </div>
             </div>
             {value.layout.length === 0 ? (
               <p className="text-sm text-muted-foreground">暂无布局配置</p>

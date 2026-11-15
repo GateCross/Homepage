@@ -139,50 +139,60 @@ func applyFavicon(base *orderedMap, favicon *string) {
 	base.set("favicon", strings.TrimSpace(*favicon))
 }
 
-// 布局：分组集合以编辑器为准；编辑器未列出的分组只保留未知子键，
-// 仅含 columns（或完全为空）的分组整体删除。
+// 布局：分组集合与排序以编辑器为准，严格按编辑器传入的顺序构建 layoutOut；
+// 编辑器列出的分组覆盖 columns 并保留已有未知子键；
+// 编辑器未列出的分组若含未知子键保留在末尾，仅含 columns（或空）的分组删除。
 func applyLayout(base *orderedMap, layout []EditableLayoutEntry) {
-	layoutOut := newOrderedMap(4)
+	previousGroups := make(map[string]*orderedMap)
+	var previousKeys []string
 	if previous, ok := base.values["layout"].(*orderedMap); ok {
+		previousKeys = previous.keys
 		for _, key := range previous.keys {
-			layoutOut.set(key, deepCopyValue(previous.values[key]))
+			if grp, ok := previous.values[key].(*orderedMap); ok {
+				previousGroups[key] = grp
+			}
 		}
 	}
 
-	editorNames := make(map[string]struct{}, len(layout))
-	for _, entry := range layout {
-		if name := strings.TrimSpace(entry.GroupName); name != "" {
-			editorNames[name] = struct{}{}
-		}
-	}
+	layoutOut := newOrderedMap(len(layout))
+	seen := make(map[string]struct{}, len(layout))
 
-	for _, key := range append([]string(nil), layoutOut.keys...) {
-		if _, listed := editorNames[key]; listed {
-			continue
-		}
-		group, ok := layoutOut.values[key].(*orderedMap)
-		if !ok {
-			removeKey(layoutOut, key)
-			continue
-		}
-		if len(group.keys) == 0 {
-			removeKey(layoutOut, key)
-			continue
-		}
-		if len(group.keys) == 1 && group.keys[0] == "columns" {
-			removeKey(layoutOut, key)
-			continue
-		}
-		removeKey(group, "columns")
-	}
-
+	// 1. 严格按编辑器给出的顺序写入分组，保留原未知子键，覆盖 columns
 	for _, entry := range layout {
 		name := strings.TrimSpace(entry.GroupName)
 		if name == "" {
 			continue
 		}
-		group := mergedMap(layoutOut, name)
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+
+		var group *orderedMap
+		if prev, ok := previousGroups[name]; ok {
+			group = deepCopyValue(prev).(*orderedMap)
+		} else {
+			group = newOrderedMap(4)
+		}
 		group.set("columns", entry.MaxColumns)
+		layoutOut.set(name, group)
+	}
+
+	// 2. 编辑器未列出的分组：若含未知子键则保留在末尾，清除 columns；纯 columns 或空则丢弃
+	for _, key := range previousKeys {
+		if _, listed := seen[key]; listed {
+			continue
+		}
+		grp, ok := previousGroups[key]
+		if !ok || len(grp.keys) == 0 {
+			continue
+		}
+		if len(grp.keys) == 1 && grp.keys[0] == "columns" {
+			continue
+		}
+		preserved := deepCopyValue(grp).(*orderedMap)
+		removeKey(preserved, "columns")
+		layoutOut.set(key, preserved)
 	}
 
 	if len(layoutOut.keys) > 0 {

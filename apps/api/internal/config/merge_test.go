@@ -96,3 +96,45 @@ func TestApplyLayoutEmptyResultRemovesKey(t *testing.T) {
 		t.Fatal("合并结果为空时 layout 键应整体删除")
 	}
 }
+
+// 编辑器调整布局分组顺序时，写回应严格遵循编辑器传入的顺序，允许书签与服务任意调序。
+func TestApplyLayoutReorderPreservesEditorOrder(t *testing.T) {
+	base := newOrderedMap(2)
+	diskLayout := newOrderedMap(3)
+
+	server := newOrderedMap(1)
+	server.set("columns", 6)
+	diskLayout.set("Server", server)
+
+	docker := newOrderedMap(1)
+	docker.set("columns", 4)
+	diskLayout.set("Docker", docker)
+
+	pt := newOrderedMap(1)
+	pt.set("columns", 8)
+	diskLayout.set("PT", pt)
+
+	base.set("layout", diskLayout)
+
+	// 编辑器将 PT 调到最前：PT -> Server -> Docker
+	applyLayout(base, []EditableLayoutEntry{
+		{GroupName: "PT", MaxColumns: 8},
+		{GroupName: "Server", MaxColumns: 6},
+		{GroupName: "Docker", MaxColumns: 4},
+	})
+
+	layout, ok := base.values["layout"].(*orderedMap)
+	if !ok {
+		t.Fatalf("layout 应为对象，实得 %T", base.values["layout"])
+	}
+
+	expectedOrder := []string{"PT", "Server", "Docker"}
+	if len(layout.keys) != len(expectedOrder) {
+		t.Fatalf("分组数量不符，实得 %v", layout.keys)
+	}
+	for i, name := range expectedOrder {
+		if layout.keys[i] != name {
+			t.Errorf("第 %d 个分组名称不符，预期 %s，实得 %s（全部为 %v）", i, name, layout.keys[i], layout.keys)
+		}
+	}
+}
