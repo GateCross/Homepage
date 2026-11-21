@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
+import { Clock } from "lucide-react";
 
 import { nextStatutoryHolidayCountdown } from "@/lib/calendar/holidays";
 import { lunarFromDate } from "@/lib/calendar/lunar";
@@ -220,16 +221,17 @@ export function DateTimeWidget({
     () => readTimeParts(now, parsed.timezone, parsed.format.hour12),
     [now, parsed.timezone, parsed.format.hour12],
   );
-  const dateLine = useMemo(
-    () =>
-      formatPart(now, parsed.timezone, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        weekday: "long",
-      }),
-    [now, parsed.timezone],
-  );
+  const dateLine = useMemo(() => {
+    const datePart = formatPart(now, parsed.timezone, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const weekdayPart = formatPart(now, parsed.timezone, {
+      weekday: "long",
+    });
+    return { datePart, weekdayPart };
+  }, [now, parsed.timezone]);
 
   // 历法类信息只依赖本地日历日，避免每秒重算农历/节气/节日
   const localDateKey = useMemo(() => {
@@ -320,6 +322,30 @@ export function DateTimeWidget({
     };
   }, [holidayCountdown]);
 
+  const dateMeta = useMemo(() => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDateKey);
+    if (match === null) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const todayUtc = Date.UTC(year, month - 1, day);
+
+    // ISO 8601 周数计算（纯 UTC 算术，不受宿主时区影响）
+    const d = new Date(todayUtc);
+    const isoDay = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - isoDay);
+    const isoYearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+    const weekNumber = Math.ceil(((d.getTime() - isoYearStart) / 86_400_000 + 1) / 7);
+
+    return {
+      monthLabel: `${month}月`,
+      dayLabel: String(day).padStart(2, "0"),
+      weekNumber,
+    };
+  }, [localDateKey]);
+
   return (
     <div
       data-slot="datetime-widget"
@@ -328,96 +354,169 @@ export function DateTimeWidget({
       data-next-holiday={holidayCountdown?.holiday.id}
       data-shichen={shichen?.name}
       className={cn(
-        "relative flex h-full min-h-0 flex-col gap-1.5 p-3 text-center",
+        "relative flex h-full min-h-0 flex-col gap-3 p-4 text-left",
         className,
       )}
     >
-      <div className="relative flex items-center justify-center">
-        <p className="text-[10px] font-medium text-muted-foreground">
-          {label}
+      {/* 统一 Bento 顶部小节头：左标签 + 右周数/时辰微标 */}
+      <div className="relative flex items-center justify-between gap-2">
+        <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <Clock aria-hidden="true" className="size-3.5 text-primary/75" />
+          <span>{label}</span>
         </p>
-      </div>
-
-      <div className="relative min-w-0 space-y-0.5">
-        <p className="text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg">
-          {dateLine}
-        </p>
-        {lunar !== null ? (
-          <>
-            <p className="text-sm font-medium leading-tight text-foreground/85">
-              农历{lunar.text}
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              {lunar.yearText}
-              {solarTerm !== null ? (
-                <>
-                  <span className="mx-1.5 text-muted-foreground/40">·</span>
-                  {solarTerm.name}
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : solarTerm !== null ? (
-          <p className="text-sm font-medium leading-tight text-foreground/85">
-            {solarTerm.name}
-          </p>
-        ) : null}
-      </div>
-
-      <time
-        dateTime={now.toISOString()}
-        className="relative flex items-center justify-center"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <span className="flex items-baseline justify-center gap-1 font-semibold tracking-tight text-foreground">
-          <span className="text-[2rem] leading-none tabular-nums sm:text-[2.2rem]">
-            {hour}
-            <span className="mx-0.5 text-foreground/35">:</span>
-            {minute}
-          </span>
-          <span className="pb-0.5 text-sm tabular-nums text-muted-foreground">
-            {second}
-          </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {dateMeta !== null ? (
+            <span className="rounded-md bg-foreground/[0.045] px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground dark:bg-white/[0.06]">
+              第 {dateMeta.weekNumber} 周
+            </span>
+          ) : null}
           {shichen !== null ? (
-            <span className="ml-0.5 pb-0.5 text-xs font-medium text-muted-foreground/90">
+            <span className="rounded-md bg-foreground/[0.055] px-1.5 py-0.5 text-[10px] font-medium leading-none text-foreground/80 dark:bg-white/[0.08]">
               {shichen.label}
             </span>
           ) : null}
-        </span>
-      </time>
+        </div>
+      </div>
+
+      {/* 主视觉区：时钟行与历法日期区纵向均匀舒展，避免挤在一起导致上下空旷 */}
+      <div className="relative flex flex-1 flex-col justify-evenly gap-3 py-1">
+        <div className="flex items-center justify-between gap-4">
+          <time
+            dateTime={now.toISOString()}
+            className="flex items-baseline gap-2"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <span className="text-[3rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[3.35rem]">
+              {hour}
+              <span className="relative -top-[0.06em] mx-0.5 font-normal text-foreground/30">
+                :
+              </span>
+              {minute}
+            </span>
+            <span className="rounded-md bg-foreground/[0.045] px-1.5 py-0.5 text-xs font-medium tabular-nums leading-none text-muted-foreground dark:bg-white/[0.06]">
+              {second}
+            </span>
+          </time>
+
+          {/* 右侧日历数字徽章：月 / 日 / 星期三层，锚定右半边视觉重心 */}
+          {dateMeta !== null ? (
+            <div
+              aria-hidden="true"
+              className="flex w-[4.25rem] shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-foreground/[0.03] text-center shadow-xs dark:border-white/12 dark:bg-white/[0.04]"
+            >
+              <span className="bg-primary/15 py-1 text-[10px] font-semibold tracking-wide leading-none text-primary dark:bg-primary/20">
+                {dateMeta.monthLabel}
+              </span>
+              <span className="pt-1.5 text-[1.4rem] font-bold leading-none tracking-tight tabular-nums text-foreground">
+                {dateMeta.dayLabel}
+              </span>
+              <span className="pb-1.5 pt-1 text-[10px] font-medium leading-none text-muted-foreground">
+                {dateLine.weekdayPart}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="min-w-0 space-y-1.5">
+          <p className="flex min-w-0 items-baseline gap-2 truncate text-[15px] font-medium leading-snug text-foreground/95">
+            <span>{dateLine.datePart}</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {dateLine.weekdayPart}
+            </span>
+          </p>
+          {lunar !== null ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] leading-snug text-muted-foreground">
+              <span className="truncate">
+                农历{lunar.text}
+                <span className="mx-1.5 text-muted-foreground/40">·</span>
+                {lunar.yearText}
+              </span>
+              {solarTerm !== null ? (
+                <span className="inline-flex shrink-0 items-center rounded-md bg-primary/12 px-1.5 py-0.5 text-[11px] font-medium leading-none text-primary dark:bg-primary/18">
+                  {solarTerm.name}
+                </span>
+              ) : null}
+            </div>
+          ) : solarTerm !== null ? (
+            <span className="inline-flex items-center rounded-md bg-primary/12 px-1.5 py-0.5 text-[11px] font-medium leading-none text-primary dark:bg-primary/18">
+              {solarTerm.name}
+            </span>
+          ) : null}
+        </div>
+      </div>
 
       {termCountdown !== null || holidayPanel !== null ? (
-        <div className="relative mt-auto grid grid-cols-2 gap-1.5">
+        <div className="relative mt-auto grid grid-cols-2 gap-2.5 border-t border-border/45 pt-3 dark:border-white/10">
           {termCountdown !== null ? (
-            <div className="rounded-lg border border-border/45 bg-background/40 px-2 py-1.5">
-              <p className="text-[10px] font-medium text-muted-foreground">
+            <div className="flex flex-col justify-between gap-1.5 rounded-xl border border-border/35 bg-foreground/[0.03] px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.04]">
+              <p className="text-[10px] font-medium leading-none text-muted-foreground">
                 下一节气
               </p>
-              <p className="mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
-                {termCountdown.title}
-              </p>
-              <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
-                {termCountdown.detail}
-              </p>
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="min-w-0 truncate text-[13px] font-semibold leading-none text-foreground">
+                  {termCountdown.title}
+                </p>
+                <p className="inline-flex shrink-0 items-baseline gap-0.5 tabular-nums leading-none">
+                  {termCountdown.days === 0 ? (
+                    <span className="text-xs font-semibold text-primary">今天</span>
+                  ) : (
+                    <>
+                      <span
+                        className={cn(
+                          "text-base font-bold leading-none tracking-tight",
+                          termCountdown.days <= 3
+                            ? "text-primary"
+                            : "text-foreground",
+                        )}
+                      >
+                        {termCountdown.days}
+                      </span>
+                      <span className="text-[11px] leading-none text-muted-foreground">
+                        天
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/35 bg-background/20 px-2 py-1.5" />
+            <div className="rounded-xl bg-foreground/[0.02] px-3 py-2 dark:bg-white/[0.02]" />
           )}
           {holidayPanel !== null ? (
-            <div className="rounded-lg border border-border/45 bg-background/40 px-2 py-1.5">
-              <p className="text-[10px] font-medium text-muted-foreground">
+            <div className="flex flex-col justify-between gap-1.5 rounded-xl border border-border/35 bg-foreground/[0.03] px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.04]">
+              <p className="text-[10px] font-medium leading-none text-muted-foreground">
                 下一节日
               </p>
-              <p className="mt-0.5 text-sm font-semibold leading-none tracking-tight text-foreground">
-                {holidayPanel.title}
-              </p>
-              <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
-                {holidayPanel.detail}
-              </p>
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="min-w-0 truncate text-[13px] font-semibold leading-none text-foreground">
+                  {holidayPanel.title}
+                </p>
+                <p className="inline-flex shrink-0 items-baseline gap-0.5 tabular-nums leading-none">
+                  {holidayPanel.days === 0 ? (
+                    <span className="text-xs font-semibold text-primary">今天</span>
+                  ) : (
+                    <>
+                      <span
+                        className={cn(
+                          "text-base font-bold leading-none tracking-tight",
+                          holidayPanel.days <= 7
+                            ? "text-primary"
+                            : "text-foreground",
+                        )}
+                      >
+                        {holidayPanel.days}
+                      </span>
+                      <span className="text-[11px] leading-none text-muted-foreground">
+                        天
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/35 bg-background/20 px-2 py-1.5" />
+            <div className="rounded-xl bg-foreground/[0.02] px-3 py-2 dark:bg-white/[0.02]" />
           )}
         </div>
       ) : null}

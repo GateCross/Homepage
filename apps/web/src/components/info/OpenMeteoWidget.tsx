@@ -484,7 +484,7 @@ function HourlyForecastRow({
 }): JSX.Element {
   return (
     <ul
-      className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex gap-1 overflow-x-auto pb-0.5 pr-4 [-ms-overflow-style:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       aria-label="逐小时预报"
     >
       {items.map((item) => {
@@ -784,61 +784,64 @@ export function OpenMeteoWidget({
       data-info-id={infoId}
       data-forecast-mode={showForecast ? activeMode : undefined}
       className={cn(
-        "relative flex h-full min-h-0 flex-col gap-1.5 p-3",
+        "relative flex h-full min-h-0 flex-col gap-2.5 p-4",
         className,
       )}
       role="status"
       aria-label={ariaLabel}
     >
-      <div className="relative flex items-start justify-between gap-2">
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-medium text-muted-foreground">
-            {title}
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <WeatherIcon
+              aria-hidden="true"
+              className={cn("size-3.5 shrink-0", visual.icon)}
+              strokeWidth={1.8}
+            />
+            <span className="truncate">{title}</span>
           </p>
-          <div className="mt-0.5 flex items-end gap-2">
-            <p className="text-[1.95rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[2.1rem]">
+          <div className="mt-1 flex items-end gap-2.5">
+            <p className="text-[2.2rem] font-semibold leading-none tracking-tight tabular-nums text-foreground sm:text-[2.4rem]">
               {temperature.value}
               <span className="ml-0.5 align-top text-xs font-medium text-muted-foreground">
                 {temperature.unit}
               </span>
             </p>
             <div className="min-w-0 leading-tight">
-              <p className="text-xs font-medium text-foreground/85">
+              <p className="text-xs font-medium text-foreground/90">
                 {condition}
               </p>
-              {dayRange !== null ? (
-                <p className="text-[11px] tabular-nums text-muted-foreground">
-                  {dayRange}
-                </p>
-              ) : null}
-              {sunRange !== null ? (
-                <p className="text-[10px] tabular-nums text-muted-foreground/85">
-                  {sunRange}
-                </p>
-              ) : null}
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] tabular-nums text-muted-foreground">
+                {dayRange !== null ? <span>{dayRange}</span> : null}
+                {sunRange !== null ? (
+                  <span className="text-[10px] text-muted-foreground/80">
+                    {sunRange}
+                  </span>
+                ) : null}
+              </p>
             </div>
           </div>
         </div>
         <WeatherIcon
           aria-hidden="true"
-          className={cn("mt-0.5 size-7 shrink-0 opacity-90", visual.icon)}
-          strokeWidth={1.5}
+          className={cn("mt-1 size-9 shrink-0 opacity-90", visual.icon)}
+          strokeWidth={1.45}
         />
       </div>
 
       {metricChips.length > 0 ? (
-        <div className="relative grid grid-cols-3 gap-1">
+        <div className="relative grid grid-cols-3 gap-1.5">
           {metricChips.map((chip) => (
             <div
               key={chip.key}
-              className="rounded-md border border-border/45 bg-background/35 px-1.5 py-0.5"
+              className="rounded-lg bg-foreground/[0.035] px-2 py-1 dark:bg-white/[0.04]"
             >
               <p className="text-[10px] leading-none text-muted-foreground">
                 {chip.label}
               </p>
               <p
                 className={cn(
-                  "mt-px text-[11px] font-medium leading-tight tabular-nums text-foreground/90",
+                  "mt-0.5 truncate text-[11px] font-semibold leading-tight tabular-nums text-foreground/90",
                   chip.valueClass,
                 )}
               >
@@ -850,7 +853,7 @@ export function OpenMeteoWidget({
       ) : null}
 
       {showForecast ? (
-        <div className="relative space-y-1 border-t border-border/40 pt-1.5">
+        <div className="relative mt-auto space-y-1.5 border-t border-border/45 pt-2 dark:border-white/10">
           <div className="flex items-center justify-between gap-2">
             <p
               id={forecastHeadingId}

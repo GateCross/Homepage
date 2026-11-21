@@ -42,8 +42,9 @@ export function Background({ src, className }: BackgroundProps): JSX.Element {
               setFailed(true);
             }}
           />
-          {/* 轻遮罩：保证分组标题与顶栏文字可读，同时尽量露出背景图 */}
-          <div className="absolute inset-0 bg-gradient-to-b from-background/35 via-background/15 to-background/40 dark:from-background/50 dark:via-background/25 dark:to-background/55" />
+          {/* 双层轻遮罩：顶部/底部增强文字与卡片对比度，中段保留壁纸氛围 */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/45 via-background/20 to-background/50 dark:from-background/60 dark:via-background/35 dark:to-background/65" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_45%,var(--background)_135%)] opacity-45 dark:opacity-55" />
         </>
       ) : null}
       {/* 失败时保留可访问提示；视觉上仍为默认背景 */}

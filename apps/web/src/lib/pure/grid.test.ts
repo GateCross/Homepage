@@ -39,7 +39,7 @@ describe("resolveColumns", () => {
   });
 
   it("两个最小宽度常量保持稳定", () => {
-    expect(SERVICE_MIN_ITEM_WIDTH_PX).toBe(240);
-    expect(BOOKMARK_MIN_ITEM_WIDTH_PX).toBe(160);
+    expect(SERVICE_MIN_ITEM_WIDTH_PX).toBe(210);
+    expect(BOOKMARK_MIN_ITEM_WIDTH_PX).toBe(145);
   });
 });

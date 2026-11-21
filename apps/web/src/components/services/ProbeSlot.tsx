@@ -1,6 +1,5 @@
 import { useCallback, type JSX } from "react";
 import {
-  CheckCircle2,
   CircleAlert,
   CircleX,
   LoaderCircle,
@@ -45,22 +44,24 @@ function StatusIcon({
       );
     case "reachable":
       return (
-        <CheckCircle2
-          className={cn(className, "text-emerald-600 dark:text-emerald-400")}
+        <span
           aria-hidden="true"
-        />
+          className="inline-flex size-3.5 shrink-0 items-center justify-center"
+        >
+          <span className="size-2 rounded-full bg-status-online ring-2 ring-status-online/25" />
+        </span>
       );
     case "reachable_abnormal":
       return (
         <CircleAlert
-          className={cn(className, "text-amber-600 dark:text-amber-400")}
+          className={cn(className, "text-status-warning")}
           aria-hidden="true"
         />
       );
     case "unreachable":
     case "error":
       return (
-        <CircleX className={cn(className, "text-destructive")} aria-hidden="true" />
+        <CircleX className={cn(className, "text-status-danger")} aria-hidden="true" />
       );
     default: {
       const _exhaustive: never = state;

@@ -1,6 +1,5 @@
 import { useCallback, type JSX } from "react";
 import {
-  CheckCircle2,
   CircleMinus,
   CirclePause,
   CircleX,
@@ -45,45 +44,44 @@ function StatusIcon({ state }: { state: UiState }): JSX.Element {
     case "starting":
       return (
         <LoaderCircle
-          className={cn(className, "animate-spin text-sky-600 dark:text-sky-400")}
+          className={cn(className, "animate-spin text-primary")}
           aria-hidden="true"
         />
       );
     case "restarting":
       return (
         <RotateCw
-          className={cn(
-            className,
-            "animate-spin text-amber-600 dark:text-amber-400",
-          )}
+          className={cn(className, "animate-spin text-status-warning")}
           aria-hidden="true"
         />
       );
     case "running":
       return (
-        <CheckCircle2
-          className={cn(className, "text-emerald-600 dark:text-emerald-400")}
+        <span
           aria-hidden="true"
-        />
+          className="inline-flex size-3.5 shrink-0 items-center justify-center"
+        >
+          <span className="size-2 rounded-full bg-status-online ring-2 ring-status-online/25" />
+        </span>
       );
     case "unhealthy":
       return (
         <HeartPulse
-          className={cn(className, "text-rose-600 dark:text-rose-400")}
+          className={cn(className, "text-status-danger")}
           aria-hidden="true"
         />
       );
     case "paused":
       return (
         <CirclePause
-          className={cn(className, "text-amber-600 dark:text-amber-400")}
+          className={cn(className, "text-status-warning")}
           aria-hidden="true"
         />
       );
     case "stopped":
       return (
         <CircleMinus
-          className={cn(className, "text-amber-600 dark:text-amber-400")}
+          className={cn(className, "text-status-warning")}
           aria-hidden="true"
         />
       );
@@ -91,7 +89,7 @@ function StatusIcon({ state }: { state: UiState }): JSX.Element {
     case "error":
       return (
         <CircleX
-          className={cn(className, "text-destructive")}
+          className={cn(className, "text-status-danger")}
           aria-hidden="true"
         />
       );
@@ -116,22 +114,22 @@ function statusToneClass(
   health: DockerHealth | undefined,
 ): string {
   if (status === "running" && health === "unhealthy") {
-    return "text-rose-700 dark:text-rose-400";
+    return "text-status-danger";
   }
   if (status === "running" && health === "starting") {
-    return "text-sky-700 dark:text-sky-400";
+    return "text-primary";
   }
   switch (status) {
     case "running":
-      return "text-emerald-700 dark:text-emerald-400";
+      return "text-status-online";
     case "starting":
-      return "text-sky-700 dark:text-sky-400";
+      return "text-primary";
     case "restarting":
     case "paused":
     case "stopped":
-      return "text-amber-700 dark:text-amber-400";
+      return "text-status-warning";
     case "unavailable":
-      return "text-destructive";
+      return "text-status-danger";
     default:
       return "text-foreground";
   }
@@ -157,7 +155,7 @@ function ResourceBlock({
   return (
     <div
       data-slot="docker-metric-block"
-      className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-md bg-foreground/[0.035] px-1 py-1.5 text-center dark:bg-foreground/[0.05]"
+      className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg bg-foreground/[0.035] px-1.5 py-1.5 text-center dark:bg-white/[0.045]"
       title={title}
     >
       <span

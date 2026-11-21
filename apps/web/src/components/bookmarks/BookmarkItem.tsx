@@ -32,35 +32,30 @@ export function BookmarkItem({
   };
 
   const body = (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full items-center gap-2.5">
       <BookmarkIconView
         icon={bookmark.icon}
         abbr={bookmark.abbr}
         name={bookmark.name}
+        className="size-8"
       />
       <div className="min-w-0 flex-1">
-        <span className="truncate text-sm font-medium leading-snug text-foreground">
+        <span className="block truncate text-sm font-medium leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary">
           {bookmark.name}
         </span>
-        <p
-          className={cn(
-            "mt-0.5 line-clamp-1 min-h-[1.125rem] text-[11px] leading-snug",
-            bookmark.description
-              ? "text-muted-foreground"
-              : "select-none text-transparent",
-          )}
-          aria-hidden={!bookmark.description ? true : undefined}
-        >
-          {bookmark.description !== undefined && bookmark.description.length > 0 ? bookmark.description : "\u00A0"}
-        </p>
+        {bookmark.description !== undefined && bookmark.description.length > 0 ? (
+          <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-muted-foreground">
+            {bookmark.description}
+          </p>
+        ) : null}
       </div>
     </div>
   );
 
   const shellClass = cn(
-    "group homepage-rise block rounded-lg border border-border/70 bg-card/65 px-2.5 py-2 shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/50",
+    "group surface-card homepage-rise flex h-full min-h-0 items-center rounded-xl px-2.5 py-2",
     isNavigable &&
-      "cursor-pointer hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
+      "surface-card-interactive cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
     !isNavigable && "cursor-default",
     className,
   );

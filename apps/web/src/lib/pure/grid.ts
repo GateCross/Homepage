@@ -1,8 +1,8 @@
 /** 自适应网格列数计算：按容器宽度与最小卡片宽度取容量，再受配置的最大列数约束。 */
 
-export const SERVICE_MIN_ITEM_WIDTH_PX = 240 as const;
+export const SERVICE_MIN_ITEM_WIDTH_PX = 210 as const;
 
-export const BOOKMARK_MIN_ITEM_WIDTH_PX = 160 as const;
+export const BOOKMARK_MIN_ITEM_WIDTH_PX = 145 as const;
 
 export function resolveColumns(
   maxColumns: number,

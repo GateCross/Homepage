@@ -42,7 +42,12 @@ export function ServiceCard({
 
   const body = (
     <>
-      <div className="relative z-[1] flex items-start gap-3">
+      <div
+        className={cn(
+          "relative z-[1] flex gap-3",
+          service.description ? "items-start" : "items-center",
+        )}
+      >
         {/* 移动端磁贴收紧到 32px，单列列表下降低整卡高度；桌面维持 36px */}
         <ServiceIconView
           icon={service.icon}
@@ -50,16 +55,16 @@ export function ServiceCard({
           className="size-8 sm:size-9"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-1.5">
+          <div className="flex items-center justify-between gap-1.5">
             <h3
-              className="min-w-0 flex-1 truncate text-[0.9rem] font-semibold leading-snug text-foreground"
+              className="min-w-0 flex-1 truncate text-[0.9rem] font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary"
               title={service.name}
             >
               {service.name}
             </h3>
             {showTopStatus ? (
               <div
-                className="flex shrink-0 items-center gap-1 pt-0.5"
+                className="flex shrink-0 items-center gap-1.5"
                 // 避免点到状态区域时触发整卡跳转
                 onClick={(e) => e.preventDefault()}
               >
@@ -89,7 +94,7 @@ export function ServiceCard({
 
       {hasBottomStatus ? (
         <div
-          className="relative z-[1] mt-1.5 flex flex-col gap-1 empty:hidden"
+          className="relative z-[1] mt-auto flex flex-col gap-1.5 pt-2.5 empty:hidden"
           // 避免点到底部状态/组件区时触发整卡外链跳转
           onClick={(e) => e.preventDefault()}
         >
@@ -123,9 +128,10 @@ export function ServiceCard({
   );
 
   const shellClass = cn(
-    "group homepage-rise relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-card/65 p-3 text-left shadow-xs backdrop-blur-md transition-[border-color,background-color,box-shadow] duration-200 dark:border-white/10 dark:bg-card/50",
+    "group surface-card homepage-rise relative flex h-full min-h-0 flex-col justify-center overflow-hidden rounded-xl p-3.5 text-left",
+    hasBottomStatus && "justify-start",
     isNavigable &&
-      "cursor-pointer hover:border-border hover:bg-card/85 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-white/20 dark:hover:bg-card/70",
+      "surface-card-interactive cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
     !isNavigable && "cursor-default",
     className,
   );

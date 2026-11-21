@@ -88,7 +88,8 @@ export function BookmarkSections({
                 as="ul"
                 minItemWidth={BOOKMARK_MIN_ITEM_WIDTH_PX}
                 maxColumns={maxColumns}
-                gap={8}
+                useEqualHeights
+                gap={10}
               >
                 {group.items.map((item, index) => {
                   if (isBookmarkError(item)) {
@@ -104,8 +105,12 @@ export function BookmarkSections({
                   const delay = Math.min(riseIndex, 20) * 24;
                   riseIndex += 1;
                   return (
-                    <li key={item.id} className="list-none">
-                      <BookmarkItem bookmark={item} riseDelayMs={delay} />
+                    <li key={item.id} className="min-h-0 list-none">
+                      <BookmarkItem
+                        bookmark={item}
+                        className="h-full"
+                        riseDelayMs={delay}
+                      />
                     </li>
                   );
                 })}

@@ -101,9 +101,9 @@ function IconImage({
   );
 }
 
-/** 服务/书签图标共用的磁贴底，统一尺寸与平面质感。 */
+/** 服务/书签图标共用的磁贴底，统一圆角与明暗对比度。 */
 const ICON_TILE_CLASS =
-  "inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-foreground/[0.04] text-muted-foreground dark:border-white/10 dark:bg-white/[0.05]";
+  "inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/55 bg-foreground/[0.045] text-muted-foreground dark:border-white/12 dark:bg-white/[0.08]";
 
 /** 无/坏 Icon 时的统一通用占位（书签与服务共用）。 */
 function GenericIconPlaceholder({

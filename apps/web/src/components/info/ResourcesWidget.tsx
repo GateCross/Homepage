@@ -1,4 +1,5 @@
 import { useCallback, type JSX } from "react";
+import { Activity } from "lucide-react";
 
 import type {
   ResourceItem,
@@ -177,7 +178,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
             不可用
           </span>
         </div>
-        <div className="h-1 overflow-hidden rounded-full bg-foreground/8" />
+        <div className="h-1.5 overflow-hidden rounded-full bg-foreground/10 dark:bg-white/10" />
       </li>
     );
   }
@@ -195,24 +196,24 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
       data-slot="resource-item"
       data-resource-id={item.id}
       data-resource-state="ok"
-      className="flex flex-col gap-0.5"
+      className="flex flex-col gap-1"
       title={aria}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
-          className="min-w-0 truncate text-[11px] font-medium text-muted-foreground"
+          className="min-w-0 truncate text-xs font-medium text-foreground/90"
           title={labelTitle || undefined}
         >
           {labelText}
           {detail ? (
-            <span className="font-normal tabular-nums text-muted-foreground/75">
-              （{detail}）
+            <span className="ml-1 text-[10px] font-normal tabular-nums text-muted-foreground">
+              {detail}
             </span>
           ) : null}
         </span>
         <span
           className={cn(
-            "shrink-0 text-[11px] font-semibold tabular-nums leading-none",
+            "shrink-0 text-xs font-semibold tabular-nums leading-none",
             usageToneClass(percent),
           )}
         >
@@ -220,7 +221,7 @@ function ResourceRow({ item }: { item: ResourceItem }): JSX.Element {
         </span>
       </div>
       <div
-        className="h-1 w-full overflow-hidden rounded-full bg-foreground/8"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/10 dark:bg-white/10"
         role="progressbar"
         aria-valuenow={Math.round(percent)}
         aria-valuemin={0}
@@ -311,15 +312,17 @@ export function ResourcesWidget({
       data-state="success"
       data-info-id={infoId}
       className={cn(
-        "relative flex h-full min-h-0 flex-col p-3",
+        "@container relative flex h-full min-h-0 flex-col p-4",
         className,
       )}
     >
-      <p className="relative text-[10px] font-medium text-muted-foreground">
-        资源
+      <p className="relative inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <Activity aria-hidden="true" className="size-3.5 text-primary/75" />
+        <span>系统资源</span>
       </p>
 
-      <ul className="relative mt-2.5 flex min-h-0 flex-1 list-none flex-col justify-center gap-2 p-0">
+      {/* 容器够宽（如 iPad 跨两列通栏）时自动切换双列网格，避免进度条拉得过长 */}
+      <ul className="relative mt-3 flex min-h-0 flex-1 list-none flex-col justify-center gap-3 p-0 @lg:grid @lg:grid-cols-2 @lg:content-center @lg:gap-x-6 @lg:gap-y-2.5">
         {state.data.items.map((item) => (
           <ResourceRow key={item.id} item={item} />
         ))}

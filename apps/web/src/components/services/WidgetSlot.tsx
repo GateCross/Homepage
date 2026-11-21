@@ -101,7 +101,7 @@ function MetricsList({ metrics }: { metrics: readonly Metric[] }): JSX.Element {
             key={metric.id}
             data-metric-id={metric.id}
             data-metric-status={metric.status ?? "ok"}
-            className="flex min-w-0 flex-col items-center justify-center rounded-md bg-foreground/[0.035] px-1 py-1.5 text-center dark:bg-foreground/[0.05]"
+            className="flex min-w-0 flex-col items-center justify-center rounded-lg bg-foreground/[0.035] px-1.5 py-1.5 text-center dark:bg-white/[0.045]"
           >
             <span
               className={cn(
