@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -12,6 +13,7 @@ const embyTestKey = "emby-api-key-value"
 
 // 按路径分发的假 Emby：会话与媒体数量各自可覆写，未覆写时回最小可用响应。
 type fakeEmby struct {
+	mu              sync.Mutex
 	sessionsHandler http.HandlerFunc
 	countsHandler   http.HandlerFunc
 	sessionsCalls   int
@@ -23,6 +25,8 @@ type fakeEmby struct {
 func startEmby(t *testing.T, fake *fakeEmby) string {
 	t.Helper()
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		// 适配器可能并发请求 /Sessions 与 /Items/Counts，记录请求头和计数需加锁保护
+		fake.mu.Lock()
 		if fake.headers == nil {
 			fake.headers = map[string][]string{}
 		}
@@ -31,19 +35,24 @@ func startEmby(t *testing.T, fake *fakeEmby) string {
 		switch r.URL.Path {
 		case "/Sessions":
 			fake.sessionsCalls++
-			if fake.sessionsHandler != nil {
-				fake.sessionsHandler(w, r)
+			handler := fake.sessionsHandler
+			fake.mu.Unlock()
+			if handler != nil {
+				handler(w, r)
 				return
 			}
 			_, _ = w.Write([]byte(`[]`))
 		case "/Items/Counts":
 			fake.countsCalls++
-			if fake.countsHandler != nil {
-				fake.countsHandler(w, r)
+			handler := fake.countsHandler
+			fake.mu.Unlock()
+			if handler != nil {
+				handler(w, r)
 				return
 			}
 			_, _ = w.Write([]byte(`{"MovieCount":1,"SeriesCount":2,"EpisodeCount":3,"SongCount":4}`))
 		default:
+			fake.mu.Unlock()
 			http.NotFound(w, r)
 		}
 	})
